@@ -38,7 +38,9 @@ memory. The raw data is already cached under `data/raw/<name>/`.
   are `'C1093826151'`, `'es_transportation'`, `'M'`. All seven string columns are affected:
   `customer, age, gender, zipcodeOri, merchant, zipMerchant, category`.
 - `step` is **0-based, in days**, range 0–179 (180 distinct values). Needs a `start_date`.
-- Entity: `customer`, 4,098 distinct. Fraud rate 1.211%.
+- Entity: `customer`, **4,112 distinct** (corrected 2026-08-01 against the full raw file;
+  an earlier note said 4,098. Quote-stripping does not change the count — the raw file has
+  4,112 both before and after). Fraud rate 1.211%.
 - `zipcodeOri` and `zipMerchant` are constant (`'28007'`) — useless but passed through.
 - Licence: **CC BY-NC-SA 4.0 — NonCommercial.**
 
@@ -71,7 +73,8 @@ memory. The raw data is already cached under `data/raw/<name>/`.
 - `Date` (`2022-10-07`) and `Time` (`10:35:19`) are separate strings. Concatenating with a
   space and calling `pd.to_datetime` yields `datetime64[us]` — verified.
 - Entity: `Sender_account` (int64) → cast to string. 30,882 distinct in sample.
-- Label `Is_laundering` 0/1, rate 0.118% in sample.
+- Label `Is_laundering` 0/1. Rate is **0.1039% over the full 9,504,852 rows** (measured
+  2026-08-01); an earlier sample-based estimate of 0.118% was high.
 - `Laundering_type` has 27 values and encodes the typology, including `Normal_Fan_Out`,
   `Normal_Cash_Deposits` for non-laundering rows. **Keep it** — Plan 4 will likely use it
   for campaign grouping.
