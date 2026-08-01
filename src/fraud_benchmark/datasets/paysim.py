@@ -11,22 +11,8 @@ from typing import Any
 import pandas as pd
 
 from fraud_benchmark.datasets.base import DatasetAdapter, register
+from fraud_benchmark.datasets.files import find_single_csv
 from fraud_benchmark.sources import KaggleDataset
-
-
-def find_single_csv(raw_dir: Path) -> Path:
-    """Return the one CSV in `raw_dir`, searched recursively.
-
-    Kaggle filenames carry unstable numeric suffixes, so adapters glob rather than
-    hardcode them.
-    """
-    matches = sorted(raw_dir.rglob("*.csv"))
-    if not matches:
-        raise FileNotFoundError(f"no CSV file found under {raw_dir}")
-    if len(matches) > 1:
-        names = ", ".join(p.name for p in matches)
-        raise FileNotFoundError(f"expected exactly one CSV under {raw_dir}, found: {names}")
-    return matches[0]
 
 
 @register
