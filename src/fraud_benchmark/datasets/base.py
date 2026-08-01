@@ -1,0 +1,66 @@
+"""The dataset adapter interface and its registry.
+
+An adapter's only job is turning one dataset's raw files into a canonical frame.
+It knows nothing about splitting, label delay, or output formats.
+"""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+from fraud_benchmark.sources import Source
+
+
+class UnknownDatasetError(KeyError):
+    """Raised when a dataset name has no registered adapter."""
+
+
+class DatasetAdapter(ABC):
+    """Base class for per-dataset adapters."""
+
+    #: Short identifier used on the CLI and as the output directory name.
+    name: str
+    #: Where the raw files come from.
+    source: Source
+    #: Human-readable warnings recorded in the dataset card.
+    caveats: tuple[str, ...] = ()
+
+    @abstractmethod
+    def to_canonical(self, raw_dir: Path, options: dict[str, Any]) -> pd.DataFrame:
+        """Read raw files from `raw_dir` and return a canonical frame.
+
+        The result must contain event_time, entity_id, amount, and is_fraud with the
+        dtypes in schema.REQUIRED_DTYPES, plus any source columns to pass through.
+        """
+
+    @abstractmethod
+    def column_mapping(self, options: dict[str, Any]) -> dict[str, str]:
+        """Map each canonical column to the source column(s) it came from."""
+
+
+_REGISTRY: dict[str, type[DatasetAdapter]] = {}
+
+
+def register(cls: type[DatasetAdapter]) -> type[DatasetAdapter]:
+    """Class decorator adding an adapter to the registry."""
+    if cls.name in _REGISTRY:
+        raise ValueError(f"dataset {cls.name!r} is already registered")
+    _REGISTRY[cls.name] = cls
+    return cls
+
+
+def get_adapter(name: str) -> DatasetAdapter:
+    """Return an adapter instance for `name`."""
+    if name not in _REGISTRY:
+        available = ", ".join(sorted(_REGISTRY)) or "(none)"
+        raise UnknownDatasetError(f"unknown dataset {name!r}; available: {available}")
+    return _REGISTRY[name]()
+
+
+def list_datasets() -> list[str]:
+    """All registered dataset names, sorted."""
+    return sorted(_REGISTRY)
