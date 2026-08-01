@@ -93,6 +93,46 @@ def test_rerun_replaces_previous_output(config, no_download):
     assert (first / "data.parquet").exists()
 
 
+def test_reported_at_is_written(config, no_download):
+    out = prepare("paysim", config)
+    df = pd.read_parquet(out / "data.parquet")
+    assert "reported_at" in df.columns
+    assert df.loc[df.is_fraud, "reported_at"].notna().all()
+    assert df.loc[~df.is_fraud, "reported_at"].isna().all()
+
+
+def test_campaign_id_is_written(config, no_download):
+    out = prepare("paysim", config)
+    df = pd.read_parquet(out / "data.parquet")
+    assert "campaign_id" in df.columns
+    assert df.loc[~df.is_fraud, "campaign_id"].isna().all()
+
+
+def test_reported_at_never_precedes_the_transaction(config, no_download):
+    out = prepare("paysim", config)
+    df = pd.read_parquet(out / "data.parquet")
+    fraud = df[df.is_fraud]
+    assert (fraud["reported_at"] >= fraud["event_time"]).all()
+
+
+def test_the_run_is_reproducible(config, no_download):
+    """Same seed, same output — otherwise the benchmark is not comparable."""
+    first = pd.read_parquet(prepare("paysim", config) / "data.parquet")
+    second = pd.read_parquet(prepare("paysim", config) / "data.parquet")
+    assert first["reported_at"].equals(second["reported_at"])
+
+
+def test_card_records_the_delay_parameters(config, no_download):
+    out = prepare("paysim", config)
+    card = json.loads((out / "dataset_card.json").read_text())
+    assert card["label_delay"]["distribution"] == "lognormal"
+    assert card["label_delay"]["median_days"] == 7.0
+    assert card["label_delay"]["seed"] == 0
+    assert card["label_delay"]["campaign_gap"] == "1 days 00:00:00"
+    assert card["label_delay"]["n_campaigns"] >= 1
+    assert card["label_delay"]["largest_campaign"] >= 1
+
+
 def test_no_temp_directory_is_left_behind(config, no_download):
     prepare("paysim", config)
     leftovers = list(config.processed_dir.glob("*.tmp*"))

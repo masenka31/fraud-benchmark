@@ -70,6 +70,40 @@ def test_validate_rejects_timezone_aware_event_time():
         validate_canonical(df)
 
 
+def test_validate_rejects_reported_at_before_event_time():
+    df = make_valid_frame()
+    # Set it ONLY on the fraud row (row 0). Setting it on both would trip the
+    # non-fraud check first, and this test would pass without ever exercising
+    # the ordering check it is named for.
+    df["reported_at"] = pd.Series(
+        [df["event_time"].iloc[0] - pd.Timedelta(days=1), pd.NaT],
+        dtype="datetime64[us]",
+    )
+    with pytest.raises(SchemaError, match="precedes event_time"):
+        validate_canonical(df)
+
+
+def test_validate_rejects_reported_at_on_a_non_fraud_row():
+    df = make_valid_frame()
+    # Later than event_time, so the ordering check cannot be what fires here.
+    df["reported_at"] = df["event_time"] + pd.Timedelta(days=1)
+    # Row 1 is is_fraud=False, so it must not carry a report timestamp.
+    with pytest.raises(SchemaError, match="non-fraud"):
+        validate_canonical(df)
+
+
+def test_validate_accepts_a_correct_reported_at():
+    df = make_valid_frame()
+    df["reported_at"] = pd.Series(
+        [pd.Timestamp("2023-01-05"), pd.NaT], dtype="datetime64[us]"
+    )
+    validate_canonical(df)
+
+
+def test_reported_at_is_optional():
+    validate_canonical(make_valid_frame())
+
+
 def test_order_columns_puts_core_first_and_keeps_the_rest():
     ordered = order_columns(make_valid_frame())
     assert list(ordered.columns) == [
