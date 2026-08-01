@@ -48,9 +48,12 @@ class DelayParams:
 def assign_reported_at(df: pd.DataFrame, params: DelayParams) -> pd.Series:
     """Return a reported_at timestamp per row, null for non-fraud rows.
 
-    Requires `campaign_id` (from `campaigns.assign_campaigns`), `event_time` and
-    `is_fraud`. One delay is drawn per campaign and measured from that campaign's
-    last transaction, so a campaign is never reported before it has finished.
+    Requires `campaign_id` (from `campaigns.assign_campaigns`) and `event_time`.
+    A null `campaign_id` is treated as "not reportable" — the invariant
+    `assign_campaigns` upholds for non-fraud rows — so `is_fraud` itself is
+    never read. One delay is drawn per campaign and measured from that
+    campaign's last transaction, so a campaign is never reported before it has
+    finished.
     """
     reported = pd.Series(
         pd.NaT, index=df.index, dtype="datetime64[us]", name=REPORTED_AT_COLUMN
@@ -71,7 +74,16 @@ def assign_reported_at(df: pd.DataFrame, params: DelayParams) -> pd.Series:
     if params.max_delay_days is not None:
         days = np.minimum(days, params.max_delay_days)
 
-    per_campaign = last_seen + pd.to_timedelta(days, unit="D")
+    # Build the offset in microseconds to match the [us] resolution used
+    # throughout. pd.to_timedelta(..., unit="D") promotes to [ns], whose range
+    # is only ~1677-2262 and overflows on heavy-tailed draws.
+    micros = days * 86_400_000_000.0
+    if not np.isfinite(micros).all() or micros.max() >= float(np.iinfo("int64").max):
+        raise ValueError(
+            "sampled reporting delay exceeds the representable range; set "
+            f"max_delay_days to bound it (largest draw was {days.max():,.0f} days)"
+        )
+    per_campaign = last_seen + micros.astype("int64").astype("timedelta64[us]")
     mapped = df.loc[labelled, "campaign_id"].map(per_campaign.to_dict())
     reported.loc[labelled] = pd.to_datetime(mapped).astype("datetime64[us]")
     return reported

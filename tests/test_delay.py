@@ -129,3 +129,19 @@ def test_result_is_aligned_to_the_input_index():
     shuffled = df.iloc[::-1]
     out = assign_reported_at(shuffled, PARAMS)
     assert out.index.equals(shuffled.index)
+
+
+def test_a_heavy_tail_does_not_overflow():
+    """sigma=2 with no cap produced ~90,000-day draws and overflowed [ns]."""
+    df = frame([("a", "2023-01-01", True, i) for i in range(100_000)])
+    out = assign_reported_at(df, DelayParams(median_days=7.0, sigma=2.0, seed=0))
+    assert out.notna().all()
+    assert pd.api.types.is_datetime64_dtype(out)
+
+
+def test_is_fraud_is_not_required():
+    """The contract is campaign_id, not is_fraud: a null id means not reportable."""
+    df = frame([("a", "2023-01-01", True, 0), ("a", "2023-01-02", False, pd.NA)])
+    out = assign_reported_at(df.drop(columns=["is_fraud"]), PARAMS)
+    assert out.notna().sum() == 1
+    assert pd.isna(out.iloc[1])
