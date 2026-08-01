@@ -36,10 +36,12 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
     )
     df = order_columns(df)
 
+    aux = adapter.auxiliary_frames(raw_dir, options)
     card = _build_card(
         name, adapter, options, df, config, custom_split=supplied is not None
     )
-    return _write_atomically(config.processed_dir / name, df, card)
+    card["auxiliary"] = {key: int(len(frame)) for key, frame in aux.items()}
+    return _write_atomically(config.processed_dir / name, df, card, aux)
 
 
 def _build_card(name, adapter, options, df, config, *, custom_split: bool) -> dict:
@@ -91,7 +93,12 @@ def _describe_source(source) -> dict:
     return described
 
 
-def _write_atomically(dest: Path, df: pd.DataFrame, card: dict) -> Path:
+def _write_atomically(
+    dest: Path,
+    df: pd.DataFrame,
+    card: dict,
+    aux: dict[str, pd.DataFrame] | None = None,
+) -> Path:
     """Write into a staging directory, then swap it into place.
 
     The previous output is renamed aside rather than deleted, so an interrupted
@@ -109,6 +116,8 @@ def _write_atomically(dest: Path, df: pd.DataFrame, card: dict) -> Path:
 
     try:
         df.to_parquet(staging / "data.parquet", index=False)
+        for key, frame in (aux or {}).items():
+            frame.to_parquet(staging / f"{key}.parquet", index=False)
         (staging / "dataset_card.json").write_text(
             json.dumps(card, indent=2, default=str) + "\n"
         )

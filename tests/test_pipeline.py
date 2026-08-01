@@ -188,3 +188,40 @@ def test_card_records_the_shared_split_strategy(config, no_download):
     card = json.loads((out / "dataset_card.json").read_text())
     assert card["split"]["strategy"] == "temporal, cut on timestamp values"
     assert card["split"]["ratios"] == [0.6, 0.2, 0.2]
+
+
+def test_auxiliary_frames_are_written_alongside(config, no_download, monkeypatch):
+    import pandas as pd
+    from fraud_benchmark.datasets.base import get_adapter
+
+    adapter = get_adapter("paysim")
+    monkeypatch.setattr(
+        type(adapter),
+        "auxiliary_frames",
+        lambda self, raw_dir, options: {"extra": pd.DataFrame({"a": [1, 2, 3]})},
+    )
+    out = prepare("paysim", config)
+    assert (out / "extra.parquet").exists()
+    assert len(pd.read_parquet(out / "extra.parquet")) == 3
+
+
+def test_auxiliary_frames_are_recorded_in_the_card(config, no_download, monkeypatch):
+    import pandas as pd
+    from fraud_benchmark.datasets.base import get_adapter
+
+    adapter = get_adapter("paysim")
+    monkeypatch.setattr(
+        type(adapter),
+        "auxiliary_frames",
+        lambda self, raw_dir, options: {"extra": pd.DataFrame({"a": [1, 2, 3]})},
+    )
+    out = prepare("paysim", config)
+    card = json.loads((out / "dataset_card.json").read_text())
+    assert card["auxiliary"] == {"extra": 3}
+
+
+def test_no_auxiliary_key_when_there_are_none(config, no_download):
+    out = prepare("paysim", config)
+    card = json.loads((out / "dataset_card.json").read_text())
+    assert card["auxiliary"] == {}
+    assert not list(out.glob("extra*.parquet"))
