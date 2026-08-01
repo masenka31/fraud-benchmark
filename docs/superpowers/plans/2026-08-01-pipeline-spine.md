@@ -933,14 +933,20 @@ from fraud_benchmark.sources import KaggleDataset
 
 
 def make_fake_class(name="fake_for_tests", handle="someone/fake"):
+    # The abstract methods must be defined in the class body. ABCMeta computes
+    # __abstractmethods__ once, at class creation, so assigning them afterwards
+    # leaves the class permanently un-instantiable.
     class _FakeAdapter(DatasetAdapter):
-        pass
+        caveats = ("this dataset is fake",)
+
+        def to_canonical(self, raw_dir, options):
+            return pd.DataFrame()
+
+        def column_mapping(self, options):
+            return {"event_time": "ts"}
 
     _FakeAdapter.name = name
     _FakeAdapter.source = KaggleDataset(handle)
-    _FakeAdapter.caveats = ("this dataset is fake",)
-    _FakeAdapter.to_canonical = lambda self, raw_dir, options: pd.DataFrame()
-    _FakeAdapter.column_mapping = lambda self, options: {"event_time": "ts"}
     return _FakeAdapter
 
 
