@@ -47,9 +47,15 @@ _REGISTRY: dict[str, type[DatasetAdapter]] = {}
 
 def register(cls: type[DatasetAdapter]) -> type[DatasetAdapter]:
     """Class decorator adding an adapter to the registry."""
-    if cls.name in _REGISTRY:
-        raise ValueError(f"dataset {cls.name!r} is already registered")
-    _REGISTRY[cls.name] = cls
+    name = getattr(cls, "name", None)
+    if not isinstance(name, str) or not name:
+        raise ValueError(
+            f"{cls.__name__} must set a non-empty string 'name' class attribute "
+            "before it can be registered"
+        )
+    if name in _REGISTRY:
+        raise ValueError(f"dataset {name!r} is already registered")
+    _REGISTRY[name] = cls
     return cls
 
 

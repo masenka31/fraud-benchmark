@@ -80,3 +80,17 @@ def test_abstract_methods_are_enforced():
 
     with pytest.raises(TypeError, match="abstract"):
         _Incomplete()
+
+
+def test_registering_without_a_name_is_a_clear_error():
+    class _Nameless(DatasetAdapter):
+        source = KaggleDataset("someone/nameless")
+
+        def to_canonical(self, raw_dir, options):
+            return pd.DataFrame()
+
+        def column_mapping(self, options):
+            return {}
+
+    with pytest.raises(ValueError, match="must set a non-empty string 'name'"):
+        register(_Nameless)

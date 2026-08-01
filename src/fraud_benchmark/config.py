@@ -50,16 +50,35 @@ def _validate_ratios(ratios: Any) -> tuple[float, float, float]:
     return values  # type: ignore[return-value]
 
 
+def _load_yaml(path: Path | str) -> dict:
+    """Read a YAML file, turning any read/parse failure into a ConfigError."""
+    try:
+        with open(path) as handle:
+            return yaml.safe_load(handle) or {}
+    except FileNotFoundError as exc:
+        raise ConfigError(f"config file not found: {path}") from exc
+    except yaml.YAMLError as exc:
+        raise ConfigError(f"invalid YAML in {path}: {exc}") from exc
+
+
+def _require_paths(data: dict) -> dict:
+    paths = data.get("paths")
+    if not isinstance(paths, dict):
+        raise ConfigError(f"config must define a 'paths' mapping, got {paths!r}")
+    for key in ("raw", "processed"):
+        if not paths.get(key):
+            raise ConfigError(f"config is missing 'paths.{key}'")
+    return paths
+
+
 def load_config(path: Path | str | None = None) -> Config:
     """Load the default config, overlaying `path` on top of it when given."""
-    with open(DEFAULT_CONFIG_PATH) as handle:
-        data = yaml.safe_load(handle) or {}
+    data = _load_yaml(DEFAULT_CONFIG_PATH)
 
     if path is not None:
-        with open(path) as handle:
-            data = _deep_merge(data, yaml.safe_load(handle) or {})
+        data = _deep_merge(data, _load_yaml(path))
 
-    paths = data.get("paths", {})
+    paths = _require_paths(data)
     return Config(
         raw_dir=Path(paths["raw"]),
         processed_dir=Path(paths["processed"]),

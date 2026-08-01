@@ -1,3 +1,5 @@
+import dataclasses
+
 import pytest
 
 from fraud_benchmark.config import Config, ConfigError, load_config
@@ -51,6 +53,31 @@ def test_ratios_must_have_three_entries(tmp_path):
 
 def test_config_is_frozen():
     config = load_config()
-    with pytest.raises(Exception):
+    with pytest.raises(dataclasses.FrozenInstanceError):
         config.split_ratios = (0.5, 0.25, 0.25)
-    assert isinstance(config, Config)
+
+
+def test_missing_config_file_raises_config_error(tmp_path):
+    with pytest.raises(ConfigError, match="not found"):
+        load_config(tmp_path / "does_not_exist.yaml")
+
+
+def test_malformed_yaml_raises_config_error(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("paths: {raw: data/raw\nsplit: [unclosed\n")
+    with pytest.raises(ConfigError, match="invalid YAML"):
+        load_config(path)
+
+
+def test_null_paths_raises_config_error(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("paths:\n")
+    with pytest.raises(ConfigError, match="paths"):
+        load_config(path)
+
+
+def test_missing_path_key_raises_config_error(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("paths:\n  raw: null\n")
+    with pytest.raises(ConfigError, match="paths.raw"):
+        load_config(path)
