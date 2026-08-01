@@ -124,6 +124,20 @@ def test_no_timestamp_appears_in_two_splits():
     )
 
 
+def test_boundary_at_cuts_on_a_timestamp_value():
+    df = frame_with_times([f"2023-01-{d:02d}" for d in range(1, 11)])
+    from fraud_benchmark.splitting import boundary_at
+    assert boundary_at(df, 0.9) == pd.Timestamp("2023-01-09")
+
+
+def test_boundary_at_rejects_out_of_range_fractions():
+    from fraud_benchmark.splitting import boundary_at
+    df = frame_with_times(["2023-01-01", "2023-01-02"])
+    for bad in (0.0, 1.0, -0.5, 2.0):
+        with pytest.raises(ValueError, match="between 0 and 1"):
+            boundary_at(df, bad)
+
+
 def test_labels_align_to_a_shuffled_index():
     # Assigning the result back to a frame must not silently misalign rows.
     df = frame_with_times([f"2023-01-{d:02d}" for d in range(1, 21)])

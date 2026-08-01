@@ -29,6 +29,10 @@ def build_parser() -> argparse.ArgumentParser:
     prepare_parser.add_argument(
         "--force", action="store_true", help="re-download even if raw files exist"
     )
+    prepare_parser.add_argument(
+        "--exclude-noncommercial", action="store_true",
+        help="skip datasets whose licence forbids commercial use",
+    )
 
     info_parser = subparsers.add_parser("info", help="print a prepared dataset's card")
     info_parser.add_argument("dataset")
@@ -55,7 +59,9 @@ def main(argv: list[str] | None = None) -> int:
 def _cmd_list() -> int:
     for name in list_datasets():
         adapter = get_adapter(name)
-        print(f"{name:12s} {getattr(adapter.source, 'url', '')}")
+        flag = "" if adapter.commercial_use else "  [noncommercial]"
+        url = getattr(adapter.source, "url", "")
+        print(f"{name:12s} {adapter.data_license:18s} {url}{flag}")
     return 0
 
 
@@ -63,18 +69,34 @@ def _cmd_prepare(args) -> int:
     config = load_config(args.config)
     names = list_datasets() if args.all else [args.dataset]
 
+    failures: list[str] = []
     for name in names:
         try:
-            out = prepare(name, config, force=args.force)
+            adapter = get_adapter(name)
         except UnknownDatasetError as exc:
-            # UnknownDatasetError subclasses KeyError, whose __str__ wraps the
-            # message in repr quotes. Print the raw message instead.
+            # UnknownDatasetError subclasses KeyError, whose __str__ adds repr
+            # quotes. Print the raw message instead.
             print(exc.args[0], file=sys.stderr)
             return 1
-        except FetchError as exc:
-            print(f"{name}: {exc}", file=sys.stderr)
-            return 1
+
+        if args.exclude_noncommercial and not adapter.commercial_use:
+            print(f"{name}: skipped, licence forbids commercial use "
+                  f"({adapter.data_license})")
+            continue
+
+        try:
+            out = prepare(name, config, force=args.force)
+        except (FetchError, ValueError, FileNotFoundError) as exc:
+            # Keep going: one unavailable dataset must not block the rest.
+            print(f"{name}: FAILED {exc}", file=sys.stderr)
+            failures.append(name)
+            continue
         print(f"{name}: wrote {out}")
+
+    if failures:
+        print(f"\n{len(failures)} of {len(names)} failed: {', '.join(failures)}",
+              file=sys.stderr)
+        return 1
     return 0
 
 

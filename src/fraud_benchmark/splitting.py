@@ -87,6 +87,18 @@ def split_boundaries(
     }
 
 
+def boundary_at(df: pd.DataFrame, fraction: float) -> pd.Timestamp:
+    """The last timestamp belonging to the first `fraction` of rows.
+
+    Tie-safe in the same way as the three-way split: the cut lands on a timestamp
+    value, so rows sharing an event_time stay together.
+    """
+    if not 0 < fraction < 1:
+        raise ValueError(f"fraction must be strictly between 0 and 1, got {fraction}")
+    _validate_frame(df)
+    return _cut_at(_cumulative_fraction(df), fraction)
+
+
 def assign_splits(
     df: pd.DataFrame, ratios: tuple[float, float, float]
 ) -> pd.Series:

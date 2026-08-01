@@ -10,3 +10,10 @@ datasets:
   # anchored to this start date.
   paysim:
     start_date: "2023-01-01"
+  # BankSim's `step` column is a 0-based day offset (0-179), not a real date.
+  banksim:
+    start_date: "2023-01-01"
+  # Sparkov keeps its upstream test file as the test split; validation is the
+  # last val_fraction of the upstream train file.
+  sparkov:
+    val_fraction: 0.1

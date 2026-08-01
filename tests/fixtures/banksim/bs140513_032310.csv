@@ -1,0 +1,6 @@
+step,customer,age,gender,zipcodeOri,merchant,zipMerchant,category,amount,fraud
+0,'C1093826151','4','M','28007','M348934600','28007','es_transportation',4.55,0
+0,'C352968107','2','M','28007','M348934600','28007','es_transportation',39.68,0
+1,'C2054744914','4','F','28007','M1823072687','28007','es_health',26.89,1
+2,'C1760612790','3','M','28007','M348934600','28007','es_transportation',17.25,0
+179,'C1093826151','4','M','28007','M50039827','28007','es_otherservices',112.0,1
