@@ -30,6 +30,9 @@ class DatasetAdapter(ABC):
     #: dataset's own terms, which are separate from this repository's MIT
     #: licence. See docs/dataset-licenses.md.
     data_license: str = "unknown"
+    #: False when the upstream licence forbids commercial use (e.g. CC BY-NC-SA).
+    #: Drives `prepare --all --exclude-noncommercial`.
+    commercial_use: bool = True
     #: Human-readable warnings recorded in the dataset card.
     caveats: tuple[str, ...] = ()
 

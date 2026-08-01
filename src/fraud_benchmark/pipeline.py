@@ -46,6 +46,7 @@ def _build_card(name, adapter, options, df, config) -> dict:
         # The dataset's own terms, not this repo's licence. Recorded here so the
         # terms travel with the output. See docs/dataset-licenses.md.
         "data_license": adapter.data_license,
+        "commercial_use": adapter.commercial_use,
         "n_rows": int(len(df)),
         "n_fraud": int(df["is_fraud"].sum()),
         "fraud_rate": float(df["is_fraud"].mean()),

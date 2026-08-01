@@ -175,3 +175,9 @@ def test_dataset_card_records_the_data_license(config, no_download):
     out = prepare("paysim", config)
     card = json.loads((out / "dataset_card.json").read_text())
     assert card["data_license"] == "CC BY-SA 4.0"
+
+
+def test_dataset_card_records_commercial_use(config, no_download):
+    out = prepare("paysim", config)
+    card = json.loads((out / "dataset_card.json").read_text())
+    assert card["commercial_use"] is True
