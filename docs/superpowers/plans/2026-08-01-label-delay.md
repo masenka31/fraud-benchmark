@@ -19,7 +19,7 @@ silently trains on the future.
 
 ---
 
-## Decisions already made, and the two still open
+## Decisions already made, and the one still open
 
 **Settled with the user:**
 - Non-fraud rows get a null `reported_at`. Only frauds are ever "reported".
@@ -33,11 +33,10 @@ silently trains on the future.
    delay is a continuous, strongly right-skewed quantity — most frauds surface within days,
    a minority take months — which is the shape lognormal is for. The parameters are
    configurable, so switching is a config change, not a code change.
-2. **Campaign gap threshold.** Defaulted to **7 days**, configurable globally and per
-   dataset. Task 5 measures the resulting campaign-size distribution on all seven real
-   datasets so the default can be judged against evidence rather than intuition.
+2. **Campaign gap threshold.** ~~Defaulted to 7 days.~~ **Now settled by measurement** — see
+   the table below. Default **1 day globally, overridden to 1 hour for Amaretto.**
 
-Both are single config lines. Neither blocks implementation.
+The distribution choice is a single config line and does not block implementation.
 
 ---
 
@@ -67,6 +66,43 @@ From `docs/verification-notes.md`, measured on all seven real datasets:
   campaign.
 
 So: group by entity **and** a time gap. The gap does the real work.
+
+### Choosing the gap — measured, not guessed
+
+Campaigns produced at each threshold, as `count / median size / max size`:
+
+| dataset | 1h | 6h | **1d** | 7d | 30d |
+|---|---|---|---|---|---|
+| paysim | 8,213/1/1 | 8,213/1/1 | **8,213/1/1** | 8,213/1/1 | 8,213/1/1 |
+| banksim | 6,515/1/5 | 6,515/1/5 | **5,551/1/35** | 3,884/1/144 | 2,434/1/144 |
+| sparkov | 5,479/1/10 | 3,105/3/16 | **1,005/10/19** | 976/10/19 | 976/10/19 |
+| saml_d | 9,783/1/4 | 9,371/1/4 | **7,887/1/10** | 5,714/1/10 | 5,437/1/17 |
+| ibm_ccf | 20,271/1/9 | 12,800/2/15 | **9,769/2/20** | 4,940/5/29 | 4,545/6/32 |
+| ieee_cis | 17,580/1/15 | 16,948/1/15 | **16,170/1/18** | 14,455/1/53 | 13,592/1/72 |
+| amaretto | **1,852/8/1,145** | 918/6/3,870 | 490/15/3,870 | 27/657/36,673 | 21/756/36,673 |
+
+**1 day is the right global default.** Sparkov saturates there (1,005 campaigns, unchanged
+at 7d and 30d) — its per-card fraud runs genuinely complete within a day. Every other card
+dataset keeps a plausible tail: banksim max 35, ibm_ccf max 20, ieee_cis max 18. PaySim
+stays all-singletons at every threshold, which is correct rather than a failure.
+
+**Amaretto needs 1 hour and must override the default.** Its anomalies are far burstier than
+card fraud: the median gap between consecutive anomalies on one client is **0.7 minutes**,
+with 60.7% inside one minute and 97.7% inside one hour. At 1 day it yields 490 campaigns
+with a 3,870-row maximum; at 7 days it collapses to 27. At 1 hour it gives 1,852 campaigns,
+median 8, max 1,145 — a defensible reading of "one behavioural episode".
+
+Caveat worth carrying: Amaretto's five anomaly classes differ by two orders of magnitude in
+burstiness (median consecutive gaps — class 4: 0.6 min, class 5: 0.6 min, class 3: 2.2 min,
+class 1: 8.8 min, class 2: 28.3 min). No single gap serves all five. 1 hour keeps the three
+fast classes intact and fragments the two slow ones; a per-class rule is possible later if
+that fragmentation turns out to matter.
+
+Separately, and not a campaign issue: only **21 of Amaretto's 400 clients** ever carry an
+anomaly, and they are indistinguishable from clean clients by transaction volume (median
+45,456 vs 44,340). Within those 21, a median of just 2.1% of their own transactions are
+anomalous, so transaction-level detection remains a real task — but `entity_id` is close to
+a label there, and should not be handed to a model as a raw feature for this dataset.
 
 ---
 
@@ -229,6 +265,7 @@ carry frauds decades apart. The time gap is what keeps those apart.
 
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 #: Name of the column this module produces.
@@ -255,8 +292,15 @@ def assign_campaigns(df: pd.DataFrame, gap: pd.Timedelta) -> pd.Series:
 
     # A new campaign starts at each entity change, or when the wait since the
     # previous fraud on the same entity exceeds the gap.
-    starts = entity.ne(entity.shift()) | elapsed.gt(gap)
-    ids.loc[ordered.index] = starts.cumsum().astype("Int64") - 1
+    #
+    # Two pandas-3 traps here, both reproduced on real data before writing this:
+    #  * `entity_id` is `string` dtype, so `entity.ne(entity.shift())` yields <NA>
+    #    on the first row rather than True. Hence `.fillna(True)`.
+    #  * The resulting mask is `bool[pyarrow]`, and `.cumsum()` on that raises
+    #    `ArrowNotImplementedError`. Hence the conversion to a numpy bool array.
+    starts = (entity.ne(entity.shift()) | elapsed.gt(gap)).fillna(True)
+    numbering = np.cumsum(starts.to_numpy(dtype="bool")) - 1
+    ids.loc[ordered.index] = pd.array(numbering, dtype="Int64")
     return ids
 
 
@@ -529,12 +573,27 @@ git commit -m "feat: lognormal label-delay sampling, one draw per campaign"
 Add to `tests/test_config.py`:
 
 ```python
+import pandas as pd
+
+
 def test_default_config_has_delay_settings():
     config = load_config()
     assert config.delay.median_days == 7.0
     assert config.delay.sigma == 1.0
     assert config.delay.seed == 0
-    assert config.campaign_gap_days == 7.0
+
+
+def test_default_campaign_gap_is_one_day():
+    assert load_config().campaign_gap_for("paysim") == pd.Timedelta(days=1)
+
+
+def test_amaretto_overrides_the_campaign_gap_to_one_hour():
+    """Measured: Amaretto's anomalies have a 0.7-minute median inter-arrival.
+
+    At the 1-day default it yields 490 episodes with a 3,870-row maximum; at
+    1 hour, 1,852 episodes with a median of 8.
+    """
+    assert load_config().campaign_gap_for("amaretto") == pd.Timedelta(hours=1)
 
 
 def test_delay_settings_can_be_overridden(tmp_path):
@@ -546,12 +605,26 @@ def test_delay_settings_can_be_overridden(tmp_path):
         "  seed: 99\n"
         "  max_delay_days: 180.0\n"
         "campaign:\n"
-        "  gap_days: 2.0\n"
+        "  gap: 2d\n"
     )
     config = load_config(path)
     assert config.delay.median_days == 30.0
     assert config.delay.max_delay_days == 180.0
-    assert config.campaign_gap_days == 2.0
+    assert config.campaign_gap_for("paysim") == pd.Timedelta(days=2)
+
+
+def test_a_per_dataset_gap_override_wins(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "campaign:\n"
+        "  gap: 2d\n"
+        "datasets:\n"
+        "  banksim:\n"
+        "    campaign_gap: 30min\n"
+    )
+    config = load_config(path)
+    assert config.campaign_gap_for("banksim") == pd.Timedelta(minutes=30)
+    assert config.campaign_gap_for("paysim") == pd.Timedelta(days=2)
 
 
 def test_invalid_delay_settings_raise_config_error(tmp_path):
@@ -561,10 +634,17 @@ def test_invalid_delay_settings_raise_config_error(tmp_path):
         load_config(path)
 
 
-def test_negative_campaign_gap_raises_config_error(tmp_path):
+def test_an_unparseable_gap_raises_config_error(tmp_path):
     path = tmp_path / "bad.yaml"
-    path.write_text("campaign:\n  gap_days: -3.0\n")
-    with pytest.raises(ConfigError, match="gap_days"):
+    path.write_text("campaign:\n  gap: not-a-duration\n")
+    with pytest.raises(ConfigError, match="gap"):
+        load_config(path)
+
+
+def test_a_negative_gap_raises_config_error(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("campaign:\n  gap: -3d\n")
+    with pytest.raises(ConfigError, match="negative"):
         load_config(path)
 ```
 
@@ -585,12 +665,38 @@ Add two fields to the frozen `Config` dataclass, after `split_ratios`:
 
 ```python
     delay: DelayParams
-    campaign_gap_days: float
+    campaign_gap: pd.Timedelta
 ```
 
-Add a builder beside `_validate_ratios`:
+`Config` also gains a resolver beside `for_dataset`, because the right gap is not the same
+for every dataset — Amaretto's anomalies are three orders of magnitude burstier than card
+fraud:
 
 ```python
+    def campaign_gap_for(self, name: str) -> pd.Timedelta:
+        """The campaign gap for one dataset, honouring a per-dataset override."""
+        override = self.for_dataset(name).get("campaign_gap")
+        return _parse_gap(override) if override is not None else self.campaign_gap
+```
+
+`import pandas as pd` at the top of `config.py`.
+
+Add these builders beside `_validate_ratios`:
+
+```python
+def _parse_gap(value) -> pd.Timedelta:
+    """Parse a duration like '1d', '1h', '30min' into a Timedelta."""
+    try:
+        gap = pd.Timedelta(value)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"campaign gap {value!r} is not a valid duration: {exc}") from exc
+    if gap != gap:  # NaT, which pd.Timedelta yields for some bad input
+        raise ConfigError(f"campaign gap {value!r} is not a valid duration")
+    if gap < pd.Timedelta(0):
+        raise ConfigError(f"campaign gap must not be negative, got {value!r}")
+    return gap
+
+
 def _build_delay(data: dict) -> DelayParams:
     delay = data.get("delay") or {}
     try:
@@ -606,32 +712,30 @@ def _build_delay(data: dict) -> DelayParams:
         )
     except (TypeError, ValueError) as exc:
         raise ConfigError(f"invalid delay settings: {exc}") from exc
-
-
-def _validate_gap_days(data: dict) -> float:
-    gap = float((data.get("campaign") or {}).get("gap_days", 7.0))
-    if gap < 0:
-        raise ConfigError(f"campaign.gap_days must not be negative, got {gap}")
-    return gap
 ```
 
 And populate them in `load_config`'s returned `Config`:
 
 ```python
         delay=_build_delay(data),
-        campaign_gap_days=_validate_gap_days(data),
+        campaign_gap=_parse_gap((data.get("campaign") or {}).get("gap", "1d")),
 ```
+
+Note `pd.Timedelta("not-a-duration")` raises `ValueError`, so the try/except covers the
+unparseable case; the `gap != gap` check catches inputs that yield `NaT` instead.
 
 - [ ] **Step 4: Add defaults to `configs/default.yaml`**
 
 Insert above the `datasets:` block:
 
 ```yaml
-# A campaign is a run of frauds on one entity, each within gap_days of the last.
-# Entity alone is not enough: Amaretto's anomalies span 76-83 days per client and
-# IBM CCF cards carry frauds decades apart.
+# A campaign is a run of frauds on one entity, each within `gap` of the last.
+# Entity alone is not enough: IBM CCF cards carry frauds decades apart, and
+# Amaretto's anomalies would collapse into 27 episodes at a 7-day gap.
+# 1 day is where Sparkov saturates (1,005 episodes, unchanged at 7d and 30d)
+# while keeping every other card dataset's tail plausible.
 campaign:
-  gap_days: 7.0
+  gap: 1d
 
 # Reporting delay, lognormal in days. median_days is the distribution's median;
 # sigma controls the tail. Seeded so runs are reproducible.
@@ -642,6 +746,17 @@ delay:
   max_delay_days: null
 ```
 
+And add the Amaretto override inside the existing `datasets:` block, beside its other keys:
+
+```yaml
+  amaretto:
+    # Anomalies here are far burstier than card fraud: 0.7-minute median
+    # inter-arrival, 97.7% of consecutive pairs within an hour. At the 1-day
+    # default this yields 490 episodes with a 3,870-row maximum; at 1 hour,
+    # 1,852 episodes with a median of 8.
+    campaign_gap: 1h
+```
+
 - [ ] **Step 5: Run tests**
 
 Run: `.venv/bin/pytest tests/test_config.py -v` — all pass.
@@ -649,7 +764,7 @@ Run: `.venv/bin/pytest` — expect 230 passed, 1 deselected.
 
 Every existing test that constructs `Config(...)` directly will now fail for missing
 arguments. Fix those constructions by passing
-`delay=DelayParams(median_days=7.0, sigma=1.0, seed=0), campaign_gap_days=7.0`. If more
+`delay=DelayParams(median_days=7.0, sigma=1.0, seed=0), campaign_gap=pd.Timedelta(days=1)`. If more
 than the test fixtures need changing, STOP and report — that would mean `Config` is
 constructed in production code somewhere it should not be.
 
@@ -739,7 +854,7 @@ def test_card_records_the_delay_parameters(config, no_download):
     assert card["label_delay"]["distribution"] == "lognormal"
     assert card["label_delay"]["median_days"] == 7.0
     assert card["label_delay"]["seed"] == 0
-    assert card["label_delay"]["campaign_gap_days"] == 7.0
+    assert card["label_delay"]["campaign_gap"] == "1 days 00:00:00"
     assert card["label_delay"]["n_campaigns"] >= 1
     assert card["label_delay"]["largest_campaign"] >= 1
 ```
@@ -787,9 +902,7 @@ from fraud_benchmark.delay import assign_reported_at
 In `prepare`, after `df["split"] = ...` and BEFORE `order_columns`:
 
 ```python
-    df["campaign_id"] = assign_campaigns(
-        df, gap=pd.Timedelta(days=config.campaign_gap_days)
-    )
+    df["campaign_id"] = assign_campaigns(df, gap=config.campaign_gap_for(name))
     df["reported_at"] = assign_reported_at(df, config.delay)
 ```
 
@@ -804,13 +917,13 @@ frame to catch a delay-stage bug before anything is written:
 Add the card entry inside `_build_card`, after `"split"`:
 
 ```python
-        "label_delay": _describe_delay(df, config),
+        "label_delay": _describe_delay(df, config, config.campaign_gap_for(name)),
 ```
 
 and the helper beside it:
 
 ```python
-def _describe_delay(df, config) -> dict:
+def _describe_delay(df, config, gap) -> dict:
     sizes = campaign_sizes(df["campaign_id"])
     fraud = df.loc[df["is_fraud"]]
     delays = (fraud["reported_at"] - fraud["event_time"]).dt.total_seconds() / 86_400
@@ -820,7 +933,7 @@ def _describe_delay(df, config) -> dict:
         "sigma": config.delay.sigma,
         "seed": config.delay.seed,
         "max_delay_days": config.delay.max_delay_days,
-        "campaign_gap_days": config.campaign_gap_days,
+        "campaign_gap": str(gap),
         "n_campaigns": int(sizes.size),
         "largest_campaign": int(sizes.max()) if sizes.size else 0,
         "median_campaign_size": float(sizes.median()) if sizes.size else 0.0,
