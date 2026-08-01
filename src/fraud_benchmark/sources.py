@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -51,7 +52,15 @@ class KaggleCompetition:
         return f"https://www.kaggle.com/c/{self.handle}/rules"
 
 
-Source = KaggleDataset | KaggleCompetition
+@dataclass(frozen=True)
+class GitRepo:
+    """A dataset distributed as a git repository rather than via Kaggle."""
+
+    url: str
+    ref: str = "main"
+
+
+Source = KaggleDataset | KaggleCompetition | GitRepo
 
 
 def _has_files(directory: Path) -> bool:
@@ -81,6 +90,8 @@ def fetch(source: Source, dest: Path, *, force: bool = False) -> Path:
             kagglehub.competition_download(
                 source.handle, force_download=force, output_dir=str(dest)
             )
+        elif isinstance(source, GitRepo):
+            _git_clone(source, dest)
         else:
             raise FetchError(f"unsupported source type: {type(source).__name__}")
     except (CredentialError, UnauthenticatedError) as exc:
@@ -94,6 +105,19 @@ def fetch(source: Source, dest: Path, *, force: bool = False) -> Path:
         raise FetchError(f"download of {source.url} produced no files in {dest}")
 
     return dest
+
+
+def _git_clone(source: GitRepo, dest: Path) -> None:
+    """Shallow-clone `source` into `dest`, which must be empty."""
+    result = subprocess.run(
+        ["git", "clone", "--depth", "1", "--branch", source.ref, source.url, str(dest)],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise FetchError(
+            f"git clone of {source.url} (ref {source.ref}) failed: {result.stderr.strip()}"
+        )
 
 
 def _http_error_message(source: Source, exc: KaggleApiHTTPError) -> str:

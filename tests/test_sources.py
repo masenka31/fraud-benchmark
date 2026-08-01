@@ -128,3 +128,53 @@ def test_force_clears_stale_files(tmp_path, monkeypatch):
 
     names = sorted(p.name for p in dest.iterdir())
     assert names == ["new_v2.csv"], f"stale files survived a forced re-fetch: {names}"
+
+
+def test_git_repo_exposes_its_url():
+    from fraud_benchmark.sources import GitRepo
+
+    repo = GitRepo("https://github.com/necst/amaretto_dataset")
+    assert repo.url == "https://github.com/necst/amaretto_dataset"
+    assert repo.ref == "main"
+
+
+def test_git_clone_is_invoked_with_the_ref(tmp_path, monkeypatch):
+    from fraud_benchmark.sources import GitRepo
+
+    calls = {}
+
+    def fake_run(cmd, **kwargs):
+        calls["cmd"] = cmd
+        dest = Path(cmd[-1])
+        dest.mkdir(parents=True, exist_ok=True)
+        (dest / "README.md").write_text("cloned\n")
+
+        class _Result:
+            returncode = 0
+            stderr = ""
+
+        return _Result()
+
+    monkeypatch.setattr("fraud_benchmark.sources.subprocess.run", fake_run)
+
+    fetch(GitRepo("https://example.com/repo", ref="v1"), tmp_path / "dest")
+
+    assert "clone" in calls["cmd"]
+    assert "v1" in calls["cmd"]
+    assert "https://example.com/repo" in calls["cmd"]
+
+
+def test_git_clone_failure_is_a_fetch_error(tmp_path, monkeypatch):
+    from fraud_benchmark.sources import GitRepo
+
+    def fake_run(cmd, **kwargs):
+        class _Result:
+            returncode = 128
+            stderr = "fatal: repository not found"
+
+        return _Result()
+
+    monkeypatch.setattr("fraud_benchmark.sources.subprocess.run", fake_run)
+
+    with pytest.raises(FetchError, match="repository not found"):
+        fetch(GitRepo("https://example.com/nope"), tmp_path / "dest")

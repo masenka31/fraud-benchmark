@@ -6,6 +6,8 @@ Adapters that need a specific file name it explicitly rather than globbing.
 
 from __future__ import annotations
 
+import shutil
+import zipfile
 from pathlib import Path
 
 
@@ -39,3 +41,38 @@ def find_single_csv(raw_dir: Path) -> Path:
             f"expected exactly one CSV under {raw_dir}, found: {names}"
         )
     return matches[0]
+
+
+def require_split_zip_member(
+    raw_dir: Path, part_glob: str, member: str, cache_dir: Path
+) -> Path:
+    """Reassemble a multi-part zip under `raw_dir` and extract one member.
+
+    Some datasets ship as numbered fragments (`x.zip.001`, `x.zip.002`, ...) because
+    of file-size limits. Concatenating them in name order reproduces the original
+    archive. The extracted member is cached in `cache_dir`, so the cost is paid once.
+    """
+    extracted = cache_dir / member
+    if extracted.exists():
+        return extracted
+
+    parts = sorted(raw_dir.rglob(part_glob))
+    if not parts:
+        raise FileNotFoundError(
+            f"no archive parts matching {part_glob!r} under {raw_dir}"
+        )
+
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    archive = cache_dir / "_reassembled.zip"
+    try:
+        with open(archive, "wb") as combined:
+            for part in parts:
+                with open(part, "rb") as fragment:
+                    shutil.copyfileobj(fragment, combined)
+        with zipfile.ZipFile(archive) as zf:
+            zf.extract(member, cache_dir)
+    finally:
+        # The reassembled archive is a large temporary; never leave it behind.
+        archive.unlink(missing_ok=True)
+
+    return extracted
