@@ -17,3 +17,9 @@ datasets:
   # last val_fraction of the upstream train file.
   sparkov:
     val_fraction: 0.1
+  # A user may hold several cards; 'user' groups them, 'card' keeps them separate.
+  ibm_ccf:
+    entity_key: user
+  # TransactionDT is a seconds offset with no stated origin.
+  ieee_cis:
+    start_date: "2017-12-01"

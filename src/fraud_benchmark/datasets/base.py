@@ -59,6 +59,17 @@ class DatasetAdapter(ABC):
         """
         return None
 
+    def auxiliary_frames(
+        self, raw_dir: Path, options: dict[str, Any]
+    ) -> dict[str, pd.DataFrame]:
+        """Extra frames to write beside the canonical one, keyed by file stem.
+
+        Default: none. Override for data that belongs with the dataset but is not
+        canonical — e.g. an unlabelled competition test set, which has no is_fraud
+        column and so cannot be validated or split.
+        """
+        return {}
+
 
 _REGISTRY: dict[str, type[DatasetAdapter]] = {}
 
