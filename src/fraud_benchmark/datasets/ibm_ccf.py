@@ -24,6 +24,7 @@ MONEY_COLUMNS = (
     "Per Capita Income - Zipcode",
     "Yearly Income - Person",
     "Total Debt",
+    "Amount",
 )
 
 
@@ -41,7 +42,7 @@ class IbmCcfAdapter(DatasetAdapter):
     caveats = (
         "Fully synthetic. The bundled cardholder details — names, addresses, card "
         "numbers, CVVs — are fabricated and do not describe real people.",
-        "All 13 card columns and all 18 user columns are left-joined onto every "
+        "All 11 card columns and all 18 user columns are left-joined onto every "
         "transaction, so static attributes repeat across a user's rows.",
         "sd254_users.csv has no identifier column; it is joined positionally, its row "
         "index being the User id.",
@@ -82,7 +83,7 @@ class IbmCcfAdapter(DatasetAdapter):
             + "-"
             + df["Day"].astype(str).str.zfill(2)
             + " "
-            + df["Time"].astype(str),
+            + df["Time"].astype(str).str.zfill(5),
             format="%Y-%m-%d %H:%M",
         )
 
@@ -93,7 +94,7 @@ class IbmCcfAdapter(DatasetAdapter):
                 "string"
             )
 
-        amount = _parse_money(df["Amount"])
+        amount = df["Amount"]
         is_fraud = df["Is Fraud?"].astype(str).str.strip().eq("Yes")
 
         df.insert(0, "event_time", event_time)

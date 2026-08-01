@@ -97,3 +97,22 @@ def test_ibm_ccf_is_registered():
     from fraud_benchmark.datasets.base import list_datasets
 
     assert "ibm_ccf" in list_datasets()
+
+
+def test_amount_passthrough_is_numeric_like_the_other_money_columns(frame):
+    # Credit Limit and Amount should not disagree about being strings vs floats.
+    assert frame["Amount"].iloc[0] == 134.09
+    assert str(frame["Amount"].dtype) == "float64"
+
+
+def test_single_digit_hour_is_tolerated(tmp_path):
+    """Time is HH:MM in every sampled real row, but nothing guarantees it."""
+    import shutil
+
+    raw = tmp_path / "ibm"
+    shutil.copytree(FIXTURE, raw)
+    target = raw / "credit_card_transactions-ibm_v2.csv"
+    target.write_text(target.read_text().replace(",06:21,", ",6:21,"))
+
+    frame = get_adapter("ibm_ccf").to_canonical(raw, {"entity_key": "user"})
+    assert frame["event_time"].iloc[0] == pd.Timestamp("2002-09-01 06:21")
