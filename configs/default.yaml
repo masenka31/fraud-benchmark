@@ -1,0 +1,12 @@
+paths:
+  raw: data/raw
+  processed: data/processed
+
+split:
+  ratios: [0.8, 0.1, 0.1]
+
+datasets:
+  # PaySim's `step` column is an hour offset, not a real date, so it is
+  # anchored to this start date.
+  paysim:
+    start_date: "2023-01-01"
