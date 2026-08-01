@@ -225,3 +225,53 @@ def test_no_auxiliary_key_when_there_are_none(config, no_download):
     card = json.loads((out / "dataset_card.json").read_text())
     assert card["auxiliary"] == {}
     assert not list(out.glob("extra*.parquet"))
+
+
+@pytest.mark.parametrize("bad_key", ["../escape", "sub/dir", "", ".", ".."])
+def test_auxiliary_keys_that_are_not_plain_filenames_are_rejected(
+    config, no_download, monkeypatch, bad_key
+):
+    import pandas as pd
+    from fraud_benchmark.datasets.base import get_adapter
+
+    monkeypatch.setattr(
+        type(get_adapter("paysim")),
+        "auxiliary_frames",
+        lambda self, raw_dir, options: {bad_key: pd.DataFrame({"a": [1]})},
+    )
+    with pytest.raises(ValueError, match="not a valid filename"):
+        prepare("paysim", config)
+
+
+def test_a_failing_auxiliary_write_preserves_previous_output(
+    config, no_download, monkeypatch
+):
+    """The highest-value case: an aux write that dies must not cost the good run."""
+    out = prepare("paysim", config)
+    marker = out / "marker.txt"
+    marker.write_text("previous good run")
+    original = (out / "data.parquet").read_bytes()
+
+    class _Exploding(pd.DataFrame):
+        @property
+        def _constructor(self):
+            return _Exploding
+
+        def to_parquet(self, *args, **kwargs):
+            raise OSError("aux write failed")
+
+    from fraud_benchmark.datasets.base import get_adapter
+
+    monkeypatch.setattr(
+        type(get_adapter("paysim")),
+        "auxiliary_frames",
+        lambda self, raw_dir, options: {"boom": _Exploding({"a": [1]})},
+    )
+
+    with pytest.raises(OSError, match="aux write failed"):
+        prepare("paysim", config)
+
+    assert marker.exists(), "previous good output was destroyed by a failed aux write"
+    assert (out / "data.parquet").read_bytes() == original
+    assert not list(config.processed_dir.glob("*.tmp*"))
+    assert not list(config.processed_dir.glob("*.old*"))

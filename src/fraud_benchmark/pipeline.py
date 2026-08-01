@@ -93,6 +93,20 @@ def _describe_source(source) -> dict:
     return described
 
 
+def _validate_auxiliary_keys(aux: dict[str, pd.DataFrame]) -> None:
+    """Auxiliary keys become filenames, so they must not describe a path.
+
+    Without this, a key like "../escape" would write outside the staging directory,
+    bypassing the atomic swap and its rollback entirely.
+    """
+    for key in aux:
+        if not key or key != Path(key).name or key in (".", ".."):
+            raise ValueError(
+                f"auxiliary frame key {key!r} is not a valid filename; keys must not "
+                "contain path separators or refer to parent directories"
+            )
+
+
 def _write_atomically(
     dest: Path,
     df: pd.DataFrame,
@@ -106,6 +120,7 @@ def _write_atomically(
     non-empty directory fails, which is why the old output must be moved out of
     the way before the replace rather than replaced directly.
     """
+    _validate_auxiliary_keys(aux or {})
     dest.parent.mkdir(parents=True, exist_ok=True)
     staging = dest.parent / f"{dest.name}.tmp{os.getpid()}"
     previous = dest.parent / f"{dest.name}.old{os.getpid()}"
