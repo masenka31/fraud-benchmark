@@ -9,6 +9,7 @@ would leak same-instant information across the boundary.
 from __future__ import annotations
 
 import math
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -38,6 +39,39 @@ def _validate_ratios(ratios: tuple[float, float, float]) -> None:
         raise ValueError(f"expected three ratios, got {len(ratios)}")
     if not math.isclose(sum(ratios), 1.0, abs_tol=1e-9):
         raise ValueError(f"ratios must sum to 1, got {sum(ratios)}")
+    if any(r <= 0 for r in ratios):
+        raise ValueError(f"ratios must all be positive, got {ratios}")
+
+
+def _validate_frame(df: pd.DataFrame) -> None:
+    """Reject input that would otherwise be split silently and wrongly."""
+    if "event_time" not in df.columns:
+        raise ValueError("cannot split: frame has no 'event_time' column")
+    if len(df) == 0:
+        raise ValueError("cannot split an empty frame")
+    missing = int(df["event_time"].isna().sum())
+    if missing:
+        # NaT compares False against every boundary, so it would land in the
+        # last split regardless of when it belongs.
+        raise ValueError(
+            f"cannot split: 'event_time' has {missing} missing value(s), which would "
+            "be silently assigned to the last split"
+        )
+
+
+def _warn_if_any_split_is_empty(
+    splits: pd.Series, ratios: tuple[float, float, float], n_distinct: int
+) -> None:
+    counts = splits.value_counts()
+    empty = [name for name in SPLIT_NAMES if int(counts.get(name, 0)) == 0]
+    if empty:
+        warnings.warn(
+            f"empty split(s): {', '.join(empty)}. Requested ratios {ratios} could not be "
+            f"honoured because the data has only {n_distinct} distinct timestamp(s). "
+            "Splits are cut on timestamp values, so heavily tied data limits granularity.",
+            UserWarning,
+            stacklevel=3,
+        )
 
 
 def split_boundaries(
@@ -45,6 +79,7 @@ def split_boundaries(
 ) -> dict[str, pd.Timestamp]:
     """The last timestamp in the train and val splits."""
     _validate_ratios(ratios)
+    _validate_frame(df)
     cumulative = _cumulative_fraction(df)
     return {
         "train_end": _cut_at(cumulative, ratios[0]),
@@ -64,6 +99,8 @@ def assign_splits(
         "train",
         np.where(times <= bounds["val_end"], "val", "test"),
     )
-    return pd.Series(
+    result = pd.Series(
         pd.Categorical(labels, categories=SPLIT_NAMES), index=df.index, name="split"
     )
+    _warn_if_any_split_is_empty(result, ratios, df["event_time"].nunique())
+    return result
