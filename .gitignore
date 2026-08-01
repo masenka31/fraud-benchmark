@@ -6,3 +6,5 @@ venv/
 *.egg-info/
 .pytest_cache/
 kaggle.json
+.kaggle/
+access_token
