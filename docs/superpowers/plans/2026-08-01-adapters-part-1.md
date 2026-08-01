@@ -47,7 +47,16 @@ memory. The raw data is already cached under `data/raw/<name>/`.
 - **Two CSVs, both labelled, temporally consecutive and non-overlapping** (verified):
   - `fraudTrain.csv` 1,296,675 rows, 2019-01-01 00:00:18 → 2020-06-21 12:13:37, fraud 0.579%
   - `fraudTest.csv` 555,719 rows, 2020-06-21 12:14:25 → 2020-12-31 23:59:34, fraud 0.386%
-  - Concatenated: 1,852,394 rows. Their split is discarded; ours is applied instead.
+  - Concatenated: 1,852,394 rows.
+- **Sparkov keeps its upstream test set.** Unlike every other dataset, its split is NOT the
+  global temporal quantile cut:
+  - `test` = the whole of `fraudTest.csv`, unchanged (555,719 rows)
+  - `train` / `val` = `fraudTrain.csv` cut temporally, the **last 10% becoming `val`**
+  - `train → val → test` is still strictly ordered in time, because the two source files are
+    consecutive. Expected proportions ≈ 63% / 7% / 30% — unusual next to the 80/10/10 of the
+    other datasets, but correct by construction.
+  - The 10% is configurable via `datasets.sparkov.val_fraction`.
+  - This is why the pipeline needs an adapter-supplied split hook (Task 4).
 - `trans_date_trans_time` is a **real datetime string** — no anchor needed.
 - Entity: `cc_num` (int64, 16 digits, fits int64) → cast to string.
 - Amount column is `amt`. Label is `is_fraud`.
@@ -79,10 +88,11 @@ memory. The raw data is already cached under `data/raw/<name>/`.
 | `src/fraud_benchmark/datasets/banksim.py` | BankSim adapter |
 | `src/fraud_benchmark/datasets/sparkov.py` | Sparkov adapter |
 | `src/fraud_benchmark/datasets/saml_d.py` | SAML-D adapter |
-| `src/fraud_benchmark/datasets/base.py` | + `commercial_use` attribute |
+| `src/fraud_benchmark/datasets/base.py` | + `commercial_use` attribute, + `custom_splits` hook |
 | `src/fraud_benchmark/cli.py` | + `--exclude-noncommercial`; `--all` no longer aborts |
-| `src/fraud_benchmark/pipeline.py` | + `commercial_use` in the card |
-| `configs/default.yaml` | + `start_date` for banksim |
+| `src/fraud_benchmark/pipeline.py` | + `commercial_use` in the card, + honour `custom_splits` |
+| `src/fraud_benchmark/splitting.py` | + public `boundary_at` for single-boundary cuts |
+| `configs/default.yaml` | + `start_date` for banksim, + `val_fraction` for sparkov |
 
 ---
 
@@ -645,17 +655,29 @@ git commit -m "feat: BankSim adapter"
 
 ---
 
-### Task 4: Sparkov adapter
+### Task 4: Sparkov adapter, with an adapter-supplied split
 
 **Files:**
+- Modify: `src/fraud_benchmark/splitting.py` (expose `boundary_at`)
+- Modify: `src/fraud_benchmark/datasets/base.py` (add the `custom_splits` hook)
+- Modify: `src/fraud_benchmark/pipeline.py` (use the hook when present)
 - Create: `src/fraud_benchmark/datasets/sparkov.py`
 - Create: `tests/fixtures/sparkov/fraudTrain.csv`, `tests/fixtures/sparkov/fraudTest.csv`
-- Modify: `src/fraud_benchmark/datasets/__init__.py`
-- Test: `tests/test_sparkov.py`
+- Modify: `src/fraud_benchmark/datasets/__init__.py`, `configs/default.yaml`
+- Test: `tests/test_sparkov.py`, `tests/test_splitting.py`, `tests/test_pipeline.py`
 
-**Why both files are concatenated:** they are two halves of one timeline, verified
-non-overlapping (train ends 2020-06-21 12:13:37, test begins 2020-06-21 12:14:25). Their
-split is discarded so that every dataset in the benchmark is split by the same rule.
+**Why both files are read but the split is not the usual one:** the two files are consecutive
+halves of one timeline (train ends 2020-06-21 12:13:37, test begins 2020-06-21 12:14:25).
+The upstream test set is preserved as-is so results stay comparable with published work on
+this dataset, and validation is carved from the tail of train. So:
+
+- `test` = every row from `fraudTest.csv`
+- `val` = the last `val_fraction` (default 10%) of `fraudTrain.csv`, cut temporally
+- `train` = the rest of `fraudTrain.csv`
+
+This is the only dataset that overrides the global split, which is why the hook is
+introduced here rather than in Plan 1. Every other adapter leaves `custom_splits` alone and
+gets the shared 80/10/10 temporal cut.
 
 - [ ] **Step 1: Create the fixtures**
 
@@ -733,8 +755,41 @@ def test_row_index_column_is_dropped(frame):
 
 
 def test_source_column_is_recorded(frame):
-    # Which file each row came from is worth keeping.
+    # Which file each row came from is worth keeping, and the split depends on it.
     assert set(frame["source_file"]) == {"fraudTrain.csv", "fraudTest.csv"}
+
+
+def test_upstream_test_set_becomes_the_test_split(frame):
+    splits = get_adapter("sparkov").custom_splits(frame, {"val_fraction": 0.5})
+    from_test_file = frame["source_file"] == "fraudTest.csv"
+    assert set(splits[from_test_file]) == {"test"}
+    assert "test" not in set(splits[~from_test_file])
+
+
+def test_validation_is_the_tail_of_the_train_file(frame):
+    # val_fraction 0.5 on a 3-row train file puts the later rows in val.
+    splits = get_adapter("sparkov").custom_splits(frame, {"val_fraction": 0.5})
+    train_rows = frame[frame["source_file"] == "fraudTrain.csv"]
+    labels = splits[train_rows.index]
+    assert set(labels) == {"train", "val"}
+    # Whatever the cut, train must end before val begins.
+    assert train_rows[labels == "train"]["event_time"].max() < (
+        train_rows[labels == "val"]["event_time"].min()
+    )
+
+
+def test_split_order_is_train_then_val_then_test(frame):
+    splits = get_adapter("sparkov").custom_splits(frame, {"val_fraction": 0.5})
+    rank = {"train": 0, "val": 1, "test": 2}
+    codes = [rank[s] for s in splits]
+    assert codes == sorted(codes), "splits are not ordered in time"
+
+
+def test_custom_splits_returns_all_three_categories(frame):
+    splits = get_adapter("sparkov").custom_splits(frame, {"val_fraction": 0.5})
+    assert str(splits.dtype) == "category"
+    assert set(splits.cat.categories) == {"train", "val", "test"}
+    assert splits.index.equals(frame.index)
 
 
 def test_passthrough_columns_survive(frame):
@@ -770,6 +825,109 @@ def test_sparkov_is_registered():
 Run: `.venv/bin/pytest tests/test_sparkov.py -v`
 Expected: `UnknownDatasetError: unknown dataset 'sparkov'`
 
+- [ ] **Step 3b: Expose a single-boundary helper in `splitting.py`**
+
+`assign_splits` needs three positive ratios, so it cannot express a two-way cut. Add a thin
+public wrapper over the existing private helpers — do NOT change `_cut_at` or
+`_cumulative_fraction`, whose behaviour is already verified:
+
+```python
+def boundary_at(df: pd.DataFrame, fraction: float) -> pd.Timestamp:
+    """The last timestamp belonging to the first `fraction` of rows.
+
+    Tie-safe in the same way as the three-way split: the cut lands on a timestamp
+    value, so rows sharing an event_time stay together.
+    """
+    if not 0 < fraction < 1:
+        raise ValueError(f"fraction must be strictly between 0 and 1, got {fraction}")
+    _validate_frame(df)
+    return _cut_at(_cumulative_fraction(df), fraction)
+```
+
+Add these tests to `tests/test_splitting.py`:
+
+```python
+def test_boundary_at_cuts_on_a_timestamp_value():
+    df = frame_with_times([f"2023-01-{d:02d}" for d in range(1, 11)])
+    from fraud_benchmark.splitting import boundary_at
+    assert boundary_at(df, 0.9) == pd.Timestamp("2023-01-09")
+
+
+def test_boundary_at_rejects_out_of_range_fractions():
+    from fraud_benchmark.splitting import boundary_at
+    df = frame_with_times(["2023-01-01", "2023-01-02"])
+    for bad in (0.0, 1.0, -0.5, 2.0):
+        with pytest.raises(ValueError, match="between 0 and 1"):
+            boundary_at(df, bad)
+```
+
+- [ ] **Step 3c: Add the `custom_splits` hook**
+
+In `src/fraud_benchmark/datasets/base.py`, add to `DatasetAdapter` (a normal method, NOT
+abstract — adapters that do not override it get the shared split):
+
+```python
+    def custom_splits(
+        self, df: pd.DataFrame, options: dict[str, Any]
+    ) -> pd.Series | None:
+        """Optionally supply this dataset's own split labels.
+
+        Return None — the default — to accept the shared temporal split. Override
+        only when the source dictates the split, e.g. an upstream test set that must
+        be preserved for comparability with published results.
+        """
+        return None
+```
+
+In `src/fraud_benchmark/pipeline.py`, replace the split assignment in `prepare`:
+
+```python
+    df = df.sort_values("event_time", kind="stable").reset_index(drop=True)
+    supplied = adapter.custom_splits(df, options)
+    df["split"] = (
+        assign_splits(df, config.split_ratios) if supplied is None else supplied
+    )
+    df = order_columns(df)
+```
+
+And in `_build_card`, make the recorded strategy honest about which was used. Replace the
+`"split"` block with:
+
+```python
+        "split": _describe_split(adapter, options, df, config),
+```
+
+adding this function beside `_build_card`:
+
+```python
+def _describe_split(adapter, options, df, config) -> dict:
+    counts = {str(k): int(v) for k, v in df["split"].value_counts().items()}
+    if adapter.custom_splits(df, options) is not None:
+        return {
+            "strategy": f"supplied by the {adapter.name} adapter",
+            "ratios": None,
+            "counts": counts,
+        }
+    bounds = split_boundaries(df, config.split_ratios)
+    return {
+        "strategy": "temporal, cut on timestamp values",
+        "ratios": list(config.split_ratios),
+        "train_end": bounds["train_end"].isoformat(),
+        "val_end": bounds["val_end"].isoformat(),
+        "counts": counts,
+    }
+```
+
+Add this test to `tests/test_pipeline.py`:
+
+```python
+def test_card_records_the_shared_split_strategy(config, no_download):
+    out = prepare("paysim", config)
+    card = json.loads((out / "dataset_card.json").read_text())
+    assert card["split"]["strategy"] == "temporal, cut on timestamp values"
+    assert card["split"]["ratios"] == [0.6, 0.2, 0.2]
+```
+
 - [ ] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/sparkov.py`
 
 ```python
@@ -785,14 +943,21 @@ from typing import Any
 
 import pandas as pd
 
+import numpy as np
+
 from fraud_benchmark.datasets.base import DatasetAdapter, register
 from fraud_benchmark.datasets.files import require_file
 from fraud_benchmark.sources import KaggleDataset
+from fraud_benchmark.splitting import SPLIT_NAMES, boundary_at
 
 #: The bundle ships a pre-made temporal split. Both halves are labelled and do not
-#: overlap (train ends 2020-06-21 12:13:37, test starts 2020-06-21 12:14:25), so they
-#: are concatenated and re-split by this project's own rule.
-SOURCE_FILES = ("fraudTrain.csv", "fraudTest.csv")
+#: overlap (train ends 2020-06-21 12:13:37, test starts 2020-06-21 12:14:25).
+TRAIN_FILE = "fraudTrain.csv"
+TEST_FILE = "fraudTest.csv"
+SOURCE_FILES = (TRAIN_FILE, TEST_FILE)
+
+#: Fraction of the upstream train file held back as validation.
+DEFAULT_VAL_FRACTION = 0.1
 
 
 @register
@@ -804,9 +969,12 @@ class SparkovAdapter(DatasetAdapter):
     caveats = (
         "Simulated with Sparkov/Faker. Customer names, addresses, jobs and dates of "
         "birth are fabricated, not real people.",
-        "The upstream bundle ships its own train/test split; this adapter concatenates "
-        "both files and applies the project's temporal split instead. The source file "
-        "each row came from is kept in 'source_file'.",
+        "This dataset does NOT use the project's global temporal split. The upstream "
+        "test file is preserved as the test split so results stay comparable with "
+        "published work, and validation is the last 10% of the upstream train file "
+        "(configurable via datasets.sparkov.val_fraction). Splits are therefore "
+        "roughly 63/7/30 rather than 80/10/10.",
+        "The source file each row came from is kept in 'source_file'.",
         "The per-file row index column ('Unnamed: 0') is dropped as meaningless after "
         "concatenation.",
     )
@@ -828,6 +996,30 @@ class SparkovAdapter(DatasetAdapter):
         df.insert(2, "amount", df["amt"].astype("float64"))
         return df.sort_values("event_time", kind="stable").reset_index(drop=True)
 
+    def custom_splits(
+        self, df: pd.DataFrame, options: dict[str, Any]
+    ) -> pd.Series:
+        """Preserve the upstream test set; carve validation from the train tail.
+
+        The two source files are consecutive in time, so train -> val -> test remains
+        strictly ordered.
+        """
+        val_fraction = float(options.get("val_fraction", DEFAULT_VAL_FRACTION))
+        is_test = df["source_file"] == TEST_FILE
+        train_part = df.loc[~is_test]
+        cut = boundary_at(train_part, 1.0 - val_fraction)
+
+        labels = np.where(
+            is_test,
+            "test",
+            np.where(df["event_time"] <= cut, "train", "val"),
+        )
+        return pd.Series(
+            pd.Categorical(labels, categories=SPLIT_NAMES),
+            index=df.index,
+            name="split",
+        )
+
     def column_mapping(self, options: dict[str, Any]) -> dict[str, str]:
         return {
             "event_time": "trans_date_trans_time",
@@ -845,10 +1037,26 @@ class SparkovAdapter(DatasetAdapter):
 from fraud_benchmark.datasets import banksim, paysim, sparkov  # noqa: F401
 ```
 
+In `configs/default.yaml`, under `datasets:`:
+
+```yaml
+  # Sparkov keeps its upstream test file as the test split; validation is the
+  # last val_fraction of the upstream train file.
+  sparkov:
+    val_fraction: 0.1
+```
+
 - [ ] **Step 6: Run tests**
 
-Run: `.venv/bin/pytest tests/test_sparkov.py -v` — expect 14 passed.
-Run: `.venv/bin/pytest` — expect 121 passed, 1 deselected.
+Run: `.venv/bin/pytest tests/test_sparkov.py -v` — expect 19 passed.
+Run: `.venv/bin/pytest tests/test_splitting.py tests/test_pipeline.py -v` — expect
+17 splitting + 15 pipeline passed.
+Run: `.venv/bin/pytest` — expect 129 passed, 1 deselected.
+
+Pay particular attention to `test_card_records_the_shared_split_strategy`: it proves the
+hook did not accidentally change behaviour for the datasets that do not override it. If any
+pre-existing pipeline or splitting test fails, STOP and report — the hook was meant to be
+additive.
 
 - [ ] **Step 7: Commit**
 
@@ -1030,7 +1238,7 @@ from fraud_benchmark.datasets import banksim, paysim, saml_d, sparkov  # noqa: F
 - [ ] **Step 6: Run tests**
 
 Run: `.venv/bin/pytest tests/test_saml_d.py -v` — expect 10 passed.
-Run: `.venv/bin/pytest` — expect 131 passed, 1 deselected.
+Run: `.venv/bin/pytest` — expect 139 passed, 1 deselected.
 
 - [ ] **Step 7: Commit**
 
@@ -1067,6 +1275,11 @@ Compare against what was measured from the raw files:
 |---|---|---|
 | banksim | 594,643 | 1.211% |
 | sparkov | 1,852,394 | ~0.521% (weighted mean of 0.579% and 0.386%) |
+
+Sparkov's splits must be **train 1,167,0xx / val ~129,6xx / test exactly 555,719**.
+The test count must equal the upstream `fraudTest.csv` row count exactly — if it does
+not, the adapter is not preserving the upstream test set. Its proportions are ~63/7/30,
+not 80/10/10, and that is correct.
 | saml_d | 9,504,852 | ~0.118% |
 
 **Report the actual numbers.** If rows differ from these, STOP — it means the adapter is
@@ -1091,7 +1304,9 @@ for name in ("paysim", "banksim", "sparkov", "saml_d"):
 PY
 ```
 
-Expect three non-empty splits per dataset and `boundary=OK` for all.
+Expect three non-empty splits per dataset and `boundary=OK` for all — including
+sparkov, whose train/val/test remain strictly ordered because its two source files
+are consecutive in time.
 
 - [ ] **Step 4: Verify the licence gate works end to end**
 
@@ -1134,7 +1349,7 @@ git commit -m "test: verify BankSim, Sparkov and SAML-D against real data"
 
 ## Done criteria
 
-- [ ] `.venv/bin/pytest` passes (expect 131 passed, 1 deselected)
+- [ ] `.venv/bin/pytest` passes (expect 139 passed, 1 deselected)
 - [ ] `fraud-benchmark list` shows 4 datasets with licences, 2 marked `[noncommercial]`
 - [ ] `prepare --all --exclude-noncommercial` prepares exactly paysim and sparkov
 - [ ] Real row counts match the verified figures above
