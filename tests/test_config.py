@@ -1,5 +1,6 @@
 import dataclasses
 
+import pandas as pd
 import pytest
 
 from fraud_benchmark.config import Config, ConfigError, load_config
@@ -80,4 +81,76 @@ def test_missing_path_key_raises_config_error(tmp_path):
     path = tmp_path / "bad.yaml"
     path.write_text("paths:\n  raw: null\n")
     with pytest.raises(ConfigError, match="paths.raw"):
+        load_config(path)
+
+
+def test_default_config_has_delay_settings():
+    config = load_config()
+    assert config.delay.median_days == 7.0
+    assert config.delay.sigma == 1.0
+    assert config.delay.seed == 0
+
+
+def test_default_campaign_gap_is_one_day():
+    assert load_config().campaign_gap_for("paysim") == pd.Timedelta(days=1)
+
+
+def test_amaretto_overrides_the_campaign_gap_to_one_hour():
+    """Measured: Amaretto's anomalies have a 0.7-minute median inter-arrival.
+
+    At the 1-day default it yields 490 episodes with a 3,870-row maximum; at
+    1 hour, 1,852 episodes with a median of 8.
+    """
+    assert load_config().campaign_gap_for("amaretto") == pd.Timedelta(hours=1)
+
+
+def test_delay_settings_can_be_overridden(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "delay:\n"
+        "  median_days: 30.0\n"
+        "  sigma: 1.5\n"
+        "  seed: 99\n"
+        "  max_delay_days: 180.0\n"
+        "campaign:\n"
+        "  gap: 2d\n"
+    )
+    config = load_config(path)
+    assert config.delay.median_days == 30.0
+    assert config.delay.max_delay_days == 180.0
+    assert config.campaign_gap_for("paysim") == pd.Timedelta(days=2)
+
+
+def test_a_per_dataset_gap_override_wins(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "campaign:\n"
+        "  gap: 2d\n"
+        "datasets:\n"
+        "  banksim:\n"
+        "    campaign_gap: 30min\n"
+    )
+    config = load_config(path)
+    assert config.campaign_gap_for("banksim") == pd.Timedelta(minutes=30)
+    assert config.campaign_gap_for("paysim") == pd.Timedelta(days=2)
+
+
+def test_invalid_delay_settings_raise_config_error(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("delay:\n  median_days: -1.0\n")
+    with pytest.raises(ConfigError, match="median_days"):
+        load_config(path)
+
+
+def test_an_unparseable_gap_raises_config_error(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("campaign:\n  gap: not-a-duration\n")
+    with pytest.raises(ConfigError, match="gap"):
+        load_config(path)
+
+
+def test_a_negative_gap_raises_config_error(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("campaign:\n  gap: -3d\n")
+    with pytest.raises(ConfigError, match="negative"):
         load_config(path)

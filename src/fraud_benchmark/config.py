@@ -7,7 +7,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import yaml
+
+from fraud_benchmark.delay import DelayParams
 
 DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "default.yaml"
 
@@ -21,11 +24,22 @@ class Config:
     raw_dir: Path
     processed_dir: Path
     split_ratios: tuple[float, float, float]
+    delay: DelayParams
+    campaign_gap: pd.Timedelta
     datasets: dict[str, dict[str, Any]] = field(default_factory=dict)
 
     def for_dataset(self, name: str) -> dict[str, Any]:
         """Options for one dataset, or an empty dict if it has none."""
         return self.datasets.get(name, {})
+
+    def campaign_gap_for(self, name: str) -> pd.Timedelta:
+        """The campaign gap for one dataset, honouring a per-dataset override.
+
+        The right gap is not the same everywhere: Amaretto's anomalies are three
+        orders of magnitude burstier than card fraud.
+        """
+        override = self.for_dataset(name).get("campaign_gap")
+        return _parse_gap(override) if override is not None else self.campaign_gap
 
 
 def _deep_merge(base: dict, override: dict) -> dict:
@@ -48,6 +62,38 @@ def _validate_ratios(ratios: Any) -> tuple[float, float, float]:
     if any(r <= 0 for r in values):
         raise ConfigError(f"split.ratios must all be positive, got {values}")
     return values  # type: ignore[return-value]
+
+
+def _parse_gap(value) -> pd.Timedelta:
+    """Parse a duration like '1d', '1h', '30min' into a Timedelta."""
+    try:
+        gap = pd.Timedelta(value)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(
+            f"campaign gap {value!r} is not a valid duration: {exc}"
+        ) from exc
+    if gap is pd.NaT:
+        raise ConfigError(f"campaign gap {value!r} is not a valid duration")
+    if gap < pd.Timedelta(0):
+        raise ConfigError(f"campaign gap must not be negative, got {value!r}")
+    return gap
+
+
+def _build_delay(data: dict) -> DelayParams:
+    delay = data.get("delay") or {}
+    try:
+        return DelayParams(
+            median_days=float(delay.get("median_days", 7.0)),
+            sigma=float(delay.get("sigma", 1.0)),
+            seed=int(delay.get("seed", 0)),
+            max_delay_days=(
+                float(delay["max_delay_days"])
+                if delay.get("max_delay_days") is not None
+                else None
+            ),
+        )
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"invalid delay settings: {exc}") from exc
 
 
 def _load_yaml(path: Path | str) -> dict:
@@ -83,5 +129,7 @@ def load_config(path: Path | str | None = None) -> Config:
         raw_dir=Path(paths["raw"]),
         processed_dir=Path(paths["processed"]),
         split_ratios=_validate_ratios(data.get("split", {}).get("ratios")),
+        delay=_build_delay(data),
+        campaign_gap=_parse_gap((data.get("campaign") or {}).get("gap", "1d")),
         datasets=data.get("datasets") or {},
     )

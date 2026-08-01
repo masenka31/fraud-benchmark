@@ -5,6 +5,22 @@ paths:
 split:
   ratios: [0.8, 0.1, 0.1]
 
+# A campaign is a run of frauds on one entity, each within `gap` of the last.
+# Entity alone is not enough: IBM CCF cards carry frauds decades apart, and
+# Amaretto's anomalies would collapse into 27 episodes at a 7-day gap.
+# 1 day is where Sparkov saturates (1,005 episodes, unchanged at 7d and 30d)
+# while keeping every other card dataset's tail plausible.
+campaign:
+  gap: 1d
+
+# Reporting delay, lognormal in days. median_days is the distribution's median;
+# sigma controls the tail. Seeded so runs are reproducible.
+delay:
+  median_days: 7.0
+  sigma: 1.0
+  seed: 0
+  max_delay_days: null
+
 datasets:
   # PaySim's `step` column is an hour offset, not a real date, so it is
   # anchored to this start date.
@@ -23,3 +39,9 @@ datasets:
   # TransactionDT is a seconds offset with no stated origin.
   ieee_cis:
     start_date: "2017-12-01"
+  amaretto:
+    # Anomalies here are far burstier than card fraud: 0.7-minute median
+    # inter-arrival, 97.7% of consecutive pairs within an hour. At the 1-day
+    # default this yields 490 episodes with a 3,870-row maximum; at 1 hour,
+    # 1,852 episodes with a median of 8.
+    campaign_gap: 1h

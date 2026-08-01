@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from fraud_benchmark.config import Config
+from fraud_benchmark.delay import DelayParams
 from fraud_benchmark.pipeline import prepare
 
 FIXTURE = Path(__file__).parent / "fixtures" / "paysim"
@@ -17,6 +18,8 @@ def config(tmp_path):
         raw_dir=tmp_path / "raw",
         processed_dir=tmp_path / "processed",
         split_ratios=(0.6, 0.2, 0.2),
+        delay=DelayParams(median_days=7.0, sigma=1.0, seed=0),
+        campaign_gap=pd.Timedelta(days=1),
         datasets={"paysim": {"start_date": "2023-01-01"}},
     )
 
