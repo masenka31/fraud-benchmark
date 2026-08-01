@@ -103,14 +103,25 @@ def test_empty_split_warns_with_actionable_detail():
 
 def test_no_timestamp_appears_in_two_splits():
     # The central guarantee: a tied block must never straddle a boundary.
-    times = [f"2023-01-{d:02d}" for d in range(1, 8) for _ in range(20)]
+    #
+    # 20 distinct timestamps, not 7: with only 7 every timestamp is an
+    # indivisible 14.3% block, so a 10% test split comes out empty and the
+    # val/test boundary below would never be exercised.
+    times = [f"2023-01-{d:02d}" for d in range(1, 21) for _ in range(5)]
     df = frame_with_times(times)
     df["split"] = assign_splits(df, (0.7, 0.2, 0.1))
+
     per_timestamp = df.groupby("event_time")["split"].nunique()
     assert (per_timestamp == 1).all()
-    train_max = df[df.split == "train"]["event_time"].max()
-    val_min = df[df.split == "val"]["event_time"].min()
-    assert train_max < val_min
+
+    # All three splits must be non-empty for the boundary checks to mean anything.
+    assert set(df["split"]) == {"train", "val", "test"}
+    assert df[df.split == "train"]["event_time"].max() < (
+        df[df.split == "val"]["event_time"].min()
+    )
+    assert df[df.split == "val"]["event_time"].max() < (
+        df[df.split == "test"]["event_time"].min()
+    )
 
 
 def test_labels_align_to_a_shuffled_index():
