@@ -1896,7 +1896,9 @@ def _cmd_prepare(args) -> int:
         try:
             out = prepare(name, config, force=args.force)
         except UnknownDatasetError as exc:
-            print(str(exc).strip("\"'"), file=sys.stderr)
+            # UnknownDatasetError subclasses KeyError, whose __str__ wraps the
+            # message in repr quotes. Print the raw message instead.
+            print(exc.args[0], file=sys.stderr)
             return 1
         except FetchError as exc:
             print(f"{name}: {exc}", file=sys.stderr)
