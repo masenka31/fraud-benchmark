@@ -68,3 +68,19 @@ IEEE-CIS additionally requires accepting its competition rules once in a browser
 ## Tests
 
     pytest
+
+Network tests are deselected by default. Run them with `pytest -m network` — they perform
+real Kaggle downloads.
+
+## Licence
+
+The code in this repository is MIT licensed (see `LICENSE`).
+
+**The datasets are not.** Each carries its own terms, which you accept directly with the
+upstream provider when you download it. This repository distributes no data — `data/` is
+gitignored and everything is fetched at run time with your own credentials.
+
+Two of the seven datasets (BankSim, SAML-D) are **NonCommercial**, and three
+(PaySim, BankSim, SAML-D) are **ShareAlike**. IEEE-CIS is governed by Kaggle competition
+rules rather than an open licence. See **`docs/dataset-licenses.md`** for the full table,
+and check `data_license` in any prepared dataset's `dataset_card.json`.

@@ -1,5 +1,6 @@
 [build-system]
-requires = ["setuptools>=68"]
+# 77+ for PEP 639 SPDX `license` / `license-files` support.
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,6 +8,10 @@ name = "fraud-benchmark"
 version = "0.1.0"
 description = "Download, normalize, split, and label-delay public fraud and AML datasets"
 requires-python = ">=3.11"
+# Covers this repository's code only. Each dataset carries its own terms;
+# see docs/dataset-licenses.md.
+license = "MIT"
+license-files = ["LICENSE"]
 dependencies = [
     "kagglehub>=1.0.2",
     "pandas>=2.2",

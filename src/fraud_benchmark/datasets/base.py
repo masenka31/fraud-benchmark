@@ -26,6 +26,10 @@ class DatasetAdapter(ABC):
     name: str
     #: Where the raw files come from.
     source: Source
+    #: The upstream data licence, recorded in the dataset card. This is the
+    #: dataset's own terms, which are separate from this repository's MIT
+    #: licence. See docs/dataset-licenses.md.
+    data_license: str = "unknown"
     #: Human-readable warnings recorded in the dataset card.
     caveats: tuple[str, ...] = ()
 

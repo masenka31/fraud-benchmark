@@ -169,3 +169,9 @@ def test_non_serializable_option_does_not_break_the_card(config, no_download, tm
     out = prepare("paysim", config)
     card = json.loads((out / "dataset_card.json").read_text())
     assert "scratch" in card["options"]
+
+
+def test_dataset_card_records_the_data_license(config, no_download):
+    out = prepare("paysim", config)
+    card = json.loads((out / "dataset_card.json").read_text())
+    assert card["data_license"] == "CC BY-SA 4.0"

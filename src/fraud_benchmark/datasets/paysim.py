@@ -33,6 +33,7 @@ def find_single_csv(raw_dir: Path) -> Path:
 class PaySimAdapter(DatasetAdapter):
     name = "paysim"
     source = KaggleDataset("ealaxi/paysim1")
+    data_license = "CC BY-SA 4.0"
     caveats = (
         "PaySim is fully synthetic. Its 'step' column is a 1-based hour offset, not a "
         "real date, so event_time is anchored to a configured start_date and the "

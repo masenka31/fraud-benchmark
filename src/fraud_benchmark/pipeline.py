@@ -43,6 +43,9 @@ def _build_card(name, adapter, options, df, config) -> dict:
         "name": name,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "source": _describe_source(adapter.source),
+        # The dataset's own terms, not this repo's licence. Recorded here so the
+        # terms travel with the output. See docs/dataset-licenses.md.
+        "data_license": adapter.data_license,
         "n_rows": int(len(df)),
         "n_fraud": int(df["is_fraud"].sum()),
         "fraud_rate": float(df["is_fraud"].mean()),
