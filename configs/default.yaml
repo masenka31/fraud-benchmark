@@ -10,3 +10,6 @@ datasets:
   # anchored to this start date.
   paysim:
     start_date: "2023-01-01"
+  # BankSim's `step` column is a 0-based day offset (0-179), not a real date.
+  banksim:
+    start_date: "2023-01-01"

@@ -81,7 +81,7 @@ def _cmd_prepare(args) -> int:
 
         if args.exclude_noncommercial and not adapter.commercial_use:
             print(f"{name}: skipped, licence forbids commercial use "
-                  f"({getattr(adapter, 'data_license', 'unknown')})")
+                  f"({adapter.data_license})")
             continue
 
         try:
