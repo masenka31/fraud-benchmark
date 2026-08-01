@@ -253,6 +253,13 @@ git commit -m "docs: Kaggle credential setup guide"
 Background: adapters produce the four required columns. `split` is added by the pipeline
 and `reported_at` by Plan 3, so neither is required at validation time.
 
+**Datetime resolution:** this environment runs pandas 3.0.5, where `pd.to_datetime()` on
+strings yields `datetime64[us]`, not `datetime64[ns]`. Resolution also varies with how a
+column was built. So `event_time` is validated with `pd.api.types.is_datetime64_dtype`,
+which accepts any naive resolution and rejects timezone-aware columns — the latter being
+correct, since the canonical schema defines `event_time` as naive UTC. Only the
+non-temporal columns are compared by exact dtype string.
+
 - [ ] **Step 1: Write the failing tests**
 
 `tests/test_schema.py`:
@@ -313,6 +320,23 @@ def test_validate_rejects_implausible_timestamps():
         validate_canonical(df)
 
 
+def test_validate_accepts_any_datetime_resolution():
+    # pandas 3 yields datetime64[us] from to_datetime; older code paths yield [ns].
+    # Both are valid canonical frames.
+    df = make_valid_frame()
+    df["event_time"] = df["event_time"].astype("datetime64[ns]")
+    validate_canonical(df)
+    df["event_time"] = df["event_time"].astype("datetime64[s]")
+    validate_canonical(df)
+
+
+def test_validate_rejects_timezone_aware_event_time():
+    df = make_valid_frame()
+    df["event_time"] = df["event_time"].dt.tz_localize("UTC")
+    with pytest.raises(SchemaError, match="event_time"):
+        validate_canonical(df)
+
+
 def test_order_columns_puts_core_first_and_keeps_the_rest():
     ordered = order_columns(make_valid_frame())
     assert list(ordered.columns) == [
@@ -357,13 +381,17 @@ import pandas as pd
 # pipeline and `reported_at` by the label-delay stage, so both may be absent.
 CORE_ORDER = ("event_time", "entity_id", "amount", "is_fraud", "split", "reported_at")
 
-# Columns every adapter must produce, mapped to their required dtype.
+# Non-temporal columns every adapter must produce, mapped to their exact dtype.
+# `event_time` is checked separately: pandas datetime resolution varies by version
+# and by how the column was built (pandas 3 yields [us], not [ns]), so any
+# timezone-naive datetime64 resolution is accepted.
 REQUIRED_DTYPES = {
-    "event_time": "datetime64[ns]",
     "entity_id": "string",
     "amount": "float64",
     "is_fraud": "bool",
 }
+
+REQUIRED_COLUMNS = ("event_time", *REQUIRED_DTYPES)
 
 # Any real transaction dataset falls inside this window. Outside it, the adapter
 # almost certainly mis-parsed a relative offset.
@@ -380,9 +408,15 @@ def validate_canonical(df: pd.DataFrame) -> None:
     if len(df) == 0:
         raise SchemaError("dataset is empty")
 
-    missing = [c for c in REQUIRED_DTYPES if c not in df.columns]
+    missing = [c for c in REQUIRED_COLUMNS if c not in df.columns]
     if missing:
         raise SchemaError(f"missing required column(s): {', '.join(missing)}")
+
+    if not pd.api.types.is_datetime64_dtype(df["event_time"]):
+        raise SchemaError(
+            f"column 'event_time' has dtype {str(df['event_time'].dtype)!r}; expected a "
+            "timezone-naive datetime64 column (any resolution)"
+        )
 
     for column, expected in REQUIRED_DTYPES.items():
         actual = str(df[column].dtype)
@@ -390,6 +424,8 @@ def validate_canonical(df: pd.DataFrame) -> None:
             raise SchemaError(
                 f"column {column!r} has dtype {actual!r}, expected {expected!r}"
             )
+
+    for column in REQUIRED_COLUMNS:
         null_count = int(df[column].isna().sum())
         if null_count:
             raise SchemaError(f"column {column!r} has {null_count} null value(s)")
@@ -413,7 +449,7 @@ def order_columns(df: pd.DataFrame) -> pd.DataFrame:
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_schema.py -v`
-Expected: 8 passed
+Expected: 10 passed
 
 - [ ] **Step 5: Commit**
 
