@@ -181,3 +181,10 @@ def test_dataset_card_records_commercial_use(config, no_download):
     out = prepare("paysim", config)
     card = json.loads((out / "dataset_card.json").read_text())
     assert card["commercial_use"] is True
+
+
+def test_card_records_the_shared_split_strategy(config, no_download):
+    out = prepare("paysim", config)
+    card = json.loads((out / "dataset_card.json").read_text())
+    assert card["split"]["strategy"] == "temporal, cut on timestamp values"
+    assert card["split"]["ratios"] == [0.6, 0.2, 0.2]

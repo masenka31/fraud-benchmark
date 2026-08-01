@@ -48,6 +48,17 @@ class DatasetAdapter(ABC):
     def column_mapping(self, options: dict[str, Any]) -> dict[str, str]:
         """Map each canonical column to the source column(s) it came from."""
 
+    def custom_splits(
+        self, df: pd.DataFrame, options: dict[str, Any]
+    ) -> pd.Series | None:
+        """Optionally supply this dataset's own split labels.
+
+        Return None — the default — to accept the shared temporal split. Override
+        only when the source dictates the split, e.g. an upstream test set that must
+        be preserved for comparability with published results.
+        """
+        return None
+
 
 _REGISTRY: dict[str, type[DatasetAdapter]] = {}
 

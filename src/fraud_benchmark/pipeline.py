@@ -30,15 +30,19 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
     validate_canonical(df)
 
     df = df.sort_values("event_time", kind="stable").reset_index(drop=True)
-    df["split"] = assign_splits(df, config.split_ratios)
+    supplied = adapter.custom_splits(df, options)
+    df["split"] = (
+        assign_splits(df, config.split_ratios) if supplied is None else supplied
+    )
     df = order_columns(df)
 
-    card = _build_card(name, adapter, options, df, config)
+    card = _build_card(
+        name, adapter, options, df, config, custom_split=supplied is not None
+    )
     return _write_atomically(config.processed_dir / name, df, card)
 
 
-def _build_card(name, adapter, options, df, config) -> dict:
-    bounds = split_boundaries(df, config.split_ratios)
+def _build_card(name, adapter, options, df, config, *, custom_split: bool) -> dict:
     return {
         "name": name,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -55,18 +59,28 @@ def _build_card(name, adapter, options, df, config) -> dict:
             "start": df["event_time"].min().isoformat(),
             "end": df["event_time"].max().isoformat(),
         },
-        "split": {
-            "strategy": "temporal, cut on timestamp values",
-            "ratios": list(config.split_ratios),
-            "train_end": bounds["train_end"].isoformat(),
-            "val_end": bounds["val_end"].isoformat(),
-            "counts": {
-                str(k): int(v) for k, v in df["split"].value_counts().items()
-            },
-        },
+        "split": _describe_split(adapter, df, config, custom_split=custom_split),
         "column_mapping": adapter.column_mapping(options),
         "options": options,
         "caveats": list(adapter.caveats),
+    }
+
+
+def _describe_split(adapter, df, config, *, custom_split: bool) -> dict:
+    counts = {str(k): int(v) for k, v in df["split"].value_counts().items()}
+    if custom_split:
+        return {
+            "strategy": f"supplied by the {adapter.name} adapter",
+            "ratios": None,
+            "counts": counts,
+        }
+    bounds = split_boundaries(df, config.split_ratios)
+    return {
+        "strategy": "temporal, cut on timestamp values",
+        "ratios": list(config.split_ratios),
+        "train_end": bounds["train_end"].isoformat(),
+        "val_end": bounds["val_end"].isoformat(),
+        "counts": counts,
     }
 
 

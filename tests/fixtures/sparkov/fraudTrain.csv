@@ -1,0 +1,4 @@
+Unnamed: 0,trans_date_trans_time,cc_num,merchant,category,amt,first,last,gender,city,state,zip,lat,long,city_pop,job,dob,trans_num,unix_time,merch_lat,merch_long,is_fraud
+0,2019-01-01 00:00:18,2703186189652095,fraud_Rippin and Kub,misc_net,4.97,Jennifer,Banks,F,Moravian Falls,NC,28654,36.0788,-81.1781,3495,Psychologist,1988-03-09,0b242abb623afc578575680df306,1325376018,36.011293,-82.048315,0
+1,2019-06-02 12:00:00,630423337322,fraud_Heller Ltd,grocery_pos,107.23,Stephanie,Gill,F,Orient,WA,99160,48.8878,-118.2105,149,Educator,1978-06-21,1f76529f8574734946361c461b02,1325376044,49.159047,-118.186462,1
+2,2020-06-21 12:13:37,2703186189652095,fraud_Lind-Buckridge,entertainment,220.11,Edward,Sanchez,M,Malad City,ID,83252,42.1808,-112.262,4154,Officer,1962-01-19,a1a22d70485983eac12b5b88dad1,1325376051,43.150704,-112.154481,0
