@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import requests
 import pytest
 from kagglehub.exceptions import CredentialError, KaggleApiHTTPError
@@ -49,6 +51,10 @@ def test_force_redownloads_even_when_present(tmp_path, monkeypatch):
 
     def fake_download(handle, *, force_download=False, output_dir=None):
         called.append(force_download)
+        # A real download always (re)writes files into output_dir; forcing now
+        # clears dest first, so the fake must replicate that or find nothing.
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        (Path(output_dir) / "data.csv").write_text("a,b\n1,2\n")
         return str(dest)
 
     monkeypatch.setattr("fraud_benchmark.sources.kagglehub.dataset_download", fake_download)
@@ -104,3 +110,21 @@ def test_empty_download_directory_is_an_error(tmp_path, monkeypatch):
 
     with pytest.raises(FetchError, match="no files"):
         fetch(KaggleDataset("ealaxi/paysim1"), tmp_path / "dest")
+
+
+def test_force_clears_stale_files(tmp_path, monkeypatch):
+    dest = tmp_path / "dest"
+    dest.mkdir()
+    (dest / "old_v1.csv").write_text("stale\n")
+
+    def fake_download(handle, *, force_download=False, output_dir=None):
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        (Path(output_dir) / "new_v2.csv").write_text("fresh\n")
+        return output_dir
+
+    monkeypatch.setattr("fraud_benchmark.sources.kagglehub.dataset_download", fake_download)
+
+    fetch(KaggleDataset("ealaxi/paysim1"), dest, force=True)
+
+    names = sorted(p.name for p in dest.iterdir())
+    assert names == ["new_v2.csv"], f"stale files survived a forced re-fetch: {names}"

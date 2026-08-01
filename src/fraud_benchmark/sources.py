@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -65,6 +66,9 @@ def fetch(source: Source, dest: Path, *, force: bool = False) -> Path:
     """
     if _has_files(dest) and not force:
         return dest
+
+    if force and dest.exists():
+        shutil.rmtree(dest)
 
     dest.mkdir(parents=True, exist_ok=True)
 

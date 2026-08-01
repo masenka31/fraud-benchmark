@@ -74,22 +74,41 @@ def _describe_source(source) -> dict:
 
 
 def _write_atomically(dest: Path, df: pd.DataFrame, card: dict) -> Path:
-    """Write into a temp directory, then swap it into place."""
+    """Write into a staging directory, then swap it into place.
+
+    The previous output is renamed aside rather than deleted, so an interrupted
+    swap leaves it recoverable instead of destroying it. `os.rename` onto a
+    non-empty directory fails, which is why the old output must be moved out of
+    the way before the replace rather than replaced directly.
+    """
     dest.parent.mkdir(parents=True, exist_ok=True)
     staging = dest.parent / f"{dest.name}.tmp{os.getpid()}"
-    if staging.exists():
-        shutil.rmtree(staging)
+    previous = dest.parent / f"{dest.name}.old{os.getpid()}"
+    for path in (staging, previous):
+        if path.exists():
+            shutil.rmtree(path)
     staging.mkdir()
 
     try:
         df.to_parquet(staging / "data.parquet", index=False)
-        (staging / "dataset_card.json").write_text(json.dumps(card, indent=2) + "\n")
+        (staging / "dataset_card.json").write_text(
+            json.dumps(card, indent=2, default=str) + "\n"
+        )
 
-        if dest.exists():
-            shutil.rmtree(dest)
+        try:
+            os.rename(dest, previous)
+        except FileNotFoundError:
+            # No previous output, or a concurrent run moved it first. Either is fine.
+            pass
         os.replace(staging, dest)
+    except BaseException:
+        # The swap failed after the old output was moved aside; put it back.
+        if previous.exists() and not dest.exists():
+            os.rename(previous, dest)
+        raise
     finally:
-        if staging.exists():
-            shutil.rmtree(staging)
+        for path in (staging, previous):
+            if path.exists():
+                shutil.rmtree(path)
 
     return dest

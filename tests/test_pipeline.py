@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 import pandas as pd
@@ -107,3 +108,64 @@ def test_validation_failure_writes_nothing(config, monkeypatch):
     with pytest.raises(ValueError, match="boom"):
         prepare("paysim", config)
     assert not (config.processed_dir / "paysim").exists()
+
+
+def test_failed_swap_preserves_previous_output(config, no_download, monkeypatch):
+    """The old output must survive a rewrite that dies during the swap itself.
+
+    The failure is injected at os.replace, i.e. after the current code has
+    already removed dest. Patching an earlier step (to_parquet) would not
+    exercise this: it raises before dest is ever touched.
+    """
+    out = prepare("paysim", config)
+    marker = out / "marker.txt"
+    marker.write_text("previous good run")
+    original = (out / "data.parquet").read_bytes()
+
+    def boom(src, dst):
+        raise OSError("swap interrupted")
+
+    monkeypatch.setattr("fraud_benchmark.pipeline.os.replace", boom)
+
+    with pytest.raises(OSError, match="swap interrupted"):
+        prepare("paysim", config)
+
+    assert marker.exists(), "previous good output was destroyed by a failed swap"
+    assert (out / "data.parquet").read_bytes() == original
+
+
+def test_concurrent_swap_does_not_raise(config, no_download, monkeypatch):
+    """A racing process may move dest aside first; that must not be an error."""
+    prepare("paysim", config)
+
+    real_rename = os.rename
+    calls = []
+
+    def racing_rename(src, dst):
+        # Simulate another process having already moved dest away: the racer's
+        # rename actually happens (src is gone by the time we look), and our
+        # own rename call observes that as FileNotFoundError.
+        if not calls:
+            calls.append((src, dst))
+            real_rename(src, config.processed_dir / "stolen-by-racer")
+            raise FileNotFoundError(2, "No such file or directory")
+        return real_rename(src, dst)
+
+    monkeypatch.setattr("fraud_benchmark.pipeline.os.rename", racing_rename)
+
+    out = prepare("paysim", config)
+    assert (out / "data.parquet").exists()
+
+
+def test_no_backup_directory_is_left_behind(config, no_download):
+    prepare("paysim", config)
+    prepare("paysim", config)
+    leftovers = sorted(p.name for p in config.processed_dir.iterdir())
+    assert leftovers == ["paysim"], f"leftover directories: {leftovers}"
+
+
+def test_non_serializable_option_does_not_break_the_card(config, no_download, tmp_path):
+    config.datasets["paysim"]["scratch"] = tmp_path / "somewhere"
+    out = prepare("paysim", config)
+    card = json.loads((out / "dataset_card.json").read_text())
+    assert "scratch" in card["options"]
