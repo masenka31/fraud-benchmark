@@ -99,3 +99,38 @@ def test_missing_split_parts_is_an_error(tmp_path):
     empty.mkdir()
     with pytest.raises(FileNotFoundError, match="archive.zip"):
         require_split_zip_member(empty, "archive.zip.*", "data.csv", tmp_path / "cache")
+
+
+def test_unpadded_parts_are_ordered_numerically(tmp_path):
+    """Lexicographic order would put .10 before .2 and corrupt the archive."""
+    from fraud_benchmark.datasets.files import require_split_zip_member
+
+    payload = b"z\n" * 4000
+    whole = tmp_path / "whole.zip"
+    with zipfile.ZipFile(whole, "w") as zf:
+        zf.writestr("data.csv", payload)
+    data = whole.read_bytes()
+    whole.unlink()
+
+    parts_dir = tmp_path / "raw" / "Data"
+    parts_dir.mkdir(parents=True)
+    size = len(data) // 12 + 1
+    for index, offset in enumerate(range(0, len(data), size), start=1):
+        # Deliberately UNPADDED suffixes.
+        (parts_dir / f"archive.zip.{index}").write_bytes(data[offset : offset + size])
+
+    out = require_split_zip_member(
+        tmp_path / "raw", "archive.zip.*", "data.csv", tmp_path / "cache"
+    )
+    assert out.read_bytes() == payload
+
+
+def test_a_missing_part_is_reported_clearly(tmp_path):
+    from fraud_benchmark.datasets.files import require_split_zip_member
+
+    raw = _make_split_zip(tmp_path, "data.csv", b"q\n" * 500, part_size=97)
+    parts = sorted((raw / "Data").iterdir())
+    parts[2].unlink()  # punch a hole in the sequence
+
+    with pytest.raises(FileNotFoundError, match="complete 1..N sequence"):
+        require_split_zip_member(raw, "archive.zip.*", "data.csv", tmp_path / "cache")

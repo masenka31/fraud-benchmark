@@ -62,6 +62,23 @@ def require_split_zip_member(
             f"no archive parts matching {part_glob!r} under {raw_dir}"
         )
 
+    suffixes = [path.suffix.lstrip(".") for path in parts]
+    if not all(s.isdigit() for s in suffixes):
+        raise FileNotFoundError(
+            f"archive parts under {raw_dir} do not all end in a numeric suffix: "
+            f"{', '.join(p.name for p in parts)}"
+        )
+    numbers = sorted(int(s) for s in suffixes)
+    if numbers != list(range(1, len(numbers) + 1)):
+        raise FileNotFoundError(
+            f"archive parts under {raw_dir} are not a complete 1..N sequence "
+            f"(found {numbers[0]}..{numbers[-1]}, {len(numbers)} parts); "
+            "some may be missing"
+        )
+    # Order by the NUMERIC suffix, so unpadded names like .1/.2/.10 cannot be
+    # concatenated in lexicographic order and silently corrupt the archive.
+    parts = sorted(parts, key=lambda p: int(p.suffix.lstrip(".")))
+
     cache_dir.mkdir(parents=True, exist_ok=True)
     archive = cache_dir / "_reassembled.zip"
     try:
