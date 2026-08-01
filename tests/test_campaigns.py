@@ -118,3 +118,29 @@ def test_ids_are_dense_from_zero():
     ])
     ids = assign_campaigns(df, gap=pd.Timedelta(days=7))
     assert sorted(ids.dropna().unique()) == [0, 1, 2]
+
+
+def test_multi_row_campaigns_across_several_entities_stay_separate():
+    """The sort-then-boundary logic must not bleed across entity changes.
+
+    Every existing entity test uses a single fraud per entity, so none of them
+    would catch an off-by-one at an entity boundary between two runs.
+    """
+    df = frame([
+        ("a", "2023-01-01", True),
+        ("a", "2023-01-02", True),
+        ("b", "2023-01-02", True),   # same day as a's second fraud
+        ("b", "2023-01-03", True),
+        ("c", "2023-01-03", True),
+        ("c", "2023-02-15", True),   # far apart: a second campaign for c
+    ])
+    ids = assign_campaigns(df, gap=pd.Timedelta(days=7))
+
+    # Four campaigns: a, b, and c twice.
+    assert ids.nunique() == 4
+    # No campaign may contain more than one entity.
+    grouped = df.assign(cid=ids).groupby("cid")["entity_id"].nunique()
+    assert (grouped == 1).all()
+    # a's two rows are one campaign; c's two rows are not.
+    assert ids.iloc[0] == ids.iloc[1]
+    assert ids.iloc[4] != ids.iloc[5]

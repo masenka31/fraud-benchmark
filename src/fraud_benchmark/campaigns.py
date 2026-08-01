@@ -44,7 +44,7 @@ def assign_campaigns(df: pd.DataFrame, gap: pd.Timedelta) -> pd.Series:
     #  * `entity_id` is `string` dtype, so `entity.ne(entity.shift())` yields <NA>
     #    on the first row rather than True. Hence `.fillna(True)`.
     #  * The resulting mask is `bool[pyarrow]`, and `.cumsum()` on that raises
-    #    `ArrowNotImplementedError`. Hence the conversion to a numpy bool array.
+    #    `TypeError`. Hence the conversion to a numpy bool array.
     starts = (entity.ne(entity.shift()) | elapsed.gt(gap)).fillna(True)
     numbering = np.cumsum(starts.to_numpy(dtype="bool")) - 1
     ids.loc[ordered.index] = pd.array(numbering, dtype="Int64")
