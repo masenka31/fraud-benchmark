@@ -113,7 +113,7 @@ def test_delay_settings_can_be_overridden(tmp_path):
         "  seed: 99\n"
         "  max_delay_days: 180.0\n"
         "campaign:\n"
-        "  gap: 2d\n"
+        "  gap: 2D\n"
     )
     config = load_config(path)
     assert config.delay.median_days == 30.0
@@ -125,7 +125,7 @@ def test_a_per_dataset_gap_override_wins(tmp_path):
     path = tmp_path / "custom.yaml"
     path.write_text(
         "campaign:\n"
-        "  gap: 2d\n"
+        "  gap: 2D\n"
         "datasets:\n"
         "  banksim:\n"
         "    campaign_gap: 30min\n"
@@ -151,6 +151,6 @@ def test_an_unparseable_gap_raises_config_error(tmp_path):
 
 def test_a_negative_gap_raises_config_error(tmp_path):
     path = tmp_path / "bad.yaml"
-    path.write_text("campaign:\n  gap: -3d\n")
+    path.write_text("campaign:\n  gap: -3D\n")
     with pytest.raises(ConfigError, match="negative"):
         load_config(path)

@@ -11,7 +11,7 @@ split:
 # 1 day is where Sparkov saturates (1,005 episodes, unchanged at 7d and 30d)
 # while keeping every other card dataset's tail plausible.
 campaign:
-  gap: 1d
+  gap: 1D
 
 # Reporting delay, lognormal in days. median_days is the distribution's median;
 # sigma controls the tail. Seeded so runs are reproducible.
