@@ -256,3 +256,13 @@ def test_delay_overrides_are_validated_at_load_time(tmp_path):
     )
     with pytest.raises(ConfigError, match="sigma"):
         load_config(path)
+
+
+def test_paysim_overrides_the_delay_to_one_day():
+    """PaySim's whole span is 30 simulated days; a 7-day median censors 53% of
+    its train labels. sigma and seed still inherit."""
+    config = load_config()
+    delay = config.delay_for("paysim")
+    assert delay.median_days == 1.0
+    assert delay.sigma == config.delay.sigma
+    assert delay.seed == config.delay.seed

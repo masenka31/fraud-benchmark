@@ -26,6 +26,12 @@ datasets:
   # anchored to this start date.
   paysim:
     start_date: "2023-01-01"
+    # Its whole span is 30 simulated days, so the train window is 14. At the
+    # global 7-day median only 47.3% of train frauds are reported by the train
+    # cutoff. This keeps the dataset usable; it does not make a 30-day clock
+    # realistic. sigma and seed inherit.
+    delay:
+      median_days: 1.0
   # BankSim's `step` column is a 0-based day offset (0-179), not a real date.
   banksim:
     start_date: "2023-01-01"
