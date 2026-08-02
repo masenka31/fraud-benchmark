@@ -149,6 +149,83 @@ unreported at the cutoff, and any experiment that trains on them is using the fu
   7-day delay negligible. Realistic, and it means IBM CCF will not exercise delay-aware
   evaluation much.
 
+## Per-dataset delay overrides, and two IBM CCF subsamples (2026-08-02)
+
+Two datasets were degenerate under one global distribution, so `delay:` is now overridable
+per dataset. Spec: `docs/superpowers/specs/2026-08-02-per-dataset-delay-and-ibm-ccf-subsample-design.md`.
+
+### PaySim: median 1 day
+
+Its whole span is 30 simulated days, so a 7-day median censored more than half its train
+labels. `sigma` and `seed` still inherit.
+
+| | before | after |
+|---|---:|---:|
+| known at train cutoff | 47.3% | **89.9%** |
+| delay p50 | 6.87d | 0.96d |
+| delay p95 | 36.33d | 5.23d |
+
+`early=0 null=0 stray=0`. This makes PaySim usable; it does not make a 30-day clock
+realistic.
+
+### `ibm_ccf_subsample_fast` and `ibm_ccf_subsample_slow`
+
+Both crop IBM CCF to `[2016-01-01, 2019-10-27 14:54]` — the right edge is the last
+labelled fraud, found in the data. **Verified row-identical: equal on all 50 non-delay
+columns across 6,569,157 rows, differing only in `reported_at`.** That property is what
+makes the two comparable.
+
+| | rows | frauds | train / val / test | campaigns |
+|---|---:|---:|---|---:|
+| both | 6,569,157 | 8,412 | 6,441 / 989 / 982 | 3,848 (p50 2, max 16) |
+
+| | median | nominal mean | sigma | cap | realised p50 | realised mean | p95 | known @ cutoff |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| fast | 7d | 30d | 1.706 | 365d | 6.8d | 25.3d | 117.2d | **97.0%** |
+| slow | 15d | 60d | 1.665 | 730d | 14.2d | 51.3d | 234.8d | **94.8%** |
+
+`early=0 null=0 stray=0` for both. Against the full `ibm_ccf`'s 100.0%, both now exercise
+delay-aware evaluation, and slow roughly doubles fast's censoring.
+
+Two figures that look wrong but are not:
+
+- **Realised means sit ~15% below nominal** (25.3 against 30, 51.3 against 60). The caps
+  bite about 1% of campaigns. Untruncated, these distributions sample delays out to 1,813
+  and 3,400 days — years past the end of the data. Cards record realised as well as
+  configured values, via `observed_mean_delay_days`.
+- **Max row-level delay slightly exceeds the cap** (366.9d against 365, 731.9d against
+  730). The cap applies to the campaign's single draw, measured from its *last*
+  transaction; a row earlier in the campaign carries the campaign's span on top of it.
+
+### Why 2016-01-01 rather than a relative window
+
+Measured, all cropped at the last labelled fraud:
+
+| left crop | rows | frauds | test frauds | known @ cutoff |
+|---|---:|---:|---:|---:|
+| 2015-01-01 | 8.27M | 11,693 | 1,256 | 98.2% |
+| **2016-01-01** | 6.57M | 8,412 | 982 | 97.0% |
+| 2016-10-27 (3y) | 5.17M | 5,327 | 779 | 94.5% |
+| 2017-01-01 | 4.86M | 4,833 | 761 | 95.2% |
+
+A three-year window starts in late October 2016 and discards most of a heavy fraud year:
++27% rows buys +58% frauds. Cropping on the last *transaction* instead of the last
+labelled fraud yields **0 frauds in test** — the four dead months swallow the whole split.
+
+### Artifacts found in IBM CCF while doing this
+
+Three, each found incidentally. Audit planned:
+`docs/superpowers/plans/2026-08-02-ibm-ccf-artifact-audit.md`.
+
+1. **Labelling stops 2019-10-27** while transactions run to 2020-02-28 — 645,180 rows,
+   zero frauds. Handled by the crop.
+2. **2017 has 255 frauds** against 3,579 in 2016 and 2,491 in 2018, a 14× dip. Falls
+   inside the subsample train split; not otherwise handled.
+3. **`Merchant State` is close to an oracle.** In the subsample window `Italy` covers
+   6,099 rows at **76.8% fraud** and accounts for **55.7% of all frauds**; `Algeria` is
+   96.2% fraud over 654 rows in the full data. Recorded in the adapters' caveats. A model
+   handed this column raw will score well and have learned nothing.
+
 ## Open, non-blocking
 
 - **IEEE-CIS emits `PerformanceWarning: DataFrame is highly fragmented`** during preparation.
