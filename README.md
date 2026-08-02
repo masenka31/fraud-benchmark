@@ -80,7 +80,12 @@ The code in this repository is MIT licensed (see `LICENSE`).
 upstream provider when you download it. This repository distributes no data — `data/` is
 gitignored and everything is fetched at run time with your own credentials.
 
-Two of the seven datasets (BankSim, SAML-D) are **NonCommercial**, and three
+Nine datasets are registered: seven distinct sources, plus `ibm_ccf_subsample_fast` and
+`ibm_ccf_subsample_slow`. Those two are crops of IBM CCF to a recent, fully-labelled
+window, row-identical to each other and differing only in reporting delay, so a model can
+be compared across delay regimes on the same data. They reuse IBM CCF's raw download.
+
+Two of the seven sources (BankSim, SAML-D) are **NonCommercial**, and three
 (PaySim, BankSim, SAML-D) are **ShareAlike**. IEEE-CIS is governed by Kaggle competition
 rules rather than an open licence. See **`docs/dataset-licenses.md`** for the full table,
 and check `data_license` in any prepared dataset's `dataset_card.json`.

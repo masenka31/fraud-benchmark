@@ -1,5 +1,6 @@
 import dataclasses
 
+import pandas as pd
 import pytest
 
 from fraud_benchmark.config import Config, ConfigError, load_config
@@ -81,3 +82,218 @@ def test_missing_path_key_raises_config_error(tmp_path):
     path.write_text("paths:\n  raw: null\n")
     with pytest.raises(ConfigError, match="paths.raw"):
         load_config(path)
+
+
+def test_default_config_has_delay_settings():
+    config = load_config()
+    assert config.delay.median_days == 7.0
+    assert config.delay.sigma == 1.0
+    assert config.delay.seed == 0
+
+
+def test_default_campaign_gap_is_one_day():
+    assert load_config().campaign_gap_for("paysim") == pd.Timedelta(days=1)
+
+
+def test_amaretto_overrides_the_campaign_gap_to_one_hour():
+    """Measured: Amaretto's anomalies have a 0.7-minute median inter-arrival.
+
+    At the 1-day default it yields 490 episodes with a 3,870-row maximum; at
+    1 hour, 1,852 episodes with a median of 8.
+    """
+    assert load_config().campaign_gap_for("amaretto") == pd.Timedelta(hours=1)
+
+
+def test_delay_settings_can_be_overridden(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "delay:\n"
+        "  median_days: 30.0\n"
+        "  sigma: 1.5\n"
+        "  seed: 99\n"
+        "  max_delay_days: 180.0\n"
+        "campaign:\n"
+        "  gap: 2D\n"
+    )
+    config = load_config(path)
+    assert config.delay.median_days == 30.0
+    assert config.delay.max_delay_days == 180.0
+    assert config.campaign_gap_for("paysim") == pd.Timedelta(days=2)
+
+
+def test_a_per_dataset_gap_override_wins(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "campaign:\n"
+        "  gap: 2D\n"
+        "datasets:\n"
+        "  banksim:\n"
+        "    campaign_gap: 30min\n"
+    )
+    config = load_config(path)
+    assert config.campaign_gap_for("banksim") == pd.Timedelta(minutes=30)
+    assert config.campaign_gap_for("paysim") == pd.Timedelta(days=2)
+
+
+def test_invalid_delay_settings_raise_config_error(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("delay:\n  median_days: -1.0\n")
+    with pytest.raises(ConfigError, match="median_days"):
+        load_config(path)
+
+
+def test_an_unparseable_gap_raises_config_error(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("campaign:\n  gap: not-a-duration\n")
+    with pytest.raises(ConfigError, match="gap"):
+        load_config(path)
+
+
+def test_a_negative_gap_raises_config_error(tmp_path):
+    path = tmp_path / "bad.yaml"
+    path.write_text("campaign:\n  gap: -3D\n")
+    with pytest.raises(ConfigError, match="negative"):
+        load_config(path)
+
+
+def test_a_dataset_without_an_override_gets_the_global_delay():
+    config = load_config()
+    assert config.delay_for("banksim") == config.delay
+
+
+def test_a_delay_override_merges_over_the_global_block(tmp_path):
+    """Only the named keys move; the rest inherit."""
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "delay:\n"
+        "  median_days: 7.0\n"
+        "  sigma: 1.0\n"
+        "  seed: 5\n"
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      median_days: 2.0\n"
+    )
+    config = load_config(path)
+    delay = config.delay_for("banksim")
+    assert delay.median_days == 2.0
+    assert delay.sigma == 1.0
+    assert delay.seed == 5
+
+
+def test_a_delay_override_does_not_leak_to_other_datasets(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      median_days: 2.0\n"
+    )
+    config = load_config(path)
+    assert config.delay_for("banksim").median_days == 2.0
+    assert config.delay_for("sparkov").median_days == config.delay.median_days
+
+
+def test_a_delay_override_can_set_max_delay_days(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      max_delay_days: 365\n"
+    )
+    assert load_config(path).delay_for("banksim").max_delay_days == 365.0
+
+
+def test_an_unknown_delay_key_is_rejected(tmp_path):
+    """A typo must fail loudly, not silently inherit the global value."""
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      median_day: 2.0\n"
+    )
+    with pytest.raises(ConfigError, match="median_day"):
+        load_config(path)
+
+
+def test_an_invalid_delay_override_is_rejected(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      median_days: -1.0\n"
+    )
+    with pytest.raises(ConfigError, match="median_days"):
+        load_config(path)
+
+
+def test_a_non_mapping_delay_override_is_rejected(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay: 7\n"
+    )
+    with pytest.raises(ConfigError, match="mapping"):
+        load_config(path)
+
+
+def test_delay_overrides_are_validated_at_load_time(tmp_path):
+    """Errors must surface on load_config, not on the later delay_for call.
+
+    A bad override that only raises when a dataset is prepared would let
+    `prepare --all` fail halfway through, after writing other datasets.
+    """
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      sigma: 0\n"
+    )
+    with pytest.raises(ConfigError, match="sigma"):
+        load_config(path)
+
+
+def test_paysim_overrides_the_delay_to_one_day():
+    """PaySim's whole span is 30 simulated days; a 7-day median censors 53% of
+    its train labels. sigma and seed still inherit."""
+    config = load_config()
+    delay = config.delay_for("paysim")
+    assert delay.median_days == 1.0
+    assert delay.sigma == config.delay.sigma
+    assert delay.seed == config.delay.seed
+
+
+def test_the_fast_subsample_has_a_thirty_day_mean_delay():
+    """sigma = sqrt(2*ln(30/7)) places a lognormal's mean at 30 with median 7."""
+    delay = load_config().delay_for("ibm_ccf_subsample_fast")
+    assert delay.median_days == 7.0
+    assert delay.sigma == pytest.approx(1.706, abs=5e-4)
+    assert delay.max_delay_days == 365.0
+
+
+def test_the_slow_subsample_has_a_sixty_day_mean_delay():
+    """sigma = sqrt(2*ln(60/15))."""
+    delay = load_config().delay_for("ibm_ccf_subsample_slow")
+    assert delay.median_days == 15.0
+    assert delay.sigma == pytest.approx(1.665, abs=5e-4)
+    assert delay.max_delay_days == 730.0
+
+
+def test_both_subsamples_share_one_window():
+    """They must be row-identical; only the delay may differ."""
+    config = load_config()
+    fast = config.for_dataset("ibm_ccf_subsample_fast")
+    slow = config.for_dataset("ibm_ccf_subsample_slow")
+    assert fast["start_date"] == slow["start_date"] == "2016-01-01"
+    assert fast["entity_key"] == slow["entity_key"]
+
+
+def test_the_subsamples_keep_the_default_campaign_gap():
+    config = load_config()
+    for name in ("ibm_ccf_subsample_fast", "ibm_ccf_subsample_slow"):
+        assert config.campaign_gap_for(name) == pd.Timedelta(days=1)

@@ -65,6 +65,26 @@ def validate_canonical(df: pd.DataFrame) -> None:
             f"{MIN_PLAUSIBLE_TIME.date()} and {MAX_PLAUSIBLE_TIME.date()}"
         )
 
+    if "reported_at" in df.columns:
+        reported = df["reported_at"]
+        if not pd.api.types.is_datetime64_dtype(reported):
+            raise SchemaError(
+                f"column 'reported_at' has dtype {str(reported.dtype)!r}; expected a "
+                "timezone-naive datetime64 column (any resolution)"
+            )
+        stray = reported.notna() & ~df["is_fraud"]
+        if stray.any():
+            raise SchemaError(
+                f"column 'reported_at' is set on {int(stray.sum())} non-fraud row(s); "
+                "only frauds are ever reported"
+            )
+        early = reported.notna() & (reported < df["event_time"])
+        if early.any():
+            raise SchemaError(
+                f"column 'reported_at' precedes event_time on {int(early.sum())} "
+                "row(s); a fraud cannot be reported before it happens"
+            )
+
 
 def order_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Return `df` with core columns first, then all remaining columns unchanged."""

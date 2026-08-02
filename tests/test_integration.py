@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from fraud_benchmark.config import Config
+from fraud_benchmark.delay import DelayParams
 from fraud_benchmark.pipeline import prepare
 
 
@@ -14,6 +15,8 @@ def test_paysim_end_to_end(tmp_path):
         processed_dir=tmp_path / "processed",
         split_ratios=(0.8, 0.1, 0.1),
         datasets={"paysim": {"start_date": "2023-01-01"}},
+        delay=DelayParams(median_days=7.0, sigma=1.0, seed=0),
+        campaign_gap=pd.Timedelta(days=1),
     )
     out = prepare("paysim", config)
     df = pd.read_parquet(out / "data.parquet")

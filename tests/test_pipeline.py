@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from fraud_benchmark.config import Config
+from fraud_benchmark.delay import DelayParams
 from fraud_benchmark.pipeline import prepare
 
 FIXTURE = Path(__file__).parent / "fixtures" / "paysim"
@@ -17,6 +18,8 @@ def config(tmp_path):
         raw_dir=tmp_path / "raw",
         processed_dir=tmp_path / "processed",
         split_ratios=(0.6, 0.2, 0.2),
+        delay=DelayParams(median_days=7.0, sigma=1.0, seed=0),
+        campaign_gap=pd.Timedelta(days=1),
         datasets={"paysim": {"start_date": "2023-01-01"}},
     )
 
@@ -88,6 +91,46 @@ def test_rerun_replaces_previous_output(config, no_download):
     prepare("paysim", config)
     assert not stale.exists()
     assert (first / "data.parquet").exists()
+
+
+def test_reported_at_is_written(config, no_download):
+    out = prepare("paysim", config)
+    df = pd.read_parquet(out / "data.parquet")
+    assert "reported_at" in df.columns
+    assert df.loc[df.is_fraud, "reported_at"].notna().all()
+    assert df.loc[~df.is_fraud, "reported_at"].isna().all()
+
+
+def test_campaign_id_is_written(config, no_download):
+    out = prepare("paysim", config)
+    df = pd.read_parquet(out / "data.parquet")
+    assert "campaign_id" in df.columns
+    assert df.loc[~df.is_fraud, "campaign_id"].isna().all()
+
+
+def test_reported_at_never_precedes_the_transaction(config, no_download):
+    out = prepare("paysim", config)
+    df = pd.read_parquet(out / "data.parquet")
+    fraud = df[df.is_fraud]
+    assert (fraud["reported_at"] >= fraud["event_time"]).all()
+
+
+def test_the_run_is_reproducible(config, no_download):
+    """Same seed, same output — otherwise the benchmark is not comparable."""
+    first = pd.read_parquet(prepare("paysim", config) / "data.parquet")
+    second = pd.read_parquet(prepare("paysim", config) / "data.parquet")
+    assert first["reported_at"].equals(second["reported_at"])
+
+
+def test_card_records_the_delay_parameters(config, no_download):
+    out = prepare("paysim", config)
+    card = json.loads((out / "dataset_card.json").read_text())
+    assert card["label_delay"]["distribution"] == "lognormal"
+    assert card["label_delay"]["median_days"] == 7.0
+    assert card["label_delay"]["seed"] == 0
+    assert card["label_delay"]["campaign_gap"] == "1 days 00:00:00"
+    assert card["label_delay"]["n_campaigns"] >= 1
+    assert card["label_delay"]["largest_campaign"] >= 1
 
 
 def test_no_temp_directory_is_left_behind(config, no_download):
@@ -275,3 +318,35 @@ def test_a_failing_auxiliary_write_preserves_previous_output(
     assert (out / "data.parquet").read_bytes() == original
     assert not list(config.processed_dir.glob("*.tmp*"))
     assert not list(config.processed_dir.glob("*.old*"))
+
+
+@pytest.fixture
+def config_with_override(tmp_path):
+    return Config(
+        raw_dir=tmp_path / "raw",
+        processed_dir=tmp_path / "processed",
+        split_ratios=(0.6, 0.2, 0.2),
+        delay=DelayParams(median_days=7.0, sigma=1.0, seed=0),
+        campaign_gap=pd.Timedelta(days=1),
+        datasets={
+            "paysim": {
+                "start_date": "2023-01-01",
+                "delay": {"median_days": 1.0},
+            }
+        },
+    )
+
+
+def test_the_override_changes_the_timestamps(config, config_with_override, no_download):
+    """The same seed must still produce different delays under a different median."""
+    base = pd.read_parquet(prepare("paysim", config) / "data.parquet")
+    other = pd.read_parquet(prepare("paysim", config_with_override) / "data.parquet")
+    assert not base["reported_at"].equals(other["reported_at"])
+
+
+def test_the_card_records_the_resolved_delay(config_with_override, no_download):
+    out = prepare("paysim", config_with_override)
+    card = json.loads((out / "dataset_card.json").read_text())
+    # 1.0, not the global 7.0 — a card must never misreport what produced it.
+    assert card["label_delay"]["median_days"] == 1.0
+    assert card["label_delay"]["sigma"] == 1.0

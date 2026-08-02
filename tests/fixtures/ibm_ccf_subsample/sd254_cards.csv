@@ -1,0 +1,4 @@
+User,CARD INDEX,Card Brand,Card Type,Card Number,Expires,CVV,Has Chip,Cards Issued,Credit Limit,Acct Open Date,Year PIN last Changed,Card on Dark Web
+0,0,Visa,Debit,4344676511950444,12/2022,623,YES,2,$24295,09/2002,2008,No
+0,1,Visa,Credit,4956965974959986,12/2020,393,YES,1,$21968,04/2014,2014,No
+1,0,Amex,Credit,340071811951482,02/2024,693,NO,1,$12400,01/2009,2009,No

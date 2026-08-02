@@ -12,8 +12,10 @@ from pathlib import Path
 import pandas as pd
 
 import fraud_benchmark.datasets  # noqa: F401  (registers all adapters)
+from fraud_benchmark.campaigns import assign_campaigns, campaign_sizes
 from fraud_benchmark.config import Config
 from fraud_benchmark.datasets.base import get_adapter
+from fraud_benchmark.delay import DelayParams, assign_reported_at
 from fraud_benchmark.schema import order_columns, validate_canonical
 from fraud_benchmark.splitting import assign_splits, split_boundaries
 from fraud_benchmark.sources import fetch
@@ -24,7 +26,7 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
     adapter = get_adapter(name)
     options = config.for_dataset(name)
 
-    raw_dir = fetch(adapter.source, config.raw_dir / name, force=force)
+    raw_dir = fetch(adapter.source, config.raw_dir / adapter.raw_name, force=force)
 
     df = adapter.to_canonical(raw_dir, options)
     validate_canonical(df)
@@ -34,17 +36,44 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
     df["split"] = (
         assign_splits(df, config.split_ratios) if supplied is None else supplied
     )
+
+    gap = config.campaign_gap_for(name)
+    delay = config.delay_for(name)
+    df["campaign_id"] = assign_campaigns(df, gap=gap)
+    df["reported_at"] = assign_reported_at(df, delay)
+
+    # Re-validate: the adapter's output was checked earlier, but the delay stage
+    # is the one that can produce an impossible reported_at, and nothing should
+    # reach disk unchecked.
+    validate_canonical(df)
     df = order_columns(df)
 
     aux = adapter.auxiliary_frames(raw_dir, options)
     card = _build_card(
-        name, adapter, options, df, config, custom_split=supplied is not None
+        name,
+        adapter,
+        options,
+        df,
+        config,
+        custom_split=supplied is not None,
+        gap=gap,
+        delay=delay,
     )
     card["auxiliary"] = {key: int(len(frame)) for key, frame in aux.items()}
     return _write_atomically(config.processed_dir / name, df, card, aux)
 
 
-def _build_card(name, adapter, options, df, config, *, custom_split: bool) -> dict:
+def _build_card(
+    name,
+    adapter,
+    options,
+    df,
+    config,
+    *,
+    custom_split: bool,
+    gap: pd.Timedelta,
+    delay: DelayParams,
+) -> dict:
     return {
         "name": name,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -62,6 +91,7 @@ def _build_card(name, adapter, options, df, config, *, custom_split: bool) -> di
             "end": df["event_time"].max().isoformat(),
         },
         "split": _describe_split(adapter, df, config, custom_split=custom_split),
+        "label_delay": _describe_delay(df, delay, gap),
         "column_mapping": adapter.column_mapping(options),
         "options": options,
         "caveats": list(adapter.caveats),
@@ -83,6 +113,27 @@ def _describe_split(adapter, df, config, *, custom_split: bool) -> dict:
         "train_end": bounds["train_end"].isoformat(),
         "val_end": bounds["val_end"].isoformat(),
         "counts": counts,
+    }
+
+
+def _describe_delay(df, delay: DelayParams, gap) -> dict:
+    sizes = campaign_sizes(df["campaign_id"])
+    fraud = df.loc[df["is_fraud"]]
+    delays = (fraud["reported_at"] - fraud["event_time"]).dt.total_seconds() / 86_400
+    return {
+        "distribution": "lognormal",
+        "median_days": delay.median_days,
+        "sigma": delay.sigma,
+        "seed": delay.seed,
+        "max_delay_days": delay.max_delay_days,
+        "campaign_gap": str(gap),
+        "n_campaigns": int(sizes.size),
+        "largest_campaign": int(sizes.max()) if sizes.size else 0,
+        "median_campaign_size": float(sizes.median()) if sizes.size else 0.0,
+        "observed_median_delay_days": float(delays.median()) if len(delays) else 0.0,
+        # Truncation pulls the realised mean below nominal, so record what
+        # actually happened rather than only what was configured.
+        "observed_mean_delay_days": float(delays.mean()) if len(delays) else 0.0,
     }
 
 
