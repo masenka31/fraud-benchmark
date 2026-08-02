@@ -17,6 +17,14 @@ def config_file(tmp_path):
         f"  processed: {tmp_path / 'processed'}\n"
         f"split:\n"
         f"  ratios: [0.6, 0.2, 0.2]\n"
+        # The subsample variants crop to [start_date, last labelled fraud]. The
+        # real default is 2016-01-01, but the shared ibm_ccf fixture's last fraud
+        # is 2011-01-01, which would leave an empty window here.
+        f"datasets:\n"
+        f"  ibm_ccf_subsample_fast:\n"
+        f"    start_date: '2002-01-01'\n"
+        f"  ibm_ccf_subsample_slow:\n"
+        f"    start_date: '2002-01-01'\n"
     )
     return path
 
