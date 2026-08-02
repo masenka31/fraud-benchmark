@@ -42,6 +42,34 @@ datasets:
   # A user may hold several cards; 'user' groups them, 'card' keeps them separate.
   ibm_ccf:
     entity_key: user
+  # Two crops of ibm_ccf to [2016-01-01, last labelled fraud 2019-10-27]:
+  # 6,569,157 rows, 8,412 frauds, 982 of them in test. Row-identical to each
+  # other; they differ only in reporting delay, so a model can be compared
+  # across delay regimes on the same data.
+  #
+  # Why crop at all: ibm_ccf spans 10,649 days, so a realistic delay censors
+  # 3 of its 24,924 train frauds — no delay effect to measure. Why 2016-01-01
+  # rather than a three-year window: the latter starts in late October 2016 and
+  # discards most of a heavy fraud year. +27% rows buys +58% frauds.
+  ibm_ccf_subsample_fast:
+    entity_key: user
+    start_date: "2016-01-01"
+    delay:
+      # sigma = sqrt(2*ln(30/7)): median 7 days, mean 30. Capped at a year —
+      # untruncated this samples delays out to 1,813 days, well past the end of
+      # the data. The cap bites ~1% of campaigns and pulls the realised mean to
+      # about 25 days.
+      sigma: 1.706
+      max_delay_days: 365
+  ibm_ccf_subsample_slow:
+    entity_key: user
+    start_date: "2016-01-01"
+    delay:
+      # sigma = sqrt(2*ln(60/15)): median 15 days, mean 60. Roughly doubles the
+      # censoring of the fast variant. Realised mean about 51 days after the cap.
+      median_days: 15.0
+      sigma: 1.665
+      max_delay_days: 730
   # TransactionDT is a seconds offset with no stated origin.
   ieee_cis:
     start_date: "2017-12-01"

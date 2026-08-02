@@ -266,3 +266,34 @@ def test_paysim_overrides_the_delay_to_one_day():
     assert delay.median_days == 1.0
     assert delay.sigma == config.delay.sigma
     assert delay.seed == config.delay.seed
+
+
+def test_the_fast_subsample_has_a_thirty_day_mean_delay():
+    """sigma = sqrt(2*ln(30/7)) places a lognormal's mean at 30 with median 7."""
+    delay = load_config().delay_for("ibm_ccf_subsample_fast")
+    assert delay.median_days == 7.0
+    assert delay.sigma == pytest.approx(1.706, abs=5e-4)
+    assert delay.max_delay_days == 365.0
+
+
+def test_the_slow_subsample_has_a_sixty_day_mean_delay():
+    """sigma = sqrt(2*ln(60/15))."""
+    delay = load_config().delay_for("ibm_ccf_subsample_slow")
+    assert delay.median_days == 15.0
+    assert delay.sigma == pytest.approx(1.665, abs=5e-4)
+    assert delay.max_delay_days == 730.0
+
+
+def test_both_subsamples_share_one_window():
+    """They must be row-identical; only the delay may differ."""
+    config = load_config()
+    fast = config.for_dataset("ibm_ccf_subsample_fast")
+    slow = config.for_dataset("ibm_ccf_subsample_slow")
+    assert fast["start_date"] == slow["start_date"] == "2016-01-01"
+    assert fast["entity_key"] == slow["entity_key"]
+
+
+def test_the_subsamples_keep_the_default_campaign_gap():
+    config = load_config()
+    for name in ("ibm_ccf_subsample_fast", "ibm_ccf_subsample_slow"):
+        assert config.campaign_gap_for(name) == pd.Timedelta(days=1)
