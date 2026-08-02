@@ -1365,8 +1365,16 @@ def features(n=600, seed=0):
             ),
             "is_fraud": is_fraud,
             "split": pd.Series(split, dtype="string"),
+            # Mixed reporting speed. A single delay longer than the train window
+            # would censor every fraud, leaving the censored regime with no
+            # positives at all -- which is a degenerate case, not the partial
+            # censoring this study is about.
             "reported_at": pd.Series(
-                np.where(is_fraud, times + pd.Timedelta(days=30), pd.NaT)
+                np.where(
+                    is_fraud,
+                    times + pd.to_timedelta(np.where(np.arange(n) % 2 == 0, 1, 60), unit="D"),
+                    pd.NaT,
+                )
             ),
             "txn_count_24h": rng.integers(0, 5, n).astype("float64"),
             "merchant_novelty": rng.integers(0, 2, n),
@@ -1649,6 +1657,14 @@ def run_cell(
         y_train = censored_labels(train, cutoff=train["event_time"].max())
     else:
         raise ValueError(f"unknown label_regime {label_regime!r}")
+
+    if y_train.sum() == 0:
+        raise ValueError(
+            f"{dataset}/{feature_set}/{label_regime}: no positive labels in train. "
+            "Under the censored regime this means every fraud in the train window "
+            "is reported after the cutoff, so there is nothing to learn. Fitting "
+            "would fail deep inside sklearn with a much less informative message."
+        )
 
     columns = feature_columns(df, dataset=dataset, feature_set=feature_set)
 
