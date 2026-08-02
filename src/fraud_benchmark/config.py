@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +40,19 @@ class Config:
         """
         override = self.for_dataset(name).get("campaign_gap")
         return _parse_gap(override) if override is not None else self.campaign_gap
+
+    def delay_for(self, name: str) -> DelayParams:
+        """The delay parameters for one dataset, honouring a partial override.
+
+        A dataset's `delay:` block overrides only the keys it names; the rest
+        inherit the global block, so changing the global seed still moves every
+        dataset. One distribution does not fit every dataset: PaySim's whole span
+        is 30 days, while IBM CCF's is 10,649.
+        """
+        override = self.for_dataset(name).get("delay")
+        if override is None:
+            return self.delay
+        return _merge_delay(self.delay, override, name)
 
 
 def _deep_merge(base: dict, override: dict) -> dict:
@@ -96,6 +109,39 @@ def _build_delay(data: dict) -> DelayParams:
         raise ConfigError(f"invalid delay settings: {exc}") from exc
 
 
+_DELAY_FIELDS = {f.name for f in fields(DelayParams)}
+
+
+def _merge_delay(base: DelayParams, override: Any, name: str) -> DelayParams:
+    """Overlay a per-dataset `delay:` block onto the global one."""
+    if not isinstance(override, dict):
+        raise ConfigError(f"datasets.{name}.delay must be a mapping, got {override!r}")
+    unknown = sorted(set(override) - _DELAY_FIELDS)
+    if unknown:
+        # Silently ignoring a typo would leave the dataset on the global default
+        # while the config claims otherwise.
+        raise ConfigError(
+            f"unknown delay setting(s) for {name}: {', '.join(unknown)}; "
+            f"valid keys are {', '.join(sorted(_DELAY_FIELDS))}"
+        )
+    try:
+        coerced = {
+            key: (
+                int(value)
+                if key == "seed"
+                else None
+                if value is None
+                else float(value)
+            )
+            for key, value in override.items()
+        }
+        # replace() re-runs DelayParams.__post_init__, so an override gets exactly
+        # the validation the global block gets.
+        return replace(base, **coerced)
+    except (TypeError, ValueError) as exc:
+        raise ConfigError(f"invalid delay settings for {name}: {exc}") from exc
+
+
 def _load_yaml(path: Path | str) -> dict:
     """Read a YAML file, turning any read/parse failure into a ConfigError."""
     try:
@@ -125,7 +171,7 @@ def load_config(path: Path | str | None = None) -> Config:
         data = _deep_merge(data, _load_yaml(path))
 
     paths = _require_paths(data)
-    return Config(
+    config = Config(
         raw_dir=Path(paths["raw"]),
         processed_dir=Path(paths["processed"]),
         split_ratios=_validate_ratios(data.get("split", {}).get("ratios")),
@@ -133,3 +179,8 @@ def load_config(path: Path | str | None = None) -> Config:
         campaign_gap=_parse_gap((data.get("campaign") or {}).get("gap", "1d")),
         datasets=data.get("datasets") or {},
     )
+    # Resolve every override now: a bad one that only raised when its dataset was
+    # prepared would let `prepare --all` die halfway, after writing other datasets.
+    for name in config.datasets:
+        config.delay_for(name)
+    return config

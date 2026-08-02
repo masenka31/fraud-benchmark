@@ -154,3 +154,105 @@ def test_a_negative_gap_raises_config_error(tmp_path):
     path.write_text("campaign:\n  gap: -3D\n")
     with pytest.raises(ConfigError, match="negative"):
         load_config(path)
+
+
+def test_a_dataset_without_an_override_gets_the_global_delay():
+    config = load_config()
+    assert config.delay_for("banksim") == config.delay
+
+
+def test_a_delay_override_merges_over_the_global_block(tmp_path):
+    """Only the named keys move; the rest inherit."""
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "delay:\n"
+        "  median_days: 7.0\n"
+        "  sigma: 1.0\n"
+        "  seed: 5\n"
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      median_days: 2.0\n"
+    )
+    config = load_config(path)
+    delay = config.delay_for("banksim")
+    assert delay.median_days == 2.0
+    assert delay.sigma == 1.0
+    assert delay.seed == 5
+
+
+def test_a_delay_override_does_not_leak_to_other_datasets(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      median_days: 2.0\n"
+    )
+    config = load_config(path)
+    assert config.delay_for("banksim").median_days == 2.0
+    assert config.delay_for("sparkov").median_days == config.delay.median_days
+
+
+def test_a_delay_override_can_set_max_delay_days(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      max_delay_days: 365\n"
+    )
+    assert load_config(path).delay_for("banksim").max_delay_days == 365.0
+
+
+def test_an_unknown_delay_key_is_rejected(tmp_path):
+    """A typo must fail loudly, not silently inherit the global value."""
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      median_day: 2.0\n"
+    )
+    with pytest.raises(ConfigError, match="median_day"):
+        load_config(path)
+
+
+def test_an_invalid_delay_override_is_rejected(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      median_days: -1.0\n"
+    )
+    with pytest.raises(ConfigError, match="median_days"):
+        load_config(path)
+
+
+def test_a_non_mapping_delay_override_is_rejected(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay: 7\n"
+    )
+    with pytest.raises(ConfigError, match="mapping"):
+        load_config(path)
+
+
+def test_delay_overrides_are_validated_at_load_time(tmp_path):
+    """Errors must surface on load_config, not on the later delay_for call.
+
+    A bad override that only raises when a dataset is prepared would let
+    `prepare --all` fail halfway through, after writing other datasets.
+    """
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  banksim:\n"
+        "    delay:\n"
+        "      sigma: 0\n"
+    )
+    with pytest.raises(ConfigError, match="sigma"):
+        load_config(path)
