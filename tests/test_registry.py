@@ -54,6 +54,23 @@ def test_list_datasets_includes_registered_adapter(fake_adapter):
     assert "fake_for_tests" in list_datasets()
 
 
+def test_raw_name_defaults_to_the_dataset_name(fake_adapter):
+    assert get_adapter("fake_for_tests").raw_name == "fake_for_tests"
+
+
+def test_every_registered_adapter_has_a_raw_name():
+    """A variant may share another dataset's raw files, but never by accident."""
+    for name in list_datasets():
+        adapter = get_adapter(name)
+        assert isinstance(adapter.raw_name, str) and adapter.raw_name
+
+
+def test_raw_name_can_be_overridden():
+    cls = make_fake_class(name="fake_variant")
+    cls.raw_name = "fake_for_tests"
+    assert cls().raw_name == "fake_for_tests"
+
+
 def test_registry_is_clean_without_the_fixture():
     assert "fake_for_tests" not in list_datasets()
 

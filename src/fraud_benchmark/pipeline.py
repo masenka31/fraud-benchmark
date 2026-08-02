@@ -26,7 +26,7 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
     adapter = get_adapter(name)
     options = config.for_dataset(name)
 
-    raw_dir = fetch(adapter.source, config.raw_dir / name, force=force)
+    raw_dir = fetch(adapter.source, config.raw_dir / adapter.raw_name, force=force)
 
     df = adapter.to_canonical(raw_dir, options)
     validate_canonical(df)

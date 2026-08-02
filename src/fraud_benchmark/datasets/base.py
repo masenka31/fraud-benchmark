@@ -24,6 +24,10 @@ class DatasetAdapter(ABC):
 
     #: Short identifier used on the CLI and as the output directory name.
     name: str
+    #: Directory under data/raw to fetch into. Defaults to `name`, resolved by
+    #: `register`. A variant that reuses another dataset's raw files sets this to
+    #: that dataset's name, so the download is shared rather than duplicated.
+    raw_name: str = ""
     #: Where the raw files come from.
     source: Source
     #: The upstream data licence, recorded in the dataset card. This is the
@@ -82,6 +86,8 @@ def register(cls: type[DatasetAdapter]) -> type[DatasetAdapter]:
             f"{cls.__name__} must set a non-empty string 'name' class attribute "
             "before it can be registered"
         )
+    if not getattr(cls, "raw_name", ""):
+        cls.raw_name = name
     if name in _REGISTRY:
         raise ValueError(f"dataset {name!r} is already registered")
     _REGISTRY[name] = cls
