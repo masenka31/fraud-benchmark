@@ -1,4 +1,4 @@
-# Per-dataset label delay, and an IBM CCF subsample
+# Per-dataset label delay, and two IBM CCF subsamples
 
 **Status:** approved 2026-08-02. Follows Plan 4 (label delay), which is complete.
 
@@ -9,17 +9,16 @@ data exposed two datasets where a single global distribution gives a degenerate 
 
 **PaySim is over-delayed.** Its entire span is 30 simulated days, so the train window is
 14 days. Against a 7-day median delay, 2,090 of 3,963 train frauds are still unreported at
-the cutoff — only 47.3% of train labels are usable. The delay is not wrong in itself; it is
-simply enormous relative to a 30-day clock.
+the cutoff — only 47.3% of train labels are usable.
 
 **IBM CCF is effectively undelayed.** Its span is 10,649 days (1991–2020), so a 7-day delay
-censors 3 frauds out of 24,924 — 100.0% known at the cutoff. It is the most important
-dataset in the suite by size, and it exercises delay-aware evaluation not at all.
+censors 3 frauds out of 24,924 — 100.0% known at the cutoff. It is the largest dataset in
+the suite, and it exercises delay-aware evaluation not at all.
 
-## The measured obstacle
+## Two measured obstacles in IBM CCF
 
-IBM CCF's fraud labelling stops on **2019-10-27 14:54**, while transactions continue to
-2020-02-28. The final four months carry 645,180 transactions and **zero** frauds:
+**Labelling stops on 2019-10-27 14:54**, while transactions continue to 2020-02-28. The
+final four months carry 645,180 transactions and zero frauds:
 
 | month | rows | frauds |
 |---|---:|---:|
@@ -30,10 +29,20 @@ IBM CCF's fraud labelling stops on **2019-10-27 14:54**, while transactions cont
 | 2020-01 | 170,731 | 0 |
 | 2020-02 | 165,769 | 0 |
 
-This is a labelling-window artifact, not a fraud-free quarter. It matters because the obvious
-construction — take the last three years of transactions — puts the entire test split inside
-the dead zone, yielding **0 frauds in test**. The window must therefore be measured backwards
-from the last labelled fraud, not from the last transaction.
+A labelling-window artifact, not a fraud-free quarter. The obvious construction — take the
+last N years of transactions — puts the entire test split inside the dead zone, yielding
+0 frauds in test. The right edge must therefore be the last labelled fraud.
+
+**2017 is a near-empty fraud year**, a 14× dip against both neighbours:
+
+| year | 2015 | 2016 | 2017 | 2018 | 2019 |
+|---|---:|---:|---:|---:|---:|
+| frauds | 3,281 | 3,579 | **255** | 2,491 | 2,087 |
+
+Almost certainly a second labelling artifact. Any window covering 2016–2019 contains it. At
+the chosen left crop it sits inside the train split, degrading training density but leaving
+val and test — both in 2019 — unaffected. Accepted rather than worked around, but it means
+the effective fraud supply is lumpier than a single rate suggests.
 
 ## What we are building
 
@@ -57,75 +66,93 @@ datasets:
 ```
 
 Implemented with `dataclasses.replace(self.delay, **override)`, which re-runs
-`DelayParams.__post_init__`. An invalid override is therefore rejected by exactly the same
-validation the global block gets, and an unknown key raises rather than being silently
-ignored. Both are wrapped into `ConfigError` for consistency with the rest of config loading.
+`DelayParams.__post_init__`. An invalid override is rejected by exactly the same validation
+the global block gets, and an unknown key raises rather than being silently ignored. Both
+are wrapped into `ConfigError` for consistency with the rest of config loading.
 
 `pipeline.prepare` uses `config.delay_for(name)` in place of `config.delay`, and
-`_describe_delay` records the **resolved** parameters so a dataset card never misreports what
-produced its timestamps.
+`_describe_delay` records the **resolved** parameters so a dataset card never misreports
+what produced its timestamps.
 
 ### 2. PaySim: median delay of 1 day
 
-Config only — no code. `sigma` and `seed` inherit, so the tail shape is unchanged and only
+Config only, no code. `sigma` and `seed` inherit, so the tail shape is unchanged and only
 the scale moves.
 
-### 3. `ibm_ccf_subsample`: a new dataset
+### 3. Two new datasets
 
-An eighth registered dataset, existing alongside the full `ibm_ccf` rather than replacing it.
+Both crop IBM CCF to `[2016-01-01, last labelled fraud]` and differ **only** in their delay
+distribution, so a model's performance can be compared across delay regimes on identical
+rows.
 
-Window: cropped on the right at the last labelled fraud, extending `window_years` back.
+| | `ibm_ccf_subsample_fast` | `ibm_ccf_subsample_slow` |
+|---|---|---|
+| median | 7 d | 15 d |
+| nominal mean | 30 d | 60 d |
+| sigma | 1.7060 | 1.6651 |
+| max_delay_days | 365 | 730 |
+| realised mean | 25.3 d | 51.3 d |
+| realised p95 | 115 d | 231 d |
+| known @ train cutoff | 97.0% | 94.8% |
 
-```
-(2016-10-27 14:54, 2019-10-27 14:54]
-```
+`sigma = sqrt(2*ln(mean/median))` is the closed form that places a lognormal's mean and
+median where we want them.
 
-Measured contents at `window_years: 3`:
+Shared window contents:
 
 | | rows | frauds | span |
 |---|---:|---:|---:|
-| total | 5,166,342 | 5,327 (0.103%) | 1,095d |
-| train | 4,133,075 | 3,753 | 876d |
-| val | 516,633 | 795 | 109d |
-| test | 516,634 | 779 | 109d |
+| total | 6,569,157 | 8,412 (0.128%) | 1,395d |
+| train | 5,255,327 | 6,441 | 1,117d |
+| val | 656,919 | 989 | 139d |
+| test | 656,911 | 982 | 139d |
 
-Delay: `sigma: 1.706` = `sqrt(2*ln(30/7))`, which places the mean at 30 days with the median
-at 7. Expected label availability at the train cutoff: **~94.5%**, against 100.0% for the
-full dataset.
+The left crop is a fixed `start_date`, matching the option paysim, banksim and ieee_cis
+already use. 2016-01-01 rather than a relative three-year window because the three-year
+window starts in late October 2016 and discards most of 2016, a heavy fraud year: +27% rows
+buys +58% frauds.
 
-The adapter subclasses `IbmCcfAdapter`, inheriting the two table joins, the money-string
-parsing and the `entity_key` logic, and overriding only `to_canonical` to crop:
+**Truncation is deliberate and its cost is recorded.** Untruncated, these distributions
+sample maxima of 1,813 and 3,400 days — a fraud reported nine years after it happened, past
+the end of the dataset. The caps bite ~1% of campaigns and pull the realised mean about 15%
+below nominal. The 2× ratio between the regimes survives, which is what the comparison needs.
+Cards and docs record realised figures, not nominal ones.
+
+Structure: a non-registered `IbmCcfSubsampleAdapter(IbmCcfAdapter)` holds the crop, and two
+registered subclasses differ only in `name`. The join, money parsing and `entity_key` logic
+are inherited, not copied.
 
 ```python
-@register
 class IbmCcfSubsampleAdapter(IbmCcfAdapter):
-    name = "ibm_ccf_subsample"
+    """Not registered: the two concrete variants below differ only in delay config."""
     raw_name = "ibm_ccf"
 
     def to_canonical(self, raw_dir, options):
         df = super().to_canonical(raw_dir, options)
         last = df.loc[df["is_fraud"], "event_time"].max()
-        start = last - pd.DateOffset(years=int(options.get("window_years", 3)))
-        return df[(df["event_time"] > start) & (df["event_time"] <= last)].reset_index(drop=True)
+        start = pd.Timestamp(options["start_date"])
+        return df[(df["event_time"] >= start) & (df["event_time"] <= last)].reset_index(drop=True)
+
+
+@register
+class IbmCcfSubsampleFastAdapter(IbmCcfSubsampleAdapter):
+    name = "ibm_ccf_subsample_fast"
+
+
+@register
+class IbmCcfSubsampleSlowAdapter(IbmCcfSubsampleAdapter):
+    name = "ibm_ccf_subsample_slow"
 ```
 
-The crop-at-last-fraud rule lives in code because it is a property of this dataset's
-labelling; only the window length is configurable, so retuning to two years is a one-line
-change. That trade-off is live: two years gives 4,833 frauds in 3.45M rows against 5,327 in
-5.17M — nearly the same fraud count for a third fewer rows.
-
-The reason for the crop is recorded in the adapter's `caveats`, so it reaches the dataset
-card.
+Both crops are recorded in `caveats`, so the reason reaches the dataset card.
 
 ### 4. Sharing the raw download
 
-`pipeline.prepare` currently fetches into `config.raw_dir / name`, keyed on the dataset name.
-Left alone, `ibm_ccf_subsample` would re-download the same 3.0 GB Kaggle archive into a
-second directory.
+`pipeline.prepare` fetches into `config.raw_dir / name`, keyed on the dataset name. Left
+alone, each new variant would re-download the same 3.0 GB Kaggle archive.
 
 `DatasetAdapter` gains `raw_name: str`, defaulting to `name`; the pipeline fetches into
-`config.raw_dir / adapter.raw_name`. `ibm_ccf_subsample` sets it to `ibm_ccf`. This is the
-general answer for any future variant sharing a source, and it is inert for the seven
+`config.raw_dir / adapter.raw_name`. Both variants set it to `ibm_ccf`. Inert for the seven
 existing adapters.
 
 ## Testing
@@ -133,28 +160,34 @@ existing adapters.
 - **Config:** partial merge, inheritance of unnamed keys, unknown-key rejection,
   invalid-value rejection, and that a dataset with no `delay:` block gets the global params.
 - **Adapter:** reuses `tests/fixtures/ibm_ccf` (5 rows, 2002–2011, last fraud 2011-01-01).
-  At `window_years: 3` only that final row survives, which pins both edges of the window.
-  Also: rows after the last fraud are dropped, and `entity_key` still works through the
-  subclass.
-- **Registry:** `ibm_ccf_subsample` is registered and `raw_name` resolves to `ibm_ccf`.
+  A `start_date` inside that range pins both edges — rows after the last fraud are dropped,
+  rows before the start are dropped. `entity_key` still works through the subclass.
+- **Registry:** both variants registered, `raw_name` resolves to `ibm_ccf` for both, and the
+  default for every other adapter equals its `name`.
 - **Pipeline:** the card records resolved rather than global delay params.
-- **Live:** prepare the three affected datasets and record new label-availability figures in
-  `docs/verification-notes.md`.
+- **Live:** prepare the affected datasets and record new figures in
+  `docs/verification-notes.md`, including that fast and slow are row-identical and differ
+  only in `reported_at`.
 
 ## Costs and known limits
 
-- **+230 MB** processed disk. Home is quota-constrained; check headroom before the live run.
-- **Peak memory is unchanged from `ibm_ccf`.** The adapter materialises the full 24.4M-row
-  joined frame before cropping. The existing note about IBM CCF's tens-of-GB peak applies
-  equally here. Cropping before the joins would fix both and is deliberately out of scope.
-- **PaySim's delay remains large relative to its clock** even at a 1-day median; a 30-day
-  simulated span cannot host a realistic multi-week reporting delay. The override makes the
-  dataset usable, not realistic.
+- **+580 MB** processed disk (~290 MB per variant). Home is quota-constrained; check
+  headroom before the live run.
+- **Peak memory is unchanged from `ibm_ccf`,** and now paid twice. Each variant materialises
+  the full 24.4M-row joined frame before cropping. Cropping before the joins would fix it and
+  is deliberately out of scope.
+- **PaySim's delay remains large relative to its clock** even at a 1-day median. The override
+  makes the dataset usable, not realistic.
+- **The two variants duplicate 6.5M rows of identical feature data.** Justified by keeping the
+  canonical one-`reported_at`-per-row schema intact; the alternative of a second timestamp
+  column would break Plan 4's validation.
 
 ## Not in this scope
 
 - Changing the global delay distribution or the campaign gaps. Both stay as verified.
 - Per-dataset delay for the other five datasets. Their figures (82.5%–97.8% known) are
   already in the intended range.
-- Reworking `ibm_ccf`'s memory profile or its `category` dtypes. Tracked separately in
+- Reworking `ibm_ccf`'s memory profile or its `category` dtypes. Tracked in
   `docs/verification-notes.md` under "Open, non-blocking".
+- Any attempt to repair the 2017 fraud hole or the 2019-10 labelling cliff. Both are
+  documented and worked around, not fixed.
