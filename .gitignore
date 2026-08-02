@@ -1,5 +1,10 @@
 data/
 tests/fixtures/amaretto/_extracted/
+# Ablation study: SLURM logs and generated job scripts are reproducible from
+# scripts/slurm/generate.py. results/runs.jsonl and results/summary.md are the
+# study's output and stay tracked.
+results/logs/
+scripts/slurm/jobs/
 __pycache__/
 *.py[cod]
 .venv/
