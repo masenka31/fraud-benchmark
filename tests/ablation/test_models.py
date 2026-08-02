@@ -63,3 +63,12 @@ def test_the_rule_needs_no_fitting_and_ignores_labels():
     """It is a fixed rule, which is why it is evaluated once per dataset."""
     df = pd.DataFrame({"Merchant State": pd.Series(["Italy"], dtype="string")})
     assert list(trivial_rule_scores(df, dataset="ibm_ccf_subsample_fast")) == [1.0]
+
+
+def test_the_rule_treats_a_null_as_not_matching():
+    """IBM CCF's Merchant State is null on every online transaction. Without
+    this the comparison yields pd.NA and the float conversion raises, taking
+    down the whole cell before a single model is fitted."""
+    df = pd.DataFrame({"Merchant State": pd.Series(["Italy", None, "CA"], dtype="string")})
+    scores = trivial_rule_scores(df, dataset="ibm_ccf")
+    assert list(scores) == [1.0, 0.0, 0.0]

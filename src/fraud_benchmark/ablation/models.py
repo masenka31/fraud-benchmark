@@ -65,4 +65,9 @@ def trivial_rule_scores(df: pd.DataFrame, dataset: str) -> np.ndarray | None:
     if rule is None:
         return None
     column, value = rule
-    return (df[column].astype("string") == value).to_numpy().astype("float64")
+    # fillna(False): the comparison yields pd.NA where the column is null, and
+    # IBM CCF's Merchant State is null on every online transaction. A null is
+    # not Italy, so False is the right reading -- without this the conversion
+    # raises on NAType and takes the whole cell down before a single fit.
+    matches = (df[column].astype("string") == value).fillna(False)
+    return matches.to_numpy().astype("float64")
