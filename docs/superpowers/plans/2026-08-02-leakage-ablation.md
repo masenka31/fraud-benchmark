@@ -319,7 +319,7 @@ def feature_columns(df: pd.DataFrame, dataset: str, feature_set: str) -> list[st
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/ablation/test_columns.py -q`
-Expected: PASS, 14 passed
+Expected: PASS, 15 passed
 
 - [ ] **Step 5: Commit**
 
