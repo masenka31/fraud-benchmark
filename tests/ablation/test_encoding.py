@@ -67,3 +67,25 @@ def test_transform_preserves_row_count_and_order():
     out = enc.transform(train)
     assert len(out) == 3
     assert list(out["num"]) == [1.0, 2.0, 3.0]
+
+
+def test_scaling_conditions_the_encoded_categorical_codes_too():
+    """Ordinal codes are numbers. On IBM CCF they run to ~100,000 categories,
+    and lbfgs will not converge on raw codes of that magnitude sitting next to
+    amounts in the tens."""
+    train = pd.DataFrame(
+        {
+            "cat": pd.Series([str(i) for i in range(500)], dtype="string"),
+            "num": np.linspace(0.0, 1.0, 500),
+        }
+    )
+    enc = Encoder().fit(train, categorical=["cat"], numeric=["num"], scale=True)
+    out = enc.transform(train)
+    assert abs(out["cat"].mean()) < 1e-6, "encoded codes must be centred"
+    assert abs(out["cat"].std() - 1.0) < 0.01, "encoded codes must be unit-scaled"
+
+
+def test_unscaled_transform_leaves_codes_as_raw_integers():
+    train = pd.DataFrame({"cat": pd.Series(["a", "b", "c"], dtype="string")})
+    enc = Encoder().fit(train, categorical=["cat"], scale=False)
+    assert list(enc.transform(train)["cat"]) == [0, 1, 2]

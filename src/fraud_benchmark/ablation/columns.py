@@ -57,6 +57,27 @@ LEAKY_COLUMNS: dict[str, tuple[str, ...]] = {
 }
 
 
+# Columns that restate event_time and therefore encode split membership. The
+# splits are temporal, so an absolute clock lets a tree isolate the split
+# boundary as a threshold -- sparkov's `unix_time` separates them exactly
+# (train max 1367492969 < val min 1367493022). Dropping event_time while
+# keeping these would be self-defeating, and a dtype check does not catch them:
+# `trans_date_trans_time` is stored as a string and `unix_time` as an int.
+#
+# Cyclical and relative parts are KEPT -- Month, Day, time-of-day -- because
+# they are what a real detector uses and they generalise forward. Customer
+# attributes that happen to be dates (Birth Year, Acct Open Date) are kept too:
+# they describe the cardholder, not when the transaction happened.
+ABSOLUTE_TIME_COLUMNS = frozenset(
+    {
+        "trans_date_trans_time",  # sparkov: event_time as a string
+        "unix_time",              # sparkov: event_time as an int
+        "Date",                   # saml_d: the absolute date
+        "Year",                   # ibm_ccf: with Month and Day, reconstructs it
+    }
+)
+
+
 class ExcludedColumnError(AssertionError):
     """Raised when a column that must never reach a model is about to."""
 
@@ -83,7 +104,7 @@ def feature_columns(df: pd.DataFrame, dataset: str, feature_set: str) -> list[st
         raise ValueError(f"feature_set must be one of {FEATURE_SETS}, got {feature_set!r}")
     leaky = LEAKY_COLUMNS[dataset]
 
-    dropped = set(ALWAYS_EXCLUDED)
+    dropped = set(ALWAYS_EXCLUDED) | set(ABSOLUTE_TIME_COLUMNS)
     if feature_set == "clean":
         dropped |= set(leaky)
 

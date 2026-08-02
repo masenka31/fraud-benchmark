@@ -107,3 +107,23 @@ def test_unknown_dataset_raises():
 def test_unknown_feature_set_raises():
     with pytest.raises(ValueError, match="feature_set"):
         feature_columns(frame("amount"), dataset="ibm_ccf", feature_set="sideways")
+
+
+def test_absolute_time_restatements_are_dropped_in_both_conditions():
+    """The splits are temporal, so an absolute clock encodes split membership.
+    A dtype check misses these: trans_date_trans_time is a string, unix_time an int."""
+    df = frame("unix_time", "trans_date_trans_time", "Date", "Year", "amount", "is_fraud")
+    for feature_set in ["leaky", "clean"]:
+        cols = feature_columns(df, dataset="sparkov", feature_set=feature_set)
+        for name in ["unix_time", "trans_date_trans_time", "Date", "Year"]:
+            assert name not in cols
+        assert "amount" in cols
+
+
+def test_cyclical_and_customer_date_parts_are_kept():
+    """Month/Day/time-of-day generalise forward; birth year describes the
+    cardholder, not when the transaction happened."""
+    df = frame("Month", "Day", "Time", "Birth Year", "Acct Open Date", "dob", "amount")
+    cols = feature_columns(df, dataset="ibm_ccf", feature_set="clean")
+    for name in ["Month", "Day", "Time", "Birth Year", "Acct Open Date", "dob"]:
+        assert name in cols

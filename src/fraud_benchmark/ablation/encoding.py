@@ -40,8 +40,14 @@ class Encoder:
             # UNSEEN last, so its code cannot collide with a real category.
             self.categories_[col] = sorted(set(values.tolist())) + [UNSEEN]
         if scale:
-            for col in self.numeric_:
-                values = pd.to_numeric(train[col], errors="coerce")
+            # Scale the ENCODED matrix, not just the originally-numeric columns.
+            # Ordinal codes are numbers too, and on IBM CCF `Merchant Name` runs
+            # to ~100,000 categories -- feeding lbfgs raw codes of that magnitude
+            # alongside amounts in the tens does not converge, and a
+            # non-converged linear reference is worse than none.
+            encoded = self._encode(train)
+            for col in encoded.columns:
+                values = pd.to_numeric(encoded[col], errors="coerce")
                 mean = float(values.mean())
                 std = float(values.std())
                 self.mean_[col] = 0.0 if not np.isfinite(mean) else mean
@@ -52,15 +58,20 @@ class Encoder:
     def code_of(self, column: str, value: str) -> int:
         return self.categories_[column].index(value)
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+    def _encode(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Categorical columns to ordinal codes. No scaling."""
         out = df.copy()
         for col, categories in self.categories_.items():
             lookup = {c: i for i, c in enumerate(categories)}
             unseen = lookup[UNSEEN]
             values = out[col].astype("string").fillna(_NULL)
             out[col] = values.map(lookup).fillna(unseen).astype("int32")
+        return out
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        out = self._encode(df)
         if self.scale_:
-            for col in self.numeric_:
+            for col in self.mean_:
                 values = pd.to_numeric(out[col], errors="coerce").fillna(self.mean_[col])
                 out[col] = (values - self.mean_[col]) / self.std_[col]
         return out
