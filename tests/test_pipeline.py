@@ -318,3 +318,35 @@ def test_a_failing_auxiliary_write_preserves_previous_output(
     assert (out / "data.parquet").read_bytes() == original
     assert not list(config.processed_dir.glob("*.tmp*"))
     assert not list(config.processed_dir.glob("*.old*"))
+
+
+@pytest.fixture
+def config_with_override(tmp_path):
+    return Config(
+        raw_dir=tmp_path / "raw",
+        processed_dir=tmp_path / "processed",
+        split_ratios=(0.6, 0.2, 0.2),
+        delay=DelayParams(median_days=7.0, sigma=1.0, seed=0),
+        campaign_gap=pd.Timedelta(days=1),
+        datasets={
+            "paysim": {
+                "start_date": "2023-01-01",
+                "delay": {"median_days": 1.0},
+            }
+        },
+    )
+
+
+def test_the_override_changes_the_timestamps(config, config_with_override, no_download):
+    """The same seed must still produce different delays under a different median."""
+    base = pd.read_parquet(prepare("paysim", config) / "data.parquet")
+    other = pd.read_parquet(prepare("paysim", config_with_override) / "data.parquet")
+    assert not base["reported_at"].equals(other["reported_at"])
+
+
+def test_the_card_records_the_resolved_delay(config_with_override, no_download):
+    out = prepare("paysim", config_with_override)
+    card = json.loads((out / "dataset_card.json").read_text())
+    # 1.0, not the global 7.0 — a card must never misreport what produced it.
+    assert card["label_delay"]["median_days"] == 1.0
+    assert card["label_delay"]["sigma"] == 1.0

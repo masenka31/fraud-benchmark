@@ -15,7 +15,7 @@ import fraud_benchmark.datasets  # noqa: F401  (registers all adapters)
 from fraud_benchmark.campaigns import assign_campaigns, campaign_sizes
 from fraud_benchmark.config import Config
 from fraud_benchmark.datasets.base import get_adapter
-from fraud_benchmark.delay import assign_reported_at
+from fraud_benchmark.delay import DelayParams, assign_reported_at
 from fraud_benchmark.schema import order_columns, validate_canonical
 from fraud_benchmark.splitting import assign_splits, split_boundaries
 from fraud_benchmark.sources import fetch
@@ -38,8 +38,9 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
     )
 
     gap = config.campaign_gap_for(name)
+    delay = config.delay_for(name)
     df["campaign_id"] = assign_campaigns(df, gap=gap)
-    df["reported_at"] = assign_reported_at(df, config.delay)
+    df["reported_at"] = assign_reported_at(df, delay)
 
     # Re-validate: the adapter's output was checked earlier, but the delay stage
     # is the one that can produce an impossible reported_at, and nothing should
@@ -49,14 +50,29 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
 
     aux = adapter.auxiliary_frames(raw_dir, options)
     card = _build_card(
-        name, adapter, options, df, config, custom_split=supplied is not None, gap=gap
+        name,
+        adapter,
+        options,
+        df,
+        config,
+        custom_split=supplied is not None,
+        gap=gap,
+        delay=delay,
     )
     card["auxiliary"] = {key: int(len(frame)) for key, frame in aux.items()}
     return _write_atomically(config.processed_dir / name, df, card, aux)
 
 
 def _build_card(
-    name, adapter, options, df, config, *, custom_split: bool, gap: pd.Timedelta
+    name,
+    adapter,
+    options,
+    df,
+    config,
+    *,
+    custom_split: bool,
+    gap: pd.Timedelta,
+    delay: DelayParams,
 ) -> dict:
     return {
         "name": name,
@@ -75,7 +91,7 @@ def _build_card(
             "end": df["event_time"].max().isoformat(),
         },
         "split": _describe_split(adapter, df, config, custom_split=custom_split),
-        "label_delay": _describe_delay(df, config, gap),
+        "label_delay": _describe_delay(df, delay, gap),
         "column_mapping": adapter.column_mapping(options),
         "options": options,
         "caveats": list(adapter.caveats),
@@ -100,21 +116,24 @@ def _describe_split(adapter, df, config, *, custom_split: bool) -> dict:
     }
 
 
-def _describe_delay(df, config, gap) -> dict:
+def _describe_delay(df, delay: DelayParams, gap) -> dict:
     sizes = campaign_sizes(df["campaign_id"])
     fraud = df.loc[df["is_fraud"]]
     delays = (fraud["reported_at"] - fraud["event_time"]).dt.total_seconds() / 86_400
     return {
         "distribution": "lognormal",
-        "median_days": config.delay.median_days,
-        "sigma": config.delay.sigma,
-        "seed": config.delay.seed,
-        "max_delay_days": config.delay.max_delay_days,
+        "median_days": delay.median_days,
+        "sigma": delay.sigma,
+        "seed": delay.seed,
+        "max_delay_days": delay.max_delay_days,
         "campaign_gap": str(gap),
         "n_campaigns": int(sizes.size),
         "largest_campaign": int(sizes.max()) if sizes.size else 0,
         "median_campaign_size": float(sizes.median()) if sizes.size else 0.0,
         "observed_median_delay_days": float(delays.median()) if len(delays) else 0.0,
+        # Truncation pulls the realised mean below nominal, so record what
+        # actually happened rather than only what was configured.
+        "observed_mean_delay_days": float(delays.mean()) if len(delays) else 0.0,
     }
 
 
