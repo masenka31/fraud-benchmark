@@ -1,4 +1,4 @@
-"""results/runs.jsonl -> results/summary.md.
+"""results/runs/*.jsonl -> results/summary.md.
 
 Seeds are averaged and their spread reported: the seed standard deviation is the
 noise floor any leakage gap has to clear before it means anything.
@@ -12,13 +12,29 @@ from pathlib import Path
 
 import pandas as pd
 
-DEFAULT_RESULTS = Path("results/runs.jsonl")
+DEFAULT_RESULTS = Path("results/runs")
 DEFAULT_SUMMARY = Path("results/summary.md")
+
+
+def _lines(path: Path) -> list[str]:
+    """Every JSONL line under `path`, which may be one file or a directory.
+
+    The SLURM jobs write one file each -- eighteen jobs appending to a single
+    file would race -- so the normal case is a directory.
+    """
+    path = Path(path)
+    if path.is_dir():
+        return [
+            line
+            for f in sorted(path.glob("*.jsonl"))
+            for line in f.read_text().splitlines()
+        ]
+    return path.read_text().splitlines() if path.exists() else []
 
 
 def _load(path: Path) -> pd.DataFrame:
     rows = []
-    for line in Path(path).read_text().splitlines():
+    for line in _lines(path):
         if not line.strip():
             continue
         record = json.loads(line)

@@ -62,3 +62,23 @@ def test_an_empty_results_file_produces_a_message_not_a_crash(tmp_path):
     path = tmp_path / "runs.jsonl"
     path.write_text("")
     assert "no results" in summarize(path).lower()
+
+
+def test_summarize_reads_a_directory_of_per_job_files(tmp_path):
+    """The SLURM jobs write one file each; a shared file would race."""
+    d = tmp_path / "runs"
+    d.mkdir()
+    (d / "a.jsonl").write_text(
+        json.dumps(record("ibm_ccf", "leaky", "oracle", "xgboost", 0.80, seed=0)) + "\n"
+    )
+    (d / "b.jsonl").write_text(
+        json.dumps(record("ibm_ccf", "clean", "oracle", "xgboost", 0.20, seed=0)) + "\n"
+    )
+    text = summarize(d)
+    assert "0.600" in text, "gap must be computed across files"
+
+
+def test_an_empty_results_directory_produces_a_message_not_a_crash(tmp_path):
+    d = tmp_path / "runs"
+    d.mkdir()
+    assert "no results" in summarize(d).lower()

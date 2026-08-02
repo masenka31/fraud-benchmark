@@ -72,6 +72,11 @@ def render_cell_job(dataset: str, feature_set: str, regime: str) -> str:
     # The trivial rule is fixed, so it is emitted once per dataset -- from the
     # leaky/oracle cell, which every dataset has.
     rule = " --include-rule" if (feature_set, regime) == ("leaky", "oracle") else ""
+    # One results file per job. Eighteen jobs appending to a single file would
+    # race: a concurrent append is only atomic below PIPE_BUF, and an ibm_ccf
+    # record carrying a 45-name feature list plus both split scores approaches
+    # that. summarize() reads the directory.
+    results = f"{REPO}/results/runs/{name}.jsonl"
     return f"""#!/bin/bash
 #SBATCH --job-name=abl_{name}
 #SBATCH --account={ACCOUNT}
@@ -85,7 +90,7 @@ def render_cell_job(dataset: str, feature_set: str, regime: str) -> str:
 set -euo pipefail
 cd {REPO}
 export OMP_NUM_THREADS=4
-{PYTHON} -m fraud_benchmark.ablation.cell {dataset} {feature_set} {regime}{rule}
+{PYTHON} -m fraud_benchmark.ablation.cell {dataset} {feature_set} {regime}{rule} --results {results}
 """
 
 
