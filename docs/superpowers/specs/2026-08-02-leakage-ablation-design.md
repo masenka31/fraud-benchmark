@@ -156,10 +156,28 @@ z-score. This is the most likely place for a subtle bug, so it is tested against
 hand-computed fixture before any model runs — see the Testing section.
 
 `merchant_novelty` requires a merchant-like column, which `ibm_ccf` (`Merchant Name`),
-`sparkov` (`merchant`) and `saml_d` (`Receiver_account`) all have. Where the merchant
-column is in the dataset's leaky set, the *derived novelty feature is also dropped in the
-`clean` condition* — a novelty flag computed from a leaky column carries the same
-information. This applies to `saml_d`, whose `Receiver_account` is leaky.
+`sparkov` (`merchant`) and `saml_d` (`Receiver_account`) all have.
+
+**It is kept in the `clean` condition even where its source column is leaky.** An earlier
+draft dropped it, on the assumption that a feature derived from a leaky column inherits the
+leak. Measured on `ibm_ccf_subsample_fast`, that assumption is false:
+
+| rows considered | base rate | `novel=1` rate | lift |
+|---|---:|---:|---:|
+| all | 0.1281% | 1.7251% | 13.47× |
+| Italy excluded | 0.0568% | 0.8463% | **14.89×** |
+
+The lift *rises* when the geography artifact is removed, so novelty is not a proxy for it.
+It compresses merchant identity to one bit — "seen before or not" — which does not transmit
+*which* country. Dropping it would have discarded real signal to no purpose.
+
+**A separate open question, recorded not resolved.** Novelty's lift is 13–15× on IBM CCF
+and 8.4× on SAML-D, against only **1.60× on Sparkov**, the one dataset with no flagged
+values. A plausible explanation is that these generators draw fraud merchants close to
+uniformly at random, making nearly every fraud novel by construction — a generation
+artifact of a different kind from the geography one, and not something this study is scoped
+to settle. The results section reports novelty's standalone lift per dataset alongside the
+ablation so the reader can see it.
 
 ### Anything fitted is fitted on train only
 
@@ -263,7 +281,8 @@ to spot, so they carry the heaviest tests.
 3. **Exclusion assertion.** Building a matrix that contains any always-excluded column
    raises, verified per dataset.
 4. **Clean-condition assertion.** For each dataset, the `clean` matrix contains none of its
-   leaky columns and none of their derived features.
+   leaky columns. `merchant_novelty` is explicitly expected to be present — see the
+   Features section for why a derived feature is not automatically leaky.
 5. **Encoder unseen-category handling.** A category present only in val maps to
    `__unseen__` and does not collide with a train level.
 6. **Evaluation integrity.** Val and test row counts after feature building equal the
