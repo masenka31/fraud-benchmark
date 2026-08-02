@@ -1122,10 +1122,12 @@ XGB_PARAMS = {
 
 
 def fit_logistic(x: pd.DataFrame, y: np.ndarray) -> LogisticRegression:
-    """L2 logistic regression. Deterministic, so it needs no seeds."""
-    model = LogisticRegression(
-        max_iter=1000, class_weight="balanced", solver="lbfgs", n_jobs=4
-    )
+    """L2 logistic regression. Deterministic, so it needs no seeds.
+
+    No n_jobs: lbfgs ignores it for a binary problem, and sklearn 1.9 deprecates
+    passing it at all.
+    """
+    model = LogisticRegression(max_iter=1000, class_weight="balanced", solver="lbfgs")
     model.fit(x, y)
     return model
 
