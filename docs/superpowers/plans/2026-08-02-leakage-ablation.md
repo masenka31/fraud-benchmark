@@ -576,7 +576,9 @@ VELOCITY_COLUMNS = (
     "merchant_novelty",
 )
 
-_WINDOWS = {"1h": "1h", "24h": "24h", "7d": "7d"}
+# Label -> pandas offset. The labels name the output columns and stay lowercase;
+# the offsets must use "D", since lowercase "d" is deprecated.
+_WINDOWS = {"1h": "1h", "24h": "24h", "7d": "7D"}
 
 
 def add_velocity_features(
@@ -606,7 +608,9 @@ def add_velocity_features(
 
     for label, window in _WINDOWS.items():
         rolled = grouped.rolling(window, closed="left")
-        out[f"txn_count_{label}"] = scatter(rolled.count().to_numpy())
+        # An empty left-closed window counts as NaN, not 0 -- so a row with no
+        # prior history would otherwise carry NaN into every count column.
+        out[f"txn_count_{label}"] = scatter(np.nan_to_num(rolled.count().to_numpy()))
 
     for label in ("24h", "7d"):
         rolled = grouped.rolling(_WINDOWS[label], closed="left")
@@ -651,7 +655,7 @@ def add_velocity_features(
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/ablation/test_features.py -q`
-Expected: PASS, 15 passed
+Expected: PASS, 14 passed
 
 - [ ] **Step 5: Commit**
 
