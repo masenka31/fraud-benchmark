@@ -107,6 +107,7 @@ from fraud_benchmark.ablation.columns import (
     ALWAYS_EXCLUDED,
     LEAKY_COLUMNS,
     ExcludedColumnError,
+    assert_no_excluded,
     feature_columns,
 )
 
@@ -174,10 +175,30 @@ def test_velocity_features_survive_the_clean_condition_for_saml_d():
     assert "merchant_novelty" in cols
 
 
-def test_an_always_excluded_column_reaching_a_matrix_raises():
-    df = frame("amount", "is_fraud")
+def test_the_guard_rejects_a_hand_built_list_containing_the_label():
+    """The guard is a tripwire on the filter, so it is tested directly.
+
+    Routing it through feature_columns would be tautological: that function
+    builds its output by removing exactly these names, so the check could never
+    fire there no matter what it was passed.
+    """
     with pytest.raises(ExcludedColumnError, match="is_fraud"):
-        feature_columns(df, dataset="ibm_ccf", feature_set="leaky", assert_only=["is_fraud"])
+        assert_no_excluded(["amount", "is_fraud"])
+
+
+def test_the_guard_reports_every_offending_column():
+    with pytest.raises(ExcludedColumnError, match="reported_at"):
+        assert_no_excluded(["amount", "is_fraud", "reported_at"])
+
+
+def test_the_guard_accepts_a_clean_list():
+    assert_no_excluded(["amount", "txn_count_1h", "merchant_novelty"])
+
+
+def test_feature_columns_output_always_passes_the_guard():
+    df = frame("amount", "is_fraud", "reported_at", "Merchant State")
+    for feature_set in ["leaky", "clean"]:
+        assert_no_excluded(feature_columns(df, dataset="ibm_ccf", feature_set=feature_set))
 
 
 def test_unknown_dataset_raises():
@@ -264,17 +285,24 @@ class ExcludedColumnError(AssertionError):
     """Raised when a column that must never reach a model is about to."""
 
 
-def feature_columns(
-    df: pd.DataFrame,
-    dataset: str,
-    feature_set: str,
-    assert_only: list[str] | None = None,
-) -> list[str]:
-    """The columns a model may see for one cell, in stable order.
+def assert_no_excluded(columns: list[str]) -> None:
+    """Raise if any always-excluded column is in `columns`.
 
-    `assert_only` is a test hook: it forces the excluded-column assertion to
-    consider exactly those names, so the guard itself can be tested.
+    A tripwire for callers that assemble a column list themselves rather than
+    taking `feature_columns` output verbatim -- which is every consumer that
+    adds, renames, or re-orders columns downstream. Calling it on
+    `feature_columns` output cannot fail today; it is there so that a future
+    change to the filter is caught by a test rather than by a wrong result.
     """
+    leaked = sorted(set(ALWAYS_EXCLUDED) & set(columns))
+    if leaked:
+        raise ExcludedColumnError(
+            f"columns that must never reach a model are present: {leaked}"
+        )
+
+
+def feature_columns(df: pd.DataFrame, dataset: str, feature_set: str) -> list[str]:
+    """The columns a model may see for one cell, in stable order."""
     if feature_set not in FEATURE_SETS:
         raise ValueError(f"feature_set must be one of {FEATURE_SETS}, got {feature_set!r}")
     leaky = LEAKY_COLUMNS[dataset]
@@ -284,20 +312,14 @@ def feature_columns(
         dropped |= set(leaky)
 
     columns = [c for c in df.columns if c not in dropped]
-
-    banned = set(assert_only) if assert_only is not None else ALWAYS_EXCLUDED
-    leaked = sorted(banned & set(columns))
-    if leaked:
-        raise ExcludedColumnError(
-            f"columns that must never reach a model are present: {leaked}"
-        )
+    assert_no_excluded(columns)
     return columns
 ```
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `.venv/bin/python -m pytest tests/ablation/test_columns.py -q`
-Expected: PASS, 11 passed
+Expected: PASS, 14 passed
 
 - [ ] **Step 5: Commit**
 
