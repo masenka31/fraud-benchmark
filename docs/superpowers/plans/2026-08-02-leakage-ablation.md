@@ -1344,7 +1344,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fraud_benchmark.ablation.cell import censored_mask, run_cell
+from fraud_benchmark.ablation.cell import censored_labels, run_cell
 
 
 def features(n=600, seed=0):
@@ -1374,23 +1374,40 @@ def features(n=600, seed=0):
     )
 
 
-def test_censored_mask_hides_labels_reported_after_the_cutoff():
+def test_censored_labels_hide_frauds_reported_after_the_cutoff():
     df = pd.DataFrame(
         {
             "is_fraud": [True, True, False],
             "reported_at": pd.to_datetime(["2023-01-02", "2023-02-01", None]),
         }
     )
-    mask = censored_mask(df, cutoff=pd.Timestamp("2023-01-15"))
-    assert list(mask) == [True, False, True]
+    y = censored_labels(df, cutoff=pd.Timestamp("2023-01-15"))
+    assert list(y) == [1, 0, 0]
 
 
-def test_censored_mask_keeps_every_non_fraud_row():
-    """A non-fraud row's label is known immediately; only frauds are delayed."""
+def test_censored_labels_keep_every_row():
+    """An unreported fraud is not missing from the data -- it looks legitimate.
+
+    Dropping it would model a system that knows which rows to distrust, which
+    is exactly what label delay denies it.
+    """
     df = pd.DataFrame(
-        {"is_fraud": [False, False], "reported_at": pd.to_datetime([None, None])}
+        {
+            "is_fraud": [True, True],
+            "reported_at": pd.to_datetime(["2023-01-02", "2023-02-01"]),
+        }
     )
-    assert censored_mask(df, cutoff=pd.Timestamp("2023-01-01")).all()
+    y = censored_labels(df, cutoff=pd.Timestamp("2023-01-15"))
+    assert len(y) == 2
+    assert list(y) == [1, 0]
+
+
+def test_censored_labels_never_invent_a_fraud():
+    """A non-fraud row stays 0 no matter what reported_at says."""
+    df = pd.DataFrame(
+        {"is_fraud": [False, False], "reported_at": pd.to_datetime(["2023-01-01", None])}
+    )
+    assert list(censored_labels(df, cutoff=pd.Timestamp("2023-06-01"))) == [0, 0]
 
 
 def test_run_cell_writes_one_record_per_model(tmp_path):
@@ -1471,7 +1488,8 @@ def test_the_trivial_rule_is_recorded_for_ibm_ccf(tmp_path):
     assert rule[0]["label_regime"] is None
 
 
-def test_the_censored_regime_uses_fewer_labels_than_oracle(tmp_path):
+def test_the_censored_regime_keeps_the_rows_but_loses_positives(tmp_path):
+    """The harm of label delay is wrong labels, not fewer rows."""
     out = tmp_path / "runs.jsonl"
     df = features()
     for regime in ["oracle", "censored"]:
@@ -1486,7 +1504,26 @@ def test_the_censored_regime_uses_fewer_labels_than_oracle(tmp_path):
     records = [json.loads(line) for line in out.read_text().splitlines()]
     oracle = next(r for r in records if r["label_regime"] == "oracle")
     censored = next(r for r in records if r["label_regime"] == "censored")
-    assert censored["n_train_rows"] < oracle["n_train_rows"]
+    assert censored["n_train_rows"] == oracle["n_train_rows"]
+    assert censored["n_train_positive"] < oracle["n_train_positive"]
+
+
+def test_evaluation_labels_are_never_censored(tmp_path):
+    """Whatever the model was allowed to learn from, it is scored on the truth."""
+    out = tmp_path / "runs.jsonl"
+    df = features()
+    for regime in ["oracle", "censored"]:
+        run_cell(
+            df,
+            dataset="sparkov",
+            feature_set="leaky",
+            label_regime=regime,
+            seeds=(0,),
+            results_path=out,
+        )
+    records = [json.loads(line) for line in out.read_text().splitlines()]
+    positives = {r["scores"]["test"]["n_positive"] for r in records}
+    assert len(positives) == 1, "test positives must not vary with the label regime"
 
 
 def test_records_append_rather_than_overwrite(tmp_path):
@@ -1570,13 +1607,19 @@ from fraud_benchmark.ablation.models import fit_logistic, fit_xgboost, trivial_r
 DEFAULT_RESULTS = Path("results/runs.jsonl")
 
 
-def censored_mask(df: pd.DataFrame, cutoff: pd.Timestamp) -> pd.Series:
-    """Rows whose label a model training at `cutoff` would actually have.
+def censored_labels(df: pd.DataFrame, cutoff: pd.Timestamp) -> np.ndarray:
+    """The labels a model training at `cutoff` would actually have.
 
-    Non-fraud rows are always known: only a fraud's label waits on a report.
+    A fraud not yet reported is NOT missing from the training data -- it sits in
+    it looking like a legitimate transaction. So the unreported frauds are
+    relabelled 0, not dropped. Dropping them would model a system that somehow
+    knows which rows to distrust, which is precisely the knowledge label delay
+    denies it, and would understate the harm: the damage is wrong labels, not
+    fewer of them.
     """
     reported = pd.to_datetime(df["reported_at"])
-    return (~df["is_fraud"].astype(bool)) | (reported <= cutoff)
+    known_fraud = df["is_fraud"].astype(bool) & (reported <= cutoff)
+    return known_fraud.to_numpy().astype(int)
 
 
 def _append(path: Path, record: dict) -> None:
@@ -1599,9 +1642,12 @@ def run_cell(
     val = df[df["split"] == "val"]
     test = df[df["split"] == "test"]
 
-    if label_regime == "censored":
-        train = train[censored_mask(train, cutoff=train["event_time"].max())]
-    elif label_regime != "oracle":
+    if label_regime == "oracle":
+        y_train = train["is_fraud"].to_numpy().astype(int)
+    elif label_regime == "censored":
+        # Same rows, fewer known positives -- see censored_labels.
+        y_train = censored_labels(train, cutoff=train["event_time"].max())
+    else:
         raise ValueError(f"unknown label_regime {label_regime!r}")
 
     columns = feature_columns(df, dataset=dataset, feature_set=feature_set)
@@ -1621,7 +1667,8 @@ def run_cell(
     ]
     numeric = [c for c in columns if c not in categorical]
 
-    y_train = train["is_fraud"].to_numpy().astype(int)
+    # Evaluation labels are never censored: val and test are scored against the
+    # truth, whatever the model was allowed to learn from.
     y_val = val["is_fraud"].to_numpy().astype(int)
     y_test = test["is_fraud"].to_numpy().astype(int)
 
@@ -1652,7 +1699,7 @@ def run_cell(
     tree_encoder = Encoder().fit(train[columns], scale=False, **encoder_common)
     linear_encoder = Encoder().fit(train[columns], scale=True, **encoder_common)
 
-    def emit(model_name: str, seed: int | None, model, encoder) -> None:
+    def emit(model_name: str, seed: int | None, model, encoder, elapsed: float) -> None:
         val_scores = model.predict_proba(encoder.transform(val[columns]))[:, 1]
         test_scores = model.predict_proba(encoder.transform(test[columns]))[:, 1]
         threshold = best_f1_threshold(y_val, val_scores)
@@ -1666,6 +1713,9 @@ def run_cell(
                 "seed": seed,
                 "features": columns,
                 "n_train_rows": int(len(train)),
+                # Positives the model was allowed to see -- lower than the true
+                # count under the censored regime, which is the point of it.
+                "n_train_positive": int(y_train.sum()),
                 "fit_seconds": round(elapsed, 2),
                 "scores": {
                     "val": score(y_val, val_scores, threshold),
@@ -1676,15 +1726,13 @@ def run_cell(
 
     started = time.monotonic()
     linear = fit_logistic(linear_encoder.transform(train[columns]), y_train)
-    elapsed = time.monotonic() - started
-    emit("logistic", None, linear, linear_encoder)
+    emit("logistic", None, linear, linear_encoder, time.monotonic() - started)
 
     x_train = tree_encoder.transform(train[columns])
     for seed in seeds:
         started = time.monotonic()
         booster = fit_xgboost(x_train, y_train, seed=seed)
-        elapsed = time.monotonic() - started
-        emit("xgboost", seed, booster, tree_encoder)
+        emit("xgboost", seed, booster, tree_encoder, time.monotonic() - started)
 
 
 def main() -> None:
