@@ -1,5 +1,7 @@
 # Pipeline Spine Implementation Plan (Plan 1 of 3)
 
+**Status:** done, merged in `7505d2d` (branch `feat/pipeline-spine`).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the complete processing spine — config, schema, Kaggle fetching, adapter registry, temporal splitting, and CLI — and prove it end-to-end by producing a real processed PaySim dataset.
@@ -40,7 +42,7 @@
 - Create: `src/fraud_benchmark/__init__.py`, `src/fraud_benchmark/datasets/__init__.py`
 - Create: `tests/__init__.py`
 
-- [ ] **Step 1: Create `.gitignore`**
+- [x] **Step 1: Create `.gitignore`**
 
 ```gitignore
 data/
@@ -53,7 +55,7 @@ venv/
 kaggle.json
 ```
 
-- [ ] **Step 2: Create `pyproject.toml`**
+- [x] **Step 2: Create `pyproject.toml`**
 
 ```toml
 [build-system]
@@ -87,7 +89,7 @@ markers = ["network: requires internet access and Kaggle credentials"]
 addopts = "-m 'not network'"
 ```
 
-- [ ] **Step 3: Create the package files**
+- [x] **Step 3: Create the package files**
 
 `src/fraud_benchmark/__init__.py`:
 
@@ -105,7 +107,7 @@ __version__ = "0.1.0"
 
 `tests/__init__.py`: empty file.
 
-- [ ] **Step 4: Create `README.md`**
+- [x] **Step 4: Create `README.md`**
 
 ```markdown
 # fraud-benchmark
@@ -137,7 +139,7 @@ See `docs/kaggle-setup.md`. Required before any dataset can be downloaded.
     pytest
 ```
 
-- [ ] **Step 5: Create the venv and install**
+- [x] **Step 5: Create the venv and install**
 
 Run:
 
@@ -147,12 +149,12 @@ python -m venv .venv && .venv/bin/pip install -q -e ".[dev]" && .venv/bin/python
 
 Expected: `ok 0.1.0`
 
-- [ ] **Step 6: Verify pytest runs**
+- [x] **Step 6: Verify pytest runs**
 
 Run: `.venv/bin/pytest`
 Expected: exit code 5, "no tests ran". That is success at this stage.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add -A
@@ -168,7 +170,7 @@ git commit -m "chore: project skeleton, packaging, and dev environment"
 
 This task requires the user to act. Do not attempt to create credentials on their behalf.
 
-- [ ] **Step 1: Write `docs/kaggle-setup.md`**
+- [x] **Step 1: Write `docs/kaggle-setup.md`**
 
 ````markdown
 # Kaggle credentials setup
@@ -223,19 +225,19 @@ Click **I Understand and Accept**. This is a one-time action per Kaggle account 
 be done through the API. Only needed before preparing `ieee_cis` (Plan 2).
 ````
 
-- [ ] **Step 2: Ask the user to follow the guide**
+- [x] **Step 2: Ask the user to follow the guide**
 
 Stop and ask the user to complete steps 1, 2, and 4 of `docs/kaggle-setup.md`. Wait for
 their confirmation. Do not proceed to step 3 until they confirm.
 
-- [ ] **Step 3: Verify credentials work**
+- [x] **Step 3: Verify credentials work**
 
 Run: `.venv/bin/python -c "import kagglehub; print(kagglehub.whoami())"`
 Expected: a dict containing the user's Kaggle username.
 
 If this fails, report the exact error to the user and stop. Every later task depends on it.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add docs/kaggle-setup.md
@@ -260,7 +262,7 @@ which accepts any naive resolution and rejects timezone-aware columns — the la
 correct, since the canonical schema defines `event_time` as naive UTC. Only the
 non-temporal columns are compared by exact dtype string.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_schema.py`:
 
@@ -361,12 +363,12 @@ def test_order_columns_includes_split_when_present():
     ]
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_schema.py -v`
 Expected: collection error, `ModuleNotFoundError: No module named 'fraud_benchmark.schema'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `src/fraud_benchmark/schema.py`:
 
@@ -446,12 +448,12 @@ def order_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df[core + rest]
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_schema.py -v`
 Expected: 10 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/fraud_benchmark/schema.py tests/test_schema.py
@@ -466,7 +468,7 @@ git commit -m "feat: canonical schema definition and validation"
 - Create: `src/fraud_benchmark/config.py`, `configs/default.yaml`
 - Test: `tests/test_config.py`
 
-- [ ] **Step 1: Create `configs/default.yaml`**
+- [x] **Step 1: Create `configs/default.yaml`**
 
 ```yaml
 paths:
@@ -483,7 +485,7 @@ datasets:
     start_date: "2023-01-01"
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 `tests/test_config.py`:
 
@@ -546,12 +548,12 @@ def test_config_is_frozen():
     assert isinstance(config, Config)
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_config.py -v`
 Expected: collection error, `ModuleNotFoundError: No module named 'fraud_benchmark.config'`
 
-- [ ] **Step 4: Write the implementation**
+- [x] **Step 4: Write the implementation**
 
 `src/fraud_benchmark/config.py`:
 
@@ -626,12 +628,12 @@ def load_config(path: Path | str | None = None) -> Config:
     )
 ```
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_config.py -v`
 Expected: 7 passed
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/fraud_benchmark/config.py configs/default.yaml tests/test_config.py
@@ -659,7 +661,7 @@ actively misleading there: the credentials are fine, the rules simply have not b
 The git source type is deliberately **not** implemented here — it is only needed for
 Amaretto in Plan 2.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_sources.py`:
 
@@ -772,12 +774,12 @@ def test_empty_download_directory_is_an_error(tmp_path, monkeypatch):
         fetch(KaggleDataset("ealaxi/paysim1"), tmp_path / "dest")
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_sources.py -v`
 Expected: collection error, `ModuleNotFoundError: No module named 'fraud_benchmark.sources'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `src/fraud_benchmark/sources.py`:
 
@@ -892,12 +894,12 @@ def _http_error_message(source: Source, exc: KaggleApiHTTPError) -> str:
     return f"Kaggle request for {source.url} failed with status {status}: {exc}"
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_sources.py -v`
 Expected: 7 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/fraud_benchmark/sources.py tests/test_sources.py
@@ -913,7 +915,7 @@ git commit -m "feat: Kaggle dataset and competition fetching with actionable err
 - Modify: `src/fraud_benchmark/datasets/__init__.py`
 - Test: `tests/test_registry.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_registry.py`:
 
@@ -993,12 +995,12 @@ def test_registering_a_duplicate_name_is_an_error(fake_adapter):
         register(make_fake_class(handle="someone/other"))
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_registry.py -v`
 Expected: collection error, `ModuleNotFoundError: No module named 'fraud_benchmark.datasets.base'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `src/fraud_benchmark/datasets/base.py`:
 
@@ -1071,7 +1073,7 @@ def list_datasets() -> list[str]:
     return sorted(_REGISTRY)
 ```
 
-- [ ] **Step 4: Register adapters on package import**
+- [x] **Step 4: Register adapters on package import**
 
 `src/fraud_benchmark/datasets/__init__.py`:
 
@@ -1089,12 +1091,12 @@ Note: this import fails until Task 7 creates `paysim.py`. That is expected and i
 fixed in the next task. Leave `__init__.py` untouched until then — write it in Task 7,
 Step 5.
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_registry.py -v`
 Expected: 5 passed
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/fraud_benchmark/datasets/base.py tests/test_registry.py
@@ -1117,7 +1119,7 @@ isFraud, isFlaggedFraud`. `step` is a **1-based hour offset**, not a date, so
 `event_time = start_date + (step - 1) hours`. The adapter globs for the CSV rather than
 hardcoding Kaggle's filename, which contains an unstable numeric suffix.
 
-- [ ] **Step 1: Create the fixture**
+- [x] **Step 1: Create the fixture**
 
 `tests/fixtures/paysim/sample.csv`:
 
@@ -1130,7 +1132,7 @@ step,type,amount,nameOrig,oldbalanceOrg,newbalanceOrig,nameDest,oldbalanceDest,n
 25,CASH_IN,7817.71,C90045638,53860.0,61677.71,C972765878,0.0,0.0,0,0
 ```
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 `tests/test_paysim.py`:
 
@@ -1198,12 +1200,12 @@ def test_missing_csv_is_an_error(tmp_path):
         get_adapter("paysim").to_canonical(tmp_path, OPTIONS)
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_paysim.py -v`
 Expected: all fail with `UnknownDatasetError: unknown dataset 'paysim'`
 
-- [ ] **Step 4: Write the implementation**
+- [x] **Step 4: Write the implementation**
 
 `src/fraud_benchmark/datasets/paysim.py`:
 
@@ -1278,7 +1280,7 @@ class PaySimAdapter(DatasetAdapter):
         }
 ```
 
-- [ ] **Step 5: Register the adapter**
+- [x] **Step 5: Register the adapter**
 
 `src/fraud_benchmark/datasets/__init__.py`:
 
@@ -1292,17 +1294,17 @@ imports here.
 from fraud_benchmark.datasets import paysim  # noqa: F401
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_paysim.py -v`
 Expected: 9 passed
 
-- [ ] **Step 7: Run the whole suite**
+- [x] **Step 7: Run the whole suite**
 
 Run: `.venv/bin/pytest`
 Expected: all tests pass
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/fraud_benchmark/datasets/paysim.py src/fraud_benchmark/datasets/__init__.py tests/test_paysim.py tests/fixtures/paysim/sample.csv
@@ -1325,7 +1327,7 @@ Algorithm: count rows per distinct timestamp, take the cumulative fraction, and 
 first timestamp at which the cumulative fraction reaches each target. That timestamp and
 everything before it belong to the earlier split.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_splitting.py`:
 
@@ -1400,12 +1402,12 @@ def test_ratios_must_sum_to_one():
         assign_splits(df, (0.5, 0.2, 0.2))
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_splitting.py -v`
 Expected: collection error, `ModuleNotFoundError: No module named 'fraud_benchmark.splitting'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `src/fraud_benchmark/splitting.py`:
 
@@ -1481,12 +1483,12 @@ def assign_splits(
     )
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_splitting.py -v`
 Expected: 8 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/fraud_benchmark/splitting.py tests/test_splitting.py
@@ -1507,7 +1509,7 @@ run never leaves a half-written dataset that looks valid.
 
 `reported_at` is not produced here; Plan 3 adds it.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_pipeline.py`:
 
@@ -1617,12 +1619,12 @@ def test_validation_failure_writes_nothing(config, monkeypatch):
     assert not (config.processed_dir / "paysim").exists()
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_pipeline.py -v`
 Expected: collection error, `ModuleNotFoundError: No module named 'fraud_benchmark.pipeline'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `src/fraud_benchmark/pipeline.py`:
 
@@ -1724,12 +1726,12 @@ def _write_atomically(dest: Path, df: pd.DataFrame, card: dict) -> Path:
     return dest
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_pipeline.py -v`
 Expected: 8 passed
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/fraud_benchmark/pipeline.py tests/test_pipeline.py
@@ -1744,7 +1746,7 @@ git commit -m "feat: pipeline orchestration with dataset cards and atomic writes
 - Create: `src/fraud_benchmark/cli.py`
 - Test: `tests/test_cli.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 `tests/test_cli.py`:
 
@@ -1817,12 +1819,12 @@ def test_unknown_dataset_returns_error(config_file, capsys):
     assert "unknown dataset" in capsys.readouterr().err
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_cli.py -v`
 Expected: collection error, `ModuleNotFoundError: No module named 'fraud_benchmark.cli'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 `src/fraud_benchmark/cli.py`:
 
@@ -1921,17 +1923,17 @@ def _cmd_info(args) -> int:
     return 0
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `.venv/bin/pytest tests/test_cli.py -v`
 Expected: 7 passed
 
-- [ ] **Step 5: Run the whole suite**
+- [x] **Step 5: Run the whole suite**
 
 Run: `.venv/bin/pytest -q`
 Expected: all tests pass, none failed
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/fraud_benchmark/cli.py tests/test_cli.py
@@ -1947,7 +1949,7 @@ git commit -m "feat: list/prepare/info command-line interface"
 
 This is the task that proves the spine actually works. It downloads roughly 180 MB.
 
-- [ ] **Step 1: Write the network-marked integration test**
+- [x] **Step 1: Write the network-marked integration test**
 
 `tests/test_integration.py`:
 
@@ -1981,7 +1983,7 @@ def test_paysim_end_to_end(tmp_path):
     )
 ```
 
-- [ ] **Step 2: Run the real thing via the CLI**
+- [x] **Step 2: Run the real thing via the CLI**
 
 Run:
 
@@ -1993,7 +1995,7 @@ Expected: download progress, then `paysim: wrote data/processed/paysim`.
 
 If it fails with a credentials message, return to Task 2.
 
-- [ ] **Step 3: Inspect the result**
+- [x] **Step 3: Inspect the result**
 
 Run:
 
@@ -2006,17 +2008,17 @@ a time range spanning about 30 days from 2023-01-01, and non-zero train/val/test
 
 Report these actual numbers to the user rather than assuming they match.
 
-- [ ] **Step 4: Run the integration test**
+- [x] **Step 4: Run the integration test**
 
 Run: `.venv/bin/pytest -m network -v`
 Expected: 1 passed
 
-- [ ] **Step 5: Confirm data/ is not tracked by git**
+- [x] **Step 5: Confirm data/ is not tracked by git**
 
 Run: `git status --short`
 Expected: no `data/` entries appear.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add tests/test_integration.py
@@ -2027,13 +2029,13 @@ git commit -m "test: live end-to-end PaySim integration test"
 
 ## Done criteria
 
-- [ ] `.venv/bin/pytest -q` passes with no failures
-- [ ] `fraud-benchmark list` shows `paysim`
-- [ ] `fraud-benchmark prepare paysim` produces `data/processed/paysim/data.parquet`
+- [x] `.venv/bin/pytest -q` passes with no failures
+- [x] `fraud-benchmark list` shows `paysim`
+- [x] `fraud-benchmark prepare paysim` produces `data/processed/paysim/data.parquet`
       and `dataset_card.json`
-- [ ] The parquet's first five columns are `event_time`, `entity_id`, `amount`,
+- [x] The parquet's first five columns are `event_time`, `entity_id`, `amount`,
       `is_fraud`, `split`, and every row has a split
-- [ ] `data/` is untracked
+- [x] `data/` is untracked
 
 ## Not in this plan
 

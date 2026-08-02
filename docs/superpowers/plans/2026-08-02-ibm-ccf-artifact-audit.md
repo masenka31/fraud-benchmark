@@ -1,7 +1,8 @@
 # IBM CCF Artifact Audit — Note
 
-**Status:** not started. Small, self-contained, do it before publishing any baseline
-results on IBM CCF or its subsamples.
+**Status:** done, 2026-08-02. Results in the `## Known leakage` section of
+`docs/verification-notes.md`. The one open follow-on is whether adapters should record a
+`leaky_columns` tuple in the dataset card — see that section's closing note.
 
 **Goal:** find out how many of IBM CCF's fraud labels are explained by generation
 artifacts rather than by anything a detector should learn, and record what we find.
@@ -39,25 +40,25 @@ Recorded in the subsample adapter's caveats; **not** otherwise handled.
 
 ## To investigate
 
-- [ ] **Sweep every categorical column for near-oracle values.** For each of
+- [x] **Sweep every categorical column for near-oracle values.** For each of
       `Merchant State`, `Merchant City`, `Merchant Name`, `MCC`, `Zip`, `Use Chip`,
       `Card Brand`, `Card Type`, `Errors?`: per-value fraud rate against the base rate,
       flagging any value with a rate above ~10× base and a non-trivial row count. This
       one query probably finds most of what is left.
-- [ ] **`Errors?` specifically.** "Bad PIN", "Insufficient Balance" and friends may be
+- [x] **`Errors?` specifically.** "Bad PIN", "Insufficient Balance" and friends may be
       consequences of fraud rather than predictors of it — leakage in the causal sense
       even when the rate looks plausible.
-- [ ] **Foreign-merchant encoding.** `Merchant State` mixes US state codes with country
+- [x] **Foreign-merchant encoding.** `Merchant State` mixes US state codes with country
       names. Check whether *every* non-US value is fraud-enriched, i.e. whether the real
       artifact is "foreign" rather than "Italy".
-- [ ] **Entity concentration.** How many users/cards carry the frauds, and is `entity_id`
+- [x] **Entity concentration.** How many users/cards carry the frauds, and is `entity_id`
       as close to a label as it is on Amaretto (where 21 of 400 clients hold everything)?
-- [ ] **Amount.** Whether fraudulent amounts occupy a distinguishable range or come from
+- [x] **Amount.** Whether fraudulent amounts occupy a distinguishable range or come from
       a separate generator.
-- [ ] **Online vs chip.** Measured: 0.392% fraud for `Online Transaction` against 0.098%
+- [x] **Online vs chip.** Measured: 0.392% fraud for `Online Transaction` against 0.098%
       for chip. Only 4× and directionally realistic, so probably signal rather than
       artifact — confirm and move on.
-- [ ] **Does the same sweep find anything on the other six datasets?** Run it across all
+- [x] **Does the same sweep find anything on the other six datasets?** Run it across all
       of them. Sparkov and BankSim are also generated and deserve the same scepticism.
 
 ## Deliverable

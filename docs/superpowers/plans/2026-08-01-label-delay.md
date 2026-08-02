@@ -1,5 +1,7 @@
 # Label Delay Implementation Plan (Plan 4 of 4)
 
+**Status:** done, merged in `93414ec` (branch `feat/label-delay`).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give every fraudulent transaction a synthetic `reported_at` timestamp — the moment its label would realistically have become known — with transactions discovered together sharing one timestamp.
@@ -129,7 +131,7 @@ clients.
 - Create: `src/fraud_benchmark/campaigns.py`
 - Test: `tests/test_campaigns.py`
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_campaigns.py`
+- [x] **Step 1: Write the failing tests** — `tests/test_campaigns.py`
 
 ```python
 import pandas as pd
@@ -244,12 +246,12 @@ def test_no_frauds_yields_all_null():
     assert ids.isna().all()
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_campaigns.py -v`
 Expected: `ModuleNotFoundError: No module named 'fraud_benchmark.campaigns'`
 
-- [ ] **Step 3: Write the implementation** — `src/fraud_benchmark/campaigns.py`
+- [x] **Step 3: Write the implementation** — `src/fraud_benchmark/campaigns.py`
 
 ```python
 """Grouping fraudulent transactions into campaigns.
@@ -309,12 +311,12 @@ def campaign_sizes(ids: pd.Series) -> pd.Series:
     return ids.dropna().value_counts()
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `.venv/bin/pytest tests/test_campaigns.py -v` — expect 11 passed.
 Run: `.venv/bin/pytest` — expect 213 passed, 1 deselected.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/fraud_benchmark/campaigns.py tests/test_campaigns.py
@@ -333,7 +335,7 @@ last fraud it covers has happened.
 - Create: `src/fraud_benchmark/delay.py`
 - Test: `tests/test_delay.py`
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_delay.py`
+- [x] **Step 1: Write the failing tests** — `tests/test_delay.py`
 
 ```python
 import numpy as np
@@ -461,12 +463,12 @@ def test_result_is_aligned_to_the_input_index():
     assert out.index.equals(shuffled.index)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_delay.py -v`
 Expected: `ModuleNotFoundError: No module named 'fraud_benchmark.delay'`
 
-- [ ] **Step 3: Write the implementation** — `src/fraud_benchmark/delay.py`
+- [x] **Step 3: Write the implementation** — `src/fraud_benchmark/delay.py`
 
 ```python
 """Synthetic label-availability delay.
@@ -548,12 +550,12 @@ def assign_reported_at(df: pd.DataFrame, params: DelayParams) -> pd.Series:
 Note `last_seen` is sorted by `campaign_id` because `groupby` sorts by default, so the
 draws are reproducible for a given seed regardless of row order.
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `.venv/bin/pytest tests/test_delay.py -v` — expect 13 passed.
 Run: `.venv/bin/pytest` — expect 226 passed, 1 deselected.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/fraud_benchmark/delay.py tests/test_delay.py
@@ -568,7 +570,7 @@ git commit -m "feat: lognormal label-delay sampling, one draw per campaign"
 - Modify: `src/fraud_benchmark/config.py`, `configs/default.yaml`
 - Test: `tests/test_config.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/test_config.py`:
 
@@ -648,12 +650,12 @@ def test_a_negative_gap_raises_config_error(tmp_path):
         load_config(path)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_config.py -v`
 Expected: `AttributeError: 'Config' object has no attribute 'delay'`.
 
-- [ ] **Step 3: Extend `src/fraud_benchmark/config.py`**
+- [x] **Step 3: Extend `src/fraud_benchmark/config.py`**
 
 Import the params type at the top:
 
@@ -724,7 +726,7 @@ And populate them in `load_config`'s returned `Config`:
 Note `pd.Timedelta("not-a-duration")` raises `ValueError`, so the try/except covers the
 unparseable case; the `gap != gap` check catches inputs that yield `NaT` instead.
 
-- [ ] **Step 4: Add defaults to `configs/default.yaml`**
+- [x] **Step 4: Add defaults to `configs/default.yaml`**
 
 Insert above the `datasets:` block:
 
@@ -757,7 +759,7 @@ And add the Amaretto override inside the existing `datasets:` block, beside its 
     campaign_gap: 1h
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `.venv/bin/pytest tests/test_config.py -v` — all pass.
 Run: `.venv/bin/pytest` — expect 230 passed, 1 deselected.
@@ -768,7 +770,7 @@ arguments. Fix those constructions by passing
 than the test fixtures need changing, STOP and report — that would mean `Config` is
 constructed in production code somewhere it should not be.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/fraud_benchmark/config.py configs/default.yaml tests/test_config.py \
@@ -784,7 +786,7 @@ git commit -m "feat: campaign gap and delay distribution configuration"
 - Modify: `src/fraud_benchmark/pipeline.py`, `src/fraud_benchmark/schema.py`
 - Test: `tests/test_pipeline.py`, `tests/test_schema.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/test_schema.py`:
 
@@ -859,12 +861,12 @@ def test_card_records_the_delay_parameters(config, no_download):
     assert card["label_delay"]["largest_campaign"] >= 1
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_schema.py tests/test_pipeline.py -v`
 Expected: the new tests fail — no `reported_at` column and no `label_delay` card key.
 
-- [ ] **Step 3: Extend validation in `src/fraud_benchmark/schema.py`**
+- [x] **Step 3: Extend validation in `src/fraud_benchmark/schema.py`**
 
 At the end of `validate_canonical`, before it returns:
 
@@ -890,7 +892,7 @@ At the end of `validate_canonical`, before it returns:
             )
 ```
 
-- [ ] **Step 4: Add the stage in `src/fraud_benchmark/pipeline.py`**
+- [x] **Step 4: Add the stage in `src/fraud_benchmark/pipeline.py`**
 
 Add imports:
 
@@ -941,11 +943,11 @@ def _describe_delay(df, config, gap) -> dict:
     }
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `.venv/bin/pytest` — expect 238 passed, 1 deselected. Report the ACTUAL number.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/fraud_benchmark/pipeline.py src/fraud_benchmark/schema.py \
@@ -959,13 +961,13 @@ git commit -m "feat: reported_at and campaign_id in the pipeline output"
 
 Raw data for all seven datasets is cached; preparing all seven takes about 8 minutes.
 
-- [ ] **Step 1: Prepare everything**
+- [x] **Step 1: Prepare everything**
 
 ```bash
 .venv/bin/fraud-benchmark prepare --all
 ```
 
-- [ ] **Step 2: Check the invariants on real data**
+- [x] **Step 2: Check the invariants on real data**
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -987,7 +989,7 @@ PY
 
 Every dataset must show `early=0 null=0 stray=0`.
 
-- [ ] **Step 3: Measure campaign sizes — the evidence for the gap default**
+- [x] **Step 3: Measure campaign sizes — the evidence for the gap default**
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -1012,7 +1014,7 @@ collapsing Sparkov's and IBM CCF's genuine multi-fraud runs into singletons.
 
 Do NOT quietly change the default — report the evidence and the recommendation.
 
-- [ ] **Step 4: Confirm the delay is usable for its purpose**
+- [x] **Step 4: Confirm the delay is usable for its purpose**
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -1032,7 +1034,7 @@ PY
 Expect high but not 100% — frauds late in the train window are still unreported at the
 cutoff, which is exactly the effect the benchmark exists to expose. Report the numbers.
 
-- [ ] **Step 5: Update the documentation and commit**
+- [x] **Step 5: Update the documentation and commit**
 
 Add a short section to `docs/verification-notes.md` recording the campaign-size table from
 Step 3, the delay quantiles from Step 2, and the label-availability figures from Step 4.
@@ -1046,12 +1048,12 @@ git commit -m "test: verify label delay against all seven datasets"
 
 ## Done criteria
 
-- [ ] `.venv/bin/pytest` passes
-- [ ] Every dataset has `reported_at` non-null for frauds, null otherwise, never before `event_time`
-- [ ] Every dataset has `campaign_id`, null for non-fraud rows
-- [ ] Dataset cards record the distribution, its parameters, the seed and the campaign stats
-- [ ] Re-running with the same seed reproduces identical timestamps
-- [ ] Campaign-size distributions measured on all seven, with a gap recommendation reported
+- [x] `.venv/bin/pytest` passes
+- [x] Every dataset has `reported_at` non-null for frauds, null otherwise, never before `event_time`
+- [x] Every dataset has `campaign_id`, null for non-fraud rows
+- [x] Dataset cards record the distribution, its parameters, the seed and the campaign stats
+- [x] Re-running with the same seed reproduces identical timestamps
+- [x] Campaign-size distributions measured on all seven, with a gap recommendation reported
 
 ## Not in this plan
 

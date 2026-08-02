@@ -1,5 +1,7 @@
 # Per-Dataset Delay and IBM CCF Subsamples Implementation Plan
 
+**Status:** done, merged in `93414ec` (branch `feat/label-delay`).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let each dataset override the global label-delay distribution, and add two IBM CCF subsamples — row-identical, differing only in delay regime — cropped to a window that actually exercises delay-aware evaluation.
@@ -51,7 +53,7 @@ variant re-downloads the same 3.0 GB Kaggle archive into its own directory.
 - Modify: `src/fraud_benchmark/datasets/base.py`, `src/fraud_benchmark/pipeline.py:29`
 - Test: `tests/test_registry.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/test_registry.py`:
 
@@ -73,12 +75,12 @@ def test_raw_name_can_be_overridden():
     assert cls().raw_name == "fake_for_tests"
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_registry.py -v`
 Expected: `AttributeError: '_FakeAdapter' object has no attribute 'raw_name'`
 
-- [ ] **Step 3: Add the attribute**
+- [x] **Step 3: Add the attribute**
 
 In `src/fraud_benchmark/datasets/base.py`, inside `class DatasetAdapter`, after the
 `name` attribute and its comment:
@@ -99,7 +101,7 @@ the duplicate check:
         cls.raw_name = name
 ```
 
-- [ ] **Step 4: Use it in the pipeline**
+- [x] **Step 4: Use it in the pipeline**
 
 In `src/fraud_benchmark/pipeline.py`, replace line 29:
 
@@ -107,14 +109,14 @@ In `src/fraud_benchmark/pipeline.py`, replace line 29:
     raw_dir = fetch(adapter.source, config.raw_dir / adapter.raw_name, force=force)
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `.venv/bin/pytest tests/test_registry.py tests/test_pipeline.py -v` — all pass.
 
 Note `test_raw_name_can_be_overridden` uses an unregistered class, so `register` never
 runs on it; it asserts the class attribute directly.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/fraud_benchmark/datasets/base.py src/fraud_benchmark/pipeline.py \
@@ -133,7 +135,7 @@ Partial merge means a change to the global seed still propagates everywhere.
 - Modify: `src/fraud_benchmark/config.py`
 - Test: `tests/test_config.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/test_config.py`:
 
@@ -240,12 +242,12 @@ def test_delay_overrides_are_validated_at_load_time(tmp_path):
         load_config(path)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_config.py -v`
 Expected: `AttributeError: 'Config' object has no attribute 'delay_for'`
 
-- [ ] **Step 3: Implement it**
+- [x] **Step 3: Implement it**
 
 In `src/fraud_benchmark/config.py`, extend the dataclasses import at the top:
 
@@ -308,7 +310,7 @@ def _merge_delay(base: DelayParams, override: Any, name: str) -> DelayParams:
         raise ConfigError(f"invalid delay settings for {name}: {exc}") from exc
 ```
 
-- [ ] **Step 4: Validate every override at load time**
+- [x] **Step 4: Validate every override at load time**
 
 `delay_for` alone would only raise when a dataset is prepared. In `load_config`, after
 building the `Config` but before returning it, resolve every dataset's delay so a bad
@@ -328,12 +330,12 @@ override fails immediately:
     return config
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `.venv/bin/pytest tests/test_config.py -v` — all pass.
 Run: `.venv/bin/pytest` — report the ACTUAL count.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/fraud_benchmark/config.py tests/test_config.py
@@ -351,7 +353,7 @@ global parameters while its timestamps came from the override.
 - Modify: `src/fraud_benchmark/pipeline.py:42`, `:51-53`, `:78`, `:103-118`
 - Test: `tests/test_pipeline.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/test_pipeline.py`:
 
@@ -388,12 +390,12 @@ def test_the_card_records_the_resolved_delay(config_with_override, no_download):
     assert card["label_delay"]["sigma"] == 1.0
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_pipeline.py -v`
 Expected: both fail — the override is ignored, so timestamps and card are unchanged.
 
-- [ ] **Step 3: Thread the resolved delay through**
+- [x] **Step 3: Thread the resolved delay through**
 
 In `src/fraud_benchmark/pipeline.py`, in `prepare`, replace lines 40-42:
 
@@ -470,11 +472,11 @@ Add the import at the top of `pipeline.py`:
 from fraud_benchmark.delay import DelayParams, assign_reported_at
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `.venv/bin/pytest` — report the ACTUAL count.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/fraud_benchmark/pipeline.py tests/test_pipeline.py
@@ -492,7 +494,7 @@ train labels are known at the cutoff.
 - Modify: `configs/default.yaml`
 - Test: `tests/test_config.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add to `tests/test_config.py`:
 
@@ -507,12 +509,12 @@ def test_paysim_overrides_the_delay_to_one_day():
     assert delay.seed == config.delay.seed
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `.venv/bin/pytest tests/test_config.py::test_paysim_overrides_the_delay_to_one_day -v`
 Expected: FAIL, `assert 7.0 == 1.0`
 
-- [ ] **Step 3: Add the override**
+- [x] **Step 3: Add the override**
 
 In `configs/default.yaml`, replace the `paysim:` block:
 
@@ -529,11 +531,11 @@ In `configs/default.yaml`, replace the `paysim:` block:
       median_days: 1.0
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `.venv/bin/pytest tests/test_config.py -v` — all pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add configs/default.yaml tests/test_config.py
@@ -553,7 +555,7 @@ Cropping on the last transaction yields a test split with zero frauds — measur
 - Modify: `src/fraud_benchmark/datasets/__init__.py`
 - Test: `tests/test_ibm_ccf_subsample.py`
 
-- [ ] **Step 1: Create the fixture**
+- [x] **Step 1: Create the fixture**
 
 A separate fixture rather than extending `tests/fixtures/ibm_ccf` — that one is pinned by
 `test_all_rows_survive` and the `entity_id` assertions in `tests/test_ibm_ccf.py`.
@@ -589,7 +591,7 @@ Hazel Robinson,53,66,1966,11,Female,462 Rose Lane,,La Verne,CA,91750,34.15,-117.
 Sasha Sadr,53,68,1966,12,Female,3606 Federal Boulevard,,Boston,MA,2101,42.34,-71.09,$37891,$77254,$191349,701,5
 ```
 
-- [ ] **Step 2: Write the failing tests** — `tests/test_ibm_ccf_subsample.py`
+- [x] **Step 2: Write the failing tests** — `tests/test_ibm_ccf_subsample.py`
 
 ```python
 from pathlib import Path
@@ -676,12 +678,12 @@ def test_the_index_is_reset(frame):
     assert frame.index.tolist() == [0, 1, 2]
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_ibm_ccf_subsample.py -v`
 Expected: `UnknownDatasetError: unknown dataset 'ibm_ccf_subsample_fast'`
 
-- [ ] **Step 4: Write the adapter** — `src/fraud_benchmark/datasets/ibm_ccf_subsample.py`
+- [x] **Step 4: Write the adapter** — `src/fraud_benchmark/datasets/ibm_ccf_subsample.py`
 
 ```python
 """IBM CCF cropped to a recent, fully-labelled window.
@@ -780,7 +782,7 @@ class IbmCcfSubsampleSlowAdapter(IbmCcfSubsampleAdapter):
     name = "ibm_ccf_subsample_slow"
 ```
 
-- [ ] **Step 5: Register the module**
+- [x] **Step 5: Register the module**
 
 In `src/fraud_benchmark/datasets/__init__.py`, add `ibm_ccf_subsample` to the import list,
 keeping it alphabetical:
@@ -798,7 +800,7 @@ from fraud_benchmark.datasets import (  # noqa: F401
 )
 ```
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run: `.venv/bin/pytest tests/test_ibm_ccf_subsample.py -v` — expect 21 passed (seven
 fixture-parametrised tests run twice, two name-parametrised tests run twice, three run once).
@@ -807,7 +809,7 @@ Run: `.venv/bin/pytest` — report the ACTUAL count.
 `tests/test_cli.py` lists datasets; if a test pins the set of names, update it to include
 both variants. If it pins a *count*, prefer changing it to a membership assertion.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/fraud_benchmark/datasets/ibm_ccf_subsample.py \
@@ -824,7 +826,7 @@ git commit -m "feat: IBM CCF subsample adapters cropped to a labelled window"
 - Modify: `configs/default.yaml`
 - Test: `tests/test_config.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/test_config.py`:
 
@@ -860,13 +862,13 @@ def test_the_subsamples_keep_the_default_campaign_gap():
         assert config.campaign_gap_for(name) == pd.Timedelta(days=1)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_config.py -v`
 Expected: `assert 7.0 == 15.0` and similar — the datasets have no config yet, so both
 resolve to the global delay.
 
-- [ ] **Step 3: Add the config**
+- [x] **Step 3: Add the config**
 
 In `configs/default.yaml`, inside `datasets:`, after the `ibm_ccf:` block:
 
@@ -901,11 +903,11 @@ In `configs/default.yaml`, inside `datasets:`, after the `ibm_ccf:` block:
       max_delay_days: 730
 ```
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `.venv/bin/pytest` — report the ACTUAL count.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add configs/default.yaml tests/test_config.py
@@ -926,7 +928,7 @@ dd if=/dev/zero of=data/processed/_spacetest bs=1M count=2048 && rm data/process
 
 If that fails, stop and report rather than starting a 20-minute run that cannot finish.
 
-- [ ] **Step 1: Prepare the affected datasets**
+- [x] **Step 1: Prepare the affected datasets**
 
 Do NOT pass `--force` — in this CLI it means re-download, and it deletes the raw directory
 before re-fetching.
@@ -937,7 +939,7 @@ before re-fetching.
 .venv/bin/fraud-benchmark prepare ibm_ccf_subsample_slow
 ```
 
-- [ ] **Step 2: Confirm PaySim's labels are usable**
+- [x] **Step 2: Confirm PaySim's labels are usable**
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -953,7 +955,7 @@ print(f"train frauds={len(tf):,} known at cutoff={((tf.reported_at<=cutoff).mean
 PY
 ```
 
-- [ ] **Step 3: Confirm the two variants are row-identical**
+- [x] **Step 3: Confirm the two variants are row-identical**
 
 This is the property the whole two-dataset design rests on. If it fails, the comparison
 between delay regimes is not controlled and the results are meaningless.
@@ -970,7 +972,7 @@ print("reported_at differs:", not fast.reported_at.equals(slow.reported_at))
 PY
 ```
 
-- [ ] **Step 4: Measure both regimes**
+- [x] **Step 4: Measure both regimes**
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -997,7 +999,7 @@ Expected, from the spec's offline measurements: 6,569,157 rows, 8,412 frauds,
 stray=0` for both. **Report the actual numbers.** If the split fraud counts differ from
 these, stop and report — it means the window moved.
 
-- [ ] **Step 5: Update the docs**
+- [x] **Step 5: Update the docs**
 
 In `docs/verification-notes.md`, in the "Label delay as shipped" section, add the three
 new datasets to the invariants, campaign-size and label-availability tables, and record
@@ -1006,7 +1008,7 @@ row-identical.
 
 In `README.md`, add both variants wherever the seven datasets are listed.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add -u
@@ -1017,14 +1019,14 @@ git commit -m "test: verify per-dataset delay and the IBM CCF subsamples"
 
 ## Done criteria
 
-- [ ] `.venv/bin/pytest` passes
-- [ ] `config.delay_for(name)` merges partially and rejects unknown keys at load time
-- [ ] Dataset cards record resolved delay parameters, plus the observed mean
-- [ ] PaySim's known-at-cutoff figure is reported, up from 47.3%
-- [ ] Both subsamples prepare, are row-identical outside `reported_at`, and satisfy
+- [x] `.venv/bin/pytest` passes
+- [x] `config.delay_for(name)` merges partially and rejects unknown keys at load time
+- [x] Dataset cards record resolved delay parameters, plus the observed mean
+- [x] PaySim's known-at-cutoff figure is reported, up from 47.3%
+- [x] Both subsamples prepare, are row-identical outside `reported_at`, and satisfy
       `early=0 null=0 stray=0`
-- [ ] Both subsamples' known-at-cutoff figures are reported and differ as designed
-- [ ] `docs/verification-notes.md` and `README.md` updated
+- [x] Both subsamples' known-at-cutoff figures are reported and differ as designed
+- [x] `docs/verification-notes.md` and `README.md` updated
 
 ## Not in this plan
 

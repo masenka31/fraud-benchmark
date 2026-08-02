@@ -20,7 +20,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+# scikit-learn is not used by the pipeline. It backs the leakage and delay probes
+# that produced docs/verification-notes.md; 1.4 is the floor for passing string
+# column names to HistGradientBoostingClassifier(categorical_features=...).
+dev = ["pytest>=8", "scikit-learn>=1.4"]
 
 [project.scripts]
 fraud-benchmark = "fraud_benchmark.cli:main"

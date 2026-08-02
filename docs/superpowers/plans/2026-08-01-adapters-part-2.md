@@ -1,5 +1,7 @@
 # Adapters Part 2 Implementation Plan (Plan 3 of 4)
 
+**Status:** done, merged in `1491de7` (branch `feat/adapters-part-2`).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add the three remaining adapters — IBM CCF, IEEE-CIS and Amaretto — plus the git source type and split-archive handling they need, completing all seven datasets.
@@ -113,7 +115,7 @@ IEEE-CIS has no card identifier. The community constructs a pseudo-id from
 - Modify: `src/fraud_benchmark/datasets/files.py`
 - Test: `tests/test_sources.py`, `tests/test_files.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/test_sources.py`:
 
@@ -234,13 +236,13 @@ def test_missing_split_parts_is_an_error(tmp_path):
 
 `tests/test_files.py` needs `import pytest` and `from pathlib import Path` at the top if absent.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_sources.py tests/test_files.py -v`
 Expected: `ImportError: cannot import name 'GitRepo'` and
 `cannot import name 'require_split_zip_member'`.
 
-- [ ] **Step 3: Add `GitRepo` to `src/fraud_benchmark/sources.py`**
+- [x] **Step 3: Add `GitRepo` to `src/fraud_benchmark/sources.py`**
 
 Add `import subprocess` at the top, then after `KaggleCompetition`:
 
@@ -282,7 +284,7 @@ def _git_clone(source: GitRepo, dest: Path) -> None:
         )
 ```
 
-- [ ] **Step 4: Add archive handling to `src/fraud_benchmark/datasets/files.py`**
+- [x] **Step 4: Add archive handling to `src/fraud_benchmark/datasets/files.py`**
 
 Add `import shutil` and `import zipfile` at the top, then:
 
@@ -322,12 +324,12 @@ def require_split_zip_member(
     return extracted
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `.venv/bin/pytest tests/test_sources.py tests/test_files.py -v` — all pass.
 Run: `.venv/bin/pytest` — expect 146 passed, 1 deselected.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/fraud_benchmark/sources.py src/fraud_benchmark/datasets/files.py \
@@ -348,7 +350,7 @@ It needs a separate output file.
 - Modify: `src/fraud_benchmark/pipeline.py`
 - Test: `tests/test_pipeline.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/test_pipeline.py`:
 
@@ -390,13 +392,13 @@ def test_no_auxiliary_key_when_there_are_none(config, no_download):
     assert not list(out.glob("extra*.parquet"))
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_pipeline.py -v`
 Expected: the three new tests fail — `auxiliary_frames` does not exist and the card has no
 `auxiliary` key.
 
-- [ ] **Step 3: Add the hook to `src/fraud_benchmark/datasets/base.py`**
+- [x] **Step 3: Add the hook to `src/fraud_benchmark/datasets/base.py`**
 
 Inside `DatasetAdapter`, after `custom_splits`:
 
@@ -413,7 +415,7 @@ Inside `DatasetAdapter`, after `custom_splits`:
         return {}
 ```
 
-- [ ] **Step 4: Write them in `src/fraud_benchmark/pipeline.py`**
+- [x] **Step 4: Write them in `src/fraud_benchmark/pipeline.py`**
 
 In `prepare`, after the card is built and before the write:
 
@@ -444,12 +446,12 @@ and inside the `try`, immediately after `data.parquet` is written:
             frame.to_parquet(staging / f"{key}.parquet", index=False)
 ```
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `.venv/bin/pytest tests/test_pipeline.py -v` — all pass.
 Run: `.venv/bin/pytest` — expect 149 passed, 1 deselected.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/fraud_benchmark/datasets/base.py src/fraud_benchmark/pipeline.py \
@@ -469,7 +471,7 @@ git commit -m "feat: adapters may write auxiliary output frames"
 - Create: `tests/test_ibm_ccf.py`
 - Modify: `src/fraud_benchmark/datasets/__init__.py`, `configs/default.yaml`
 
-- [ ] **Step 1: Create the fixtures**
+- [x] **Step 1: Create the fixtures**
 
 `tests/fixtures/ibm_ccf/credit_card_transactions-ibm_v2.csv`:
 
@@ -499,7 +501,7 @@ Hazel Robinson,53,66,1966,11,Female,462 Rose Lane,,La Verne,CA,91750,34.15,-117.
 Sasha Sadr,53,68,1966,12,Female,3606 Federal Boulevard,,Boston,MA,2101,42.34,-71.09,$37891,$77254,$191349,701,5
 ```
 
-- [ ] **Step 2: Write the failing tests** — `tests/test_ibm_ccf.py`
+- [x] **Step 2: Write the failing tests** — `tests/test_ibm_ccf.py`
 
 ```python
 from pathlib import Path
@@ -603,12 +605,12 @@ def test_ibm_ccf_is_registered():
     assert "ibm_ccf" in list_datasets()
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_ibm_ccf.py -v`
 Expected: `UnknownDatasetError: unknown dataset 'ibm_ccf'`.
 
-- [ ] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/ibm_ccf.py`
+- [x] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/ibm_ccf.py`
 
 ```python
 """IBM CCF (Altman): a large synthetic credit-card transaction log.
@@ -725,7 +727,7 @@ class IbmCcfAdapter(DatasetAdapter):
         }
 ```
 
-- [ ] **Step 5: Register it and add config**
+- [x] **Step 5: Register it and add config**
 
 `src/fraud_benchmark/datasets/__init__.py`:
 
@@ -747,7 +749,7 @@ In `configs/default.yaml`, under `datasets:`:
     entity_key: user
 ```
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run: `.venv/bin/pytest tests/test_ibm_ccf.py -v` — expect 16 passed.
 Run: `.venv/bin/pytest` — expect 165 passed, 1 deselected.
@@ -756,7 +758,7 @@ Note: `tests/test_cli.py`'s `no_download` fixture resolves `tests/fixtures/<data
 so `prepare --all` there will now also prepare ibm_ccf from your fixture. Its five rows span
 2002–2011 with 4 distinct timestamps, enough for a three-way split.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/fraud_benchmark/datasets/ibm_ccf.py src/fraud_benchmark/datasets/__init__.py \
@@ -775,7 +777,7 @@ git commit -m "feat: IBM CCF adapter"
 - Create: `tests/test_ieee_cis.py`
 - Modify: `src/fraud_benchmark/datasets/__init__.py`, `configs/default.yaml`
 
-- [ ] **Step 1: Create the fixtures**
+- [x] **Step 1: Create the fixtures**
 
 `tests/fixtures/ieee_cis/train_transaction.csv` — row 3 deliberately has a missing `addr1`
 and row 4 a missing `D1`, to exercise the null-safe uid fallback:
@@ -817,7 +819,7 @@ TransactionID,id_01,id_02,id_12,id_31
 3663549,0.0,70787.0,NotFound,chrome 62.0
 ```
 
-- [ ] **Step 2: Write the failing tests** — `tests/test_ieee_cis.py`
+- [x] **Step 2: Write the failing tests** — `tests/test_ieee_cis.py`
 
 ```python
 from pathlib import Path
@@ -923,12 +925,12 @@ def test_column_mapping_records_the_uid_heuristic():
     assert mapping["is_fraud"] == "isFraud"
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_ieee_cis.py -v`
 Expected: `UnknownDatasetError: unknown dataset 'ieee_cis'`.
 
-- [ ] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/ieee_cis.py`
+- [x] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/ieee_cis.py`
 
 ```python
 """IEEE-CIS / Vesta: real e-commerce transactions from a Kaggle competition.
@@ -1050,7 +1052,7 @@ class IeeeCisAdapter(DatasetAdapter):
         }
 ```
 
-- [ ] **Step 5: Register it and add config**
+- [x] **Step 5: Register it and add config**
 
 `src/fraud_benchmark/datasets/__init__.py`:
 
@@ -1073,12 +1075,12 @@ In `configs/default.yaml`, under `datasets:`:
     start_date: "2017-12-01"
 ```
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run: `.venv/bin/pytest tests/test_ieee_cis.py -v` — expect 13 passed.
 Run: `.venv/bin/pytest` — expect 178 passed, 1 deselected.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/fraud_benchmark/datasets/ieee_cis.py src/fraud_benchmark/datasets/__init__.py \
@@ -1102,7 +1104,7 @@ dataset to `tests/fixtures/<name>`, so if amaretto has no fixture directory,
 `test_prepare_all_creates_output` will fail the moment the adapter is registered. The parts
 are only a few hundred bytes, so committing them is cheap and keeps `--all` honest.
 
-- [ ] **Step 1: Generate and commit the fixture**
+- [x] **Step 1: Generate and commit the fixture**
 
 Run this once to build a genuine multi-part archive, mirroring how Amaretto ships:
 
@@ -1141,7 +1143,7 @@ cat tests/fixtures/amaretto/Data/amaretto_dataset_anon.zip.??? > /tmp/check.zip 
 
 Expected: one member, `amaretto_dataset_anon.csv`.
 
-- [ ] **Step 2: Write the failing tests** — `tests/test_amaretto.py`
+- [x] **Step 2: Write the failing tests** — `tests/test_amaretto.py`
 
 ```python
 import shutil
@@ -1249,12 +1251,12 @@ def test_amaretto_is_registered():
     assert "amaretto" in list_datasets()
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_amaretto.py -v`
 Expected: `UnknownDatasetError: unknown dataset 'amaretto'`.
 
-- [ ] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/amaretto.py`
+- [x] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/amaretto.py`
 
 ```python
 """Amaretto: a synthetic capital-market dataset for money-laundering detection.
@@ -1323,7 +1325,7 @@ class AmarettoAdapter(DatasetAdapter):
         }
 ```
 
-- [ ] **Step 5: Register it**
+- [x] **Step 5: Register it**
 
 `src/fraud_benchmark/datasets/__init__.py`:
 
@@ -1339,7 +1341,7 @@ from fraud_benchmark.datasets import (  # noqa: F401
 )
 ```
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run: `.venv/bin/pytest tests/test_amaretto.py -v` — expect 14 passed.
 Run: `.venv/bin/pytest` — expect 192 passed, 1 deselected.
@@ -1348,7 +1350,7 @@ Run: `.venv/bin/pytest` — expect 192 passed, 1 deselected.
 includes amaretto. It works because Step 1 committed a real fixture at
 `tests/fixtures/amaretto/`. If it fails anyway, STOP and report — do not weaken that test.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/fraud_benchmark/datasets/amaretto.py src/fraud_benchmark/datasets/__init__.py \
@@ -1362,7 +1364,7 @@ git commit -m "feat: Amaretto adapter"
 
 Raw data for every dataset is already cached under `data/raw/`.
 
-- [ ] **Step 1: Prepare the three new datasets**
+- [x] **Step 1: Prepare the three new datasets**
 
 ```bash
 .venv/bin/fraud-benchmark prepare ibm_ccf
@@ -1373,7 +1375,7 @@ Raw data for every dataset is already cached under `data/raw/`.
 Amaretto extracts a 3.58 GB CSV on first run, so expect it to take several minutes.
 IBM CCF reads 24.4M rows and joins two tables.
 
-- [ ] **Step 2: Check against the measured figures**
+- [x] **Step 2: Check against the measured figures**
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -1396,7 +1398,7 @@ IBM CCF and IEEE-CIS row counts must match exactly. Amaretto's is a README claim
 something measured here — **report the actual number** and note any difference rather than
 assuming the README is right.
 
-- [ ] **Step 3: Confirm the IEEE-CIS auxiliary file**
+- [x] **Step 3: Confirm the IEEE-CIS auxiliary file**
 
 ```bash
 .venv/bin/python -c "
@@ -1408,7 +1410,7 @@ print('has event_time?', 'event_time' in t.columns)
 "
 ```
 
-- [ ] **Step 4: Verify splits and null-free entities on real data**
+- [x] **Step 4: Verify splits and null-free entities on real data**
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -1426,7 +1428,7 @@ PY
 
 Every dataset must show `null_ids=0` and `straddling=0`.
 
-- [ ] **Step 5: Measure campaign groupability for all seven**
+- [x] **Step 5: Measure campaign groupability for all seven**
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -1446,7 +1448,7 @@ PY
 
 This completes the per-dataset picture that Plan 4 needs. Record it.
 
-- [ ] **Step 6: Check the licence gate with all seven registered**
+- [x] **Step 6: Check the licence gate with all seven registered**
 
 ```bash
 .venv/bin/fraud-benchmark list
@@ -1455,7 +1457,7 @@ This completes the per-dataset picture that Plan 4 needs. Record it.
 Expect seven rows. banksim, saml_d and ieee_cis are non-commercial; paysim, sparkov,
 ibm_ccf and amaretto are not flagged.
 
-- [ ] **Step 7: Commit any corrections and report**
+- [x] **Step 7: Commit any corrections and report**
 
 ```bash
 git add -u
@@ -1469,12 +1471,12 @@ than rounding to agreement.
 
 ## Done criteria
 
-- [ ] `.venv/bin/pytest` passes (expect 192 passed, 1 deselected)
-- [ ] `fraud-benchmark list` shows all seven datasets with licences
-- [ ] IBM CCF and IEEE-CIS real row counts match exactly; Amaretto's is reported
-- [ ] `data/processed/ieee_cis/unlabelled_test.parquet` has 506,691 rows and no `isFraud`
-- [ ] No dataset has a null `entity_id` or a timestamp straddling a split boundary
-- [ ] Campaign groupability recorded for all seven
+- [x] `.venv/bin/pytest` passes (expect 192 passed, 1 deselected)
+- [x] `fraud-benchmark list` shows all seven datasets with licences
+- [x] IBM CCF and IEEE-CIS real row counts match exactly; Amaretto's is reported
+- [x] `data/processed/ieee_cis/unlabelled_test.parquet` has 506,691 rows and no `isFraud`
+- [x] No dataset has a null `entity_id` or a timestamp straddling a split boundary
+- [x] Campaign groupability recorded for all seven
 
 ## Not in this plan
 

@@ -15,6 +15,13 @@ campaign:
 
 # Reporting delay, lognormal in days. median_days is the distribution's median;
 # sigma controls the tail. Seeded so runs are reproducible.
+#
+# The default is a card-fraud regime: a cardholder notices on a statement or an
+# alert and disputes inside the 60-120 day chargeback window, so a 1-2 week
+# median with a long right tail (p95 36d) is the right shape. It applies to
+# banksim, sparkov, ieee_cis and ibm_ccf. AML moves far slower and is overridden
+# per dataset below. None of the seven sources ships a real reporting timestamp,
+# so every delay here is synthetic by construction; see docs/verification-notes.md.
 delay:
   median_days: 7.0
   sigma: 1.0
@@ -73,8 +80,20 @@ datasets:
   # TransactionDT is a seconds offset with no stated origin.
   ieee_cis:
     start_date: "2017-12-01"
+  # AML, not card fraud: an alert opens an investigation and the SAR clock only
+  # starts at detection, which itself lags the transaction by weeks. A 30-day
+  # median is the realistic regime; the 320-day span absorbs it, censoring 19.2%
+  # of train frauds against 5.7% at the card-fraud default. sigma and seed inherit.
+  saml_d:
+    delay:
+      median_days: 30.0
   amaretto:
-    # Anomalies here are far burstier than card fraud: 0.7-minute median
+    # Also AML, but its whole span is 83 days and the train window 65, so a
+    # realistic 30-day median censors 53.4% of train frauds and a 15-day one
+    # 33.6% -- degenerate either way. It therefore keeps the 7-day card-fraud
+    # default, which is deliberately too fast for AML and is the only setting
+    # the span will carry. Handled as PaySim's short clock was: documented,
+    # not repaired. Anomalies here are far burstier than card fraud: 0.7-minute median
     # inter-arrival, 97.7% of consecutive pairs within an hour. At the 1-day
     # default this yields 490 episodes with a 3,870-row maximum; at 1 hour,
     # 1,852 episodes with a median of 8.

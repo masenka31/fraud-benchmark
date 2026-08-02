@@ -1,5 +1,7 @@
 # Adapters Part 1 Implementation Plan (Plan 2 of 4)
 
+**Status:** done, merged in `8fa6d8d` (branch `feat/adapters-part-1`).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add shared file-selection helpers, licence-aware batch preparation, and the three straightforward adapters — BankSim, Sparkov, SAML-D — verified against real downloads.
@@ -18,9 +20,9 @@ unreviewable, so the remaining work is split into four:
 | Plan | Contents | Status |
 |---|---|---|
 | 1 | Pipeline spine + PaySim | done, merged |
-| **2 (this)** | Shared helpers, licence gating, BankSim + Sparkov + SAML-D | |
-| 3 | IBM CCF, IEEE-CIS, Amaretto — the three with joins, heuristics, or split archives | |
-| 4 | Label delay (`reported_at`) and campaign grouping | |
+| **2 (this)** | Shared helpers, licence gating, BankSim + Sparkov + SAML-D | done, merged |
+| 3 | IBM CCF, IEEE-CIS, Amaretto — the three with joins, heuristics, or split archives | done, merged |
+| 4 | Label delay (`reported_at`) and campaign grouping | done, merged |
 
 ---
 
@@ -110,7 +112,7 @@ to a shared module and add an explicit by-name lookup.
 - Modify: `src/fraud_benchmark/datasets/paysim.py` (import from the new module)
 - Test: `tests/test_files.py`
 
-- [ ] **Step 1: Write the failing tests** — `tests/test_files.py`
+- [x] **Step 1: Write the failing tests** — `tests/test_files.py`
 
 ```python
 import pytest
@@ -155,12 +157,12 @@ def test_find_single_csv_rejects_two(tmp_path):
         find_single_csv(tmp_path)
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_files.py -v`
 Expected: `ModuleNotFoundError: No module named 'fraud_benchmark.datasets.files'`
 
-- [ ] **Step 3: Write the implementation** — `src/fraud_benchmark/datasets/files.py`
+- [x] **Step 3: Write the implementation** — `src/fraud_benchmark/datasets/files.py`
 
 ```python
 """Locating raw files inside a downloaded dataset directory.
@@ -206,7 +208,7 @@ def find_single_csv(raw_dir: Path) -> Path:
     return matches[0]
 ```
 
-- [ ] **Step 4: Point paysim at the shared module**
+- [x] **Step 4: Point paysim at the shared module**
 
 In `src/fraud_benchmark/datasets/paysim.py`, delete the local `find_single_csv` definition
 and replace it with an import:
@@ -217,13 +219,13 @@ from fraud_benchmark.datasets.files import find_single_csv
 
 Leave everything else in that file unchanged.
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run: `.venv/bin/pytest tests/test_files.py tests/test_paysim.py -v`
 Expected: 6 files tests + 12 paysim tests pass. The paysim tests must still pass unchanged —
 if `test_missing_csv_is_an_error` breaks, the move altered behaviour and you should STOP.
 
-- [ ] **Step 6: Full suite and commit**
+- [x] **Step 6: Full suite and commit**
 
 Run: `.venv/bin/pytest` — expect 92 passed, 1 deselected.
 
@@ -247,7 +249,7 @@ with seven.
 - Modify: `src/fraud_benchmark/cli.py`
 - Test: `tests/test_cli.py`, `tests/test_pipeline.py`
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Add to `tests/test_pipeline.py`:
 
@@ -331,12 +333,12 @@ def test_exclude_noncommercial_skips_those_datasets(tmp_path, config_file, monke
     assert "nc_one" in capsys.readouterr().out
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_cli.py tests/test_pipeline.py -v`
 Expected: the four new tests fail; existing tests still pass.
 
-- [ ] **Step 3: Add `commercial_use` to the adapter base**
+- [x] **Step 3: Add `commercial_use` to the adapter base**
 
 In `src/fraud_benchmark/datasets/base.py`, inside `DatasetAdapter`, directly after the
 `data_license` attribute:
@@ -353,7 +355,7 @@ In `src/fraud_benchmark/datasets/paysim.py`, after `data_license`, add:
     commercial_use = True
 ```
 
-- [ ] **Step 4: Record it in the dataset card**
+- [x] **Step 4: Record it in the dataset card**
 
 In `src/fraud_benchmark/pipeline.py`, in `_build_card`, immediately after the
 `"data_license"` entry:
@@ -362,7 +364,7 @@ In `src/fraud_benchmark/pipeline.py`, in `_build_card`, immediately after the
         "commercial_use": adapter.commercial_use,
 ```
 
-- [ ] **Step 5: Rework the CLI**
+- [x] **Step 5: Rework the CLI**
 
 Replace `_cmd_list` and `_cmd_prepare` in `src/fraud_benchmark/cli.py` with:
 
@@ -420,7 +422,7 @@ Add the flag in `build_parser`, alongside `--force`:
     )
 ```
 
-- [ ] **Step 6: Run tests and commit**
+- [x] **Step 6: Run tests and commit**
 
 Run: `.venv/bin/pytest` — expect 96 passed, 1 deselected.
 
@@ -441,7 +443,7 @@ git commit -m "feat: licence-aware listing and batch preparation"
 - Modify: `configs/default.yaml`
 - Test: `tests/test_banksim.py`
 
-- [ ] **Step 1: Create the fixtures**
+- [x] **Step 1: Create the fixtures**
 
 `tests/fixtures/banksim/bs140513_032310.csv` — note the literal single quotes, which are
 present in the real file:
@@ -464,7 +466,7 @@ Source,Target,Weight,typeTrans,fraud
 'C352968107','M348934600',39.68,'es_transportation',0
 ```
 
-- [ ] **Step 2: Write the failing tests** — `tests/test_banksim.py`
+- [x] **Step 2: Write the failing tests** — `tests/test_banksim.py`
 
 ```python
 from pathlib import Path
@@ -546,12 +548,12 @@ def test_banksim_is_registered():
     assert "banksim" in list_datasets()
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_banksim.py -v`
 Expected: `UnknownDatasetError: unknown dataset 'banksim'`
 
-- [ ] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/banksim.py`
+- [x] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/banksim.py`
 
 ```python
 """BankSim: an agent-based retail-payment simulator.
@@ -623,7 +625,7 @@ class BankSimAdapter(DatasetAdapter):
         }
 ```
 
-- [ ] **Step 5: Register it and add config**
+- [x] **Step 5: Register it and add config**
 
 `src/fraud_benchmark/datasets/__init__.py`:
 
@@ -644,12 +646,12 @@ In `configs/default.yaml`, under `datasets:`:
     start_date: "2023-01-01"
 ```
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run: `.venv/bin/pytest tests/test_banksim.py -v` — expect 11 passed.
 Run: `.venv/bin/pytest` — expect 107 passed, 1 deselected.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/fraud_benchmark/datasets/banksim.py src/fraud_benchmark/datasets/__init__.py configs/default.yaml tests/test_banksim.py tests/fixtures/banksim/
@@ -682,7 +684,7 @@ This is the only dataset that overrides the global split, which is why the hook 
 introduced here rather than in Plan 1. Every other adapter leaves `custom_splits` alone and
 gets the shared 80/10/10 temporal cut.
 
-- [ ] **Step 1: Create the fixtures**
+- [x] **Step 1: Create the fixtures**
 
 `tests/fixtures/sparkov/fraudTrain.csv` (columns abridged to the ones the adapter touches
 plus a few passthroughs — the real file has 23):
@@ -702,7 +704,7 @@ Unnamed: 0,trans_date_trans_time,cc_num,merchant,category,amt,first,last,gender,
 1,2020-12-31 23:59:34,2291163933867244,fraud_Sporer-Keebler,health_fitness,29.84,Joanne,Williams,F,Altonah,UT,84002,40.3207,-110.436,302,Librarian,1990-01-17,324cc204407e99f51b0d6ca00550,1371816873,39.450498,-109.960431,1
 ```
 
-- [ ] **Step 2: Write the failing tests** — `tests/test_sparkov.py`
+- [x] **Step 2: Write the failing tests** — `tests/test_sparkov.py`
 
 ```python
 from pathlib import Path
@@ -823,12 +825,12 @@ def test_sparkov_is_registered():
     assert "sparkov" in list_datasets()
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_sparkov.py -v`
 Expected: `UnknownDatasetError: unknown dataset 'sparkov'`
 
-- [ ] **Step 3b: Expose a single-boundary helper in `splitting.py`**
+- [x] **Step 3b: Expose a single-boundary helper in `splitting.py`**
 
 `assign_splits` needs three positive ratios, so it cannot express a two-way cut. Add a thin
 public wrapper over the existing private helpers — do NOT change `_cut_at` or
@@ -864,7 +866,7 @@ def test_boundary_at_rejects_out_of_range_fractions():
             boundary_at(df, bad)
 ```
 
-- [ ] **Step 3c: Add the `custom_splits` hook**
+- [x] **Step 3c: Add the `custom_splits` hook**
 
 In `src/fraud_benchmark/datasets/base.py`, add to `DatasetAdapter` (a normal method, NOT
 abstract — adapters that do not override it get the shared split):
@@ -931,7 +933,7 @@ def test_card_records_the_shared_split_strategy(config, no_download):
     assert card["split"]["ratios"] == [0.6, 0.2, 0.2]
 ```
 
-- [ ] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/sparkov.py`
+- [x] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/sparkov.py`
 
 ```python
 """Sparkov (Shenoy): simulated credit-card transactions with real timestamps.
@@ -1032,7 +1034,7 @@ class SparkovAdapter(DatasetAdapter):
         }
 ```
 
-- [ ] **Step 5: Register it**
+- [x] **Step 5: Register it**
 
 `src/fraud_benchmark/datasets/__init__.py`:
 
@@ -1049,7 +1051,7 @@ In `configs/default.yaml`, under `datasets:`:
     val_fraction: 0.1
 ```
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run: `.venv/bin/pytest tests/test_sparkov.py -v` — expect 19 passed.
 Run: `.venv/bin/pytest tests/test_splitting.py tests/test_pipeline.py -v` — expect
@@ -1061,7 +1063,7 @@ hook did not accidentally change behaviour for the datasets that do not override
 pre-existing pipeline or splitting test fails, STOP and report — the hook was meant to be
 additive.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/fraud_benchmark/datasets/sparkov.py src/fraud_benchmark/datasets/__init__.py tests/test_sparkov.py tests/fixtures/sparkov/
@@ -1078,7 +1080,7 @@ git commit -m "feat: Sparkov adapter"
 - Modify: `src/fraud_benchmark/datasets/__init__.py`
 - Test: `tests/test_saml_d.py`
 
-- [ ] **Step 1: Create the fixture** — `tests/fixtures/saml_d/SAML-D.csv`
+- [x] **Step 1: Create the fixture** — `tests/fixtures/saml_d/SAML-D.csv`
 
 ```csv
 Time,Date,Sender_account,Receiver_account,Amount,Payment_currency,Received_currency,Sender_bank_location,Receiver_bank_location,Payment_type,Is_laundering,Laundering_type
@@ -1089,7 +1091,7 @@ Time,Date,Sender_account,Receiver_account,Amount,Payment_currency,Received_curre
 23:59:59,2022-10-09,8724731955,2769355426,55.10,UK pounds,UK pounds,UK,UK,Cash Deposit,0,Normal_Small_Fan_Out
 ```
 
-- [ ] **Step 2: Write the failing tests** — `tests/test_saml_d.py`
+- [x] **Step 2: Write the failing tests** — `tests/test_saml_d.py`
 
 ```python
 from pathlib import Path
@@ -1162,12 +1164,12 @@ def test_saml_d_is_registered():
     assert "saml_d" in list_datasets()
 ```
 
-- [ ] **Step 3: Run tests to verify they fail**
+- [x] **Step 3: Run tests to verify they fail**
 
 Run: `.venv/bin/pytest tests/test_saml_d.py -v`
 Expected: `UnknownDatasetError: unknown dataset 'saml_d'`
 
-- [ ] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/saml_d.py`
+- [x] **Step 4: Write the implementation** — `src/fraud_benchmark/datasets/saml_d.py`
 
 ```python
 """SAML-D: a synthetic anti-money-laundering transaction monitoring dataset.
@@ -1230,7 +1232,7 @@ class SamlDAdapter(DatasetAdapter):
         }
 ```
 
-- [ ] **Step 5: Register it**
+- [x] **Step 5: Register it**
 
 `src/fraud_benchmark/datasets/__init__.py`:
 
@@ -1238,12 +1240,12 @@ class SamlDAdapter(DatasetAdapter):
 from fraud_benchmark.datasets import banksim, paysim, saml_d, sparkov  # noqa: F401
 ```
 
-- [ ] **Step 6: Run tests**
+- [x] **Step 6: Run tests**
 
 Run: `.venv/bin/pytest tests/test_saml_d.py -v` — expect 10 passed.
 Run: `.venv/bin/pytest` — expect 139 passed, 1 deselected.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/fraud_benchmark/datasets/saml_d.py src/fraud_benchmark/datasets/__init__.py tests/test_saml_d.py tests/fixtures/saml_d/
@@ -1256,7 +1258,7 @@ git commit -m "feat: SAML-D adapter"
 
 The raw data is already cached under `data/raw/`, so no re-download is needed.
 
-- [ ] **Step 1: Prepare each new dataset**
+- [x] **Step 1: Prepare each new dataset**
 
 ```bash
 .venv/bin/fraud-benchmark prepare banksim
@@ -1266,7 +1268,7 @@ The raw data is already cached under `data/raw/`, so no re-download is needed.
 
 Expected: each prints `<name>: wrote data/processed/<name>`.
 
-- [ ] **Step 2: Check the numbers against the verified figures**
+- [x] **Step 2: Check the numbers against the verified figures**
 
 ```bash
 for d in banksim sparkov saml_d; do .venv/bin/fraud-benchmark info $d; done
@@ -1288,7 +1290,7 @@ not 80/10/10, and that is correct.
 **Report the actual numbers.** If rows differ from these, STOP — it means the adapter is
 dropping or duplicating data.
 
-- [ ] **Step 3: Verify splits are sane on real data**
+- [x] **Step 3: Verify splits are sane on real data**
 
 ```bash
 .venv/bin/python - <<'PY'
@@ -1311,7 +1313,7 @@ Expect three non-empty splits per dataset and `boundary=OK` for all — includin
 sparkov, whose train/val/test remain strictly ordered because its two source files
 are consecutive in time.
 
-- [ ] **Step 4: Verify the licence gate works end to end**
+- [x] **Step 4: Verify the licence gate works end to end**
 
 ```bash
 .venv/bin/fraud-benchmark list
@@ -1321,7 +1323,7 @@ are consecutive in time.
 Expected: `list` marks banksim and saml_d as `[noncommercial]`; the `--all` run skips exactly
 those two with a stated reason and prepares paysim and sparkov.
 
-- [ ] **Step 5: Measure campaign groupability for Plan 4**
+- [x] **Step 5: Measure campaign groupability for Plan 4**
 
 This directly informs the label-delay design, where PaySim was already measured to have
 none.
@@ -1341,7 +1343,7 @@ PY
 
 Record the output — it decides whether entity-keyed campaign grouping is viable per dataset.
 
-- [ ] **Step 6: Commit any fixture or doc updates and report**
+- [x] **Step 6: Commit any fixture or doc updates and report**
 
 ```bash
 git add -A
@@ -1352,12 +1354,12 @@ git commit -m "test: verify BankSim, Sparkov and SAML-D against real data"
 
 ## Done criteria
 
-- [ ] `.venv/bin/pytest` passes (expect 139 passed, 1 deselected)
-- [ ] `fraud-benchmark list` shows 4 datasets with licences, 2 marked `[noncommercial]`
-- [ ] `prepare --all --exclude-noncommercial` prepares exactly paysim and sparkov
-- [ ] Real row counts match the verified figures above
-- [ ] No split boundary leaks any timestamp across splits
-- [ ] Campaign groupability measured and recorded for all four
+- [x] `.venv/bin/pytest` passes (expect 139 passed, 1 deselected)
+- [x] `fraud-benchmark list` shows 4 datasets with licences, 2 marked `[noncommercial]`
+- [x] `prepare --all --exclude-noncommercial` prepares exactly paysim and sparkov
+- [x] Real row counts match the verified figures above
+- [x] No split boundary leaks any timestamp across splits
+- [x] Campaign groupability measured and recorded for all four
 
 ## Not in this plan
 
