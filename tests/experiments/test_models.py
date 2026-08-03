@@ -48,7 +48,7 @@ def test_xgboost_differs_across_seeds():
 
 
 def test_the_trivial_rule_scores_one_for_matching_rows():
-    df = pd.DataFrame({"Merchant State": pd.Series(["Italy", "CA"], dtype="string")})
+    df = pd.DataFrame({"artifact_merchant_state": pd.Series(["Italy", "CA"], dtype="string")})
     scores = trivial_rule_scores(df, dataset="ibm_ccf")
     assert list(scores) == [1.0, 0.0]
 
@@ -61,14 +61,14 @@ def test_datasets_without_a_rule_return_none():
 
 def test_the_rule_needs_no_fitting_and_ignores_labels():
     """It is a fixed rule, which is why it is evaluated once per dataset."""
-    df = pd.DataFrame({"Merchant State": pd.Series(["Italy"], dtype="string")})
+    df = pd.DataFrame({"artifact_merchant_state": pd.Series(["Italy"], dtype="string")})
     assert list(trivial_rule_scores(df, dataset="ibm_ccf")) == [1.0]
 
 
 def test_the_rule_treats_a_null_as_not_matching():
-    """IBM CCF's Merchant State is null on every online transaction. Without
+    """IBM CCF's merchant state is null on every online transaction. Without
     this the comparison yields pd.NA and the float conversion raises, taking
     down the whole cell before a single model is fitted."""
-    df = pd.DataFrame({"Merchant State": pd.Series(["Italy", None, "CA"], dtype="string")})
+    df = pd.DataFrame({"artifact_merchant_state": pd.Series(["Italy", None, "CA"], dtype="string")})
     scores = trivial_rule_scores(df, dataset="ibm_ccf")
     assert list(scores) == [1.0, 0.0, 0.0]

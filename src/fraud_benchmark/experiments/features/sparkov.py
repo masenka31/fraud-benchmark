@@ -78,6 +78,20 @@ JOIN_KEY = "trans_num"
 
 DEFAULT_PROCESSED = Path("data/processed")
 
+#: The lagged history for `experiments.history`: what changed between this
+#: transaction and the card's last few, not what is static about the cardholder.
+HISTORY_COLUMNS = (
+    "amount_log1p",
+    "seconds_since_prev_txn",
+    "hour",
+    "distance_from_home_km",
+    "distance_over_entity_mean",
+    "amount_over_entity_mean",
+    "txn_count_24h",
+    "first_merchant_for_entity",
+    "category",
+)
+
 
 def attach_slow_delay(df: pd.DataFrame, slow: pd.DataFrame) -> pd.DataFrame:
     """Return `df` with the `sparkov_slow` report timestamp as `reported_at_slow`."""

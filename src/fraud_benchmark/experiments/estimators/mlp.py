@@ -1,16 +1,25 @@
-"""A 3-layer MLP on the flattened sequence window.
+"""A 3-layer MLP, with the categoricals one-hot expanded per batch.
 
-Known weakness, stated rather than hidden: the categorical columns arrive as
-ordinal codes, which imply an ordering that does not exist (merchant state 5 is
-not "more" than 4). Trees are indifferent to this; a dense layer is not.
-Standardising conditions them but cannot remove the false ordering. Learned
-embeddings per categorical would be the fair treatment and are the obvious next
-step if this underperforms -- the gap would then be attributable to input
-encoding rather than to the architecture.
+Known weakness, stated rather than hidden: the pipeline hands over ordinal codes,
+which imply an ordering that does not exist (merchant state 5 is not "more" than 4).
+Trees are indifferent; a dense layer is not. `OneHotMLP` removes the false ordering
+by expanding the codes, which is why it is the default here -- the retired
+experiments measured one-hot beating ordinal codes by 3.4x on IBM CCF (0.1804 against
+0.0537), the largest single effect anyone found in this project. `MLP` keeps the
+ordinal path for that comparison and nothing else. Learned embeddings per categorical
+are the untried next step.
 
-Streaming is deliberate: the design matrix is 10-15 GiB, so features are
-standardised chunk-wise and batches are gathered by index rather than by slicing
-the array into per-split copies.
+Expansion happens per batch rather than in the matrix: IBM CCF's one-hot width was
+1,425, which dense over 24.4M rows is 129 GiB, and per 8192-row batch is 45 MiB.
+Mathematically identical to feeding a one-hot matrix.
+
+Streaming is deliberate throughout. The design matrix reaches tens of GiB, so
+standardisation is computed chunk-wise and batches are gathered by index rather than
+by slicing per-split copies out of the array.
+
+NaN needs a value here, as it does for any dense layer: a feature parquet uses it to
+mean "this history does not exist", and it is replaced with the train mean, which is
+the least-committal choice and is fitted on train like the standardisation.
 """
 
 from __future__ import annotations
@@ -190,3 +199,64 @@ def run_seed(x, y, tr_rows, va_rows, te_rows, mean, std, seed: int,
             "test": score(y[te_rows], test_scores, threshold),
         },
     }
+
+
+# --- the estimator interface ------------------------------------------------
+
+
+def fill_missing(x: np.ndarray, train_rows: np.ndarray) -> int:
+    """Replace NaN with the train-row mean of its column, in place. Returns the count.
+
+    A dense layer has no NaN path, so the sentinel a feature parquet uses for "this
+    history does not exist" needs a value. The train mean is the least-committal one
+    available, and it is fitted on train like everything else here.
+
+    In place, and idempotent because filling a column with its own mean does not move
+    that mean: the alternative is a second copy of a matrix that reaches tens of GiB.
+    Later seeds therefore see an already-filled matrix and compute the same statistics.
+    """
+    missing = np.isnan(x)
+    if not missing.any():
+        return 0
+    columns = np.flatnonzero(missing.any(axis=0))
+    for column in columns:
+        values = x[train_rows, column]
+        mean = np.nanmean(values)
+        x[missing[:, column], column] = 0.0 if not np.isfinite(mean) else mean
+    return int(missing.sum())
+
+
+def fit_and_score(prepared, seed: int, ordinal: bool = False) -> dict:
+    """Fit on train, select the epoch on val, report val and test.
+
+    `ordinal` feeds the codes as numbers instead of one-hot expanding them. It exists
+    to reproduce the measured 3.4x encoding gap, not because it is a sane default.
+    """
+    filled = fill_missing(prepared.x, prepared.train_rows)
+
+    one_hot = bool(len(prepared.categorical)) and not ordinal
+    if one_hot:
+        mean, std = train_statistics(prepared.x, prepared.train_rows, prepared.continuous)
+        record = run_seed(
+            prepared.x, prepared.y, prepared.train_rows, prepared.val_rows,
+            prepared.test_rows, mean, std, seed,
+            cont_cols=prepared.continuous,
+            cat_cols=prepared.categorical,
+            cardinalities=prepared.cardinalities,
+        )
+    else:
+        # Everything standardised together: the codes, where there are any, ride along
+        # as numbers, false ordering included.
+        columns = np.sort(
+            np.concatenate([prepared.continuous, prepared.categorical])
+        ).astype("int64")
+        mean, std = train_statistics(prepared.x, prepared.train_rows, columns)
+        record = run_seed(
+            prepared.x, prepared.y, prepared.train_rows, prepared.val_rows,
+            prepared.test_rows, mean, std, seed, cont_cols=columns,
+        )
+
+    record["encoding"] = "onehot" if one_hot else "ordinal"
+    record["onehot_width"] = int(sum(prepared.cardinalities)) if one_hot else 0
+    record["filled_missing"] = filled
+    return record

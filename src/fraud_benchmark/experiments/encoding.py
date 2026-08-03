@@ -15,6 +15,57 @@ import pandas as pd
 UNSEEN = "__unseen__"
 _NULL = "__null__"
 
+#: Vocabulary cap for `CappedOrdinalEncoder`: keep levels up to this share of
+#: cumulative train frequency, and at most this many.
+RARE_COVERAGE = 0.99
+MAX_LEVELS = 256
+
+
+class CappedOrdinalEncoder:
+    """Integer codes for categorical columns, with a rare-value bucket.
+
+    `Encoder` above keeps every level it saw in train, which is right for a linear
+    reference but not for a model that pays per level. IBM CCF's
+    `artifact_merchant_name` runs to ~100,000 values: one-hot expanding that is
+    129 GiB dense, and a tree spends its splits enumerating merchants. Capping at
+    99% cumulative train frequency and at most 256 levels keeps the head and pools
+    the tail, which is the treatment the retired IBM pipeline used and the reason
+    its numbers were reachable at all.
+
+    Fitted on train rows only. A value appearing first in val or test therefore
+    lands in the rare bucket, which is also where a genuinely rare train value
+    goes -- the two are indistinguishable to a deployed model, so they should be
+    indistinguishable here.
+    """
+
+    def __init__(
+        self, coverage: float = RARE_COVERAGE, max_levels: int = MAX_LEVELS
+    ) -> None:
+        self.coverage = coverage
+        self.max_levels = max_levels
+        self.vocabularies_: dict[str, list[str]] = {}
+
+    def fit(self, train: pd.DataFrame, columns: list[str]) -> "CappedOrdinalEncoder":
+        for column in columns:
+            values = train[column].astype("string").fillna(_NULL)
+            counts = values.value_counts(normalize=True)
+            # shift(1) so the level that crosses the threshold is itself kept:
+            # the test is on the coverage *before* adding it.
+            keep = counts.cumsum().shift(1).fillna(0.0) < self.coverage
+            self.vocabularies_[column] = list(counts[keep].index[: self.max_levels])
+        return self
+
+    def cardinality(self, column: str) -> int:
+        """Number of distinct codes, the rare bucket included."""
+        return len(self.vocabularies_[column]) + 1
+
+    def transform_column(self, values: pd.Series, column: str) -> np.ndarray:
+        """Codes for one column. The rare bucket is the last code, never a real level."""
+        vocabulary = self.vocabularies_[column]
+        lookup = {value: index for index, value in enumerate(vocabulary)}
+        coded = values.astype("string").fillna(_NULL).map(lookup)
+        return coded.fillna(len(vocabulary)).to_numpy(dtype="int32")
+
 
 class Encoder:
     """Ordinal category codes plus optional standardisation."""

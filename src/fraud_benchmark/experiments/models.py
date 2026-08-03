@@ -16,12 +16,14 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
 
-# (column, value) pairs that alone identify most of a dataset's frauds.
+# (column, value) pairs that alone identify most of a dataset's frauds. The column
+# is named as it appears in a *feature parquet*, which is what an experiment reads;
+# the raw `Merchant State` survives there as `artifact_merchant_state`.
 TRIVIAL_RULES: dict[str, tuple[str, str]] = {
     # Not a baseline a train-only model could reach: train holds zero Italy
     # frauds, so this rule imports knowledge from outside the training data. It
     # bounds what the labels encode, and is reported as a ceiling, not a floor.
-    "ibm_ccf": ("Merchant State", "Italy"),
+    "ibm_ccf": ("artifact_merchant_state", "Italy"),
 }
 
 XGB_PARAMS = {
