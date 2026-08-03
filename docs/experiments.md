@@ -115,8 +115,18 @@ Or via the generated sbatch files, which is how the big two are meant to run:
 scripts/slurm/jobs/submit_all.sh              # all three, no dependencies
 ```
 
-Measured on the real data: sparkov 78s at 3.7 GB peak, saml_d 906s at 20.2 GB. The
-sbatch requests (64 GB, 128 GB, 250 GB) are above those with room to spare.
+Measured on the full prepared datasets, 2026-08-03:
+
+| dataset | rows | features | of those, artifacts | runtime | peak RSS |
+|---|---:|---:|---:|---:|---:|
+| `ibm_ccf` | 24,386,900 | 82 | 8 | 843s | 67.1 GB |
+| `saml_d` | 9,504,852 | 63 | 3 | 906s | 20.2 GB |
+| `sparkov` | 1,852,394 | 50 | 4 | 78s | 3.7 GB |
+
+SAML-D costs more wall-clock than the dataset 2.5x its size because four of its features
+are trailing-distinct counts, which is a genuine sliding-window problem and so a
+Python-level walk over the sorted rows rather than a pandas call. All three fit the short
+partition; the sbatch requests carry ~2.5x the measured memory.
 
 Three axes are available to an experiment, and they are chosen when a model is fitted
 rather than when a parquet is built:

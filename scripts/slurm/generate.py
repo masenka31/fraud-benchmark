@@ -21,22 +21,30 @@ REPO = Path(__file__).resolve().parents[2]
 PYTHON = REPO / ".venv" / "bin" / "python"
 ACCOUNT = "smidlva1"
 
-#: (dataset, partition, memory, walltime). Sized by row count, and the memory
-#: figures are what the widest intermediate needs rather than the parquet size: a
-#: build holds the source frame and the feature frame at once.
+#: (dataset, partition, memory, walltime). Every figure is measured rather than
+#: estimated -- from the builds of 2026-08-03, on the full prepared datasets:
 #:
-#:   ibm_ccf   24.4M rows, and the joined card and user tables ride along on every
-#:             one of them -- the source frame alone is 1.8 GB on disk.
-#:   saml_d     9.5M rows, plus four `rolling_distinct` passes, each a Python-level
-#:             walk over the sorted rows.
-#:   sparkov    1.85M rows. Small enough for the short partition.
+#:   dataset   rows    features  runtime  peak RSS
+#:   ibm_ccf   24.4M   82        843s     67.1 GB
+#:   saml_d     9.5M   63        906s     20.2 GB
+#:   sparkov    1.85M  50         78s      3.7 GB
+#:
+#: The requests below carry roughly 2.5x the measured memory and 7x the runtime, which
+#: is headroom for a wider feature set rather than a guess at the current one. saml_d
+#: costs more wall-clock than the dataset 2.5x its size because four of its features
+#: are `rolling_distinct`, a Python-level walk over the sorted rows.
+#:
+#: All three fit the short partition. An earlier version put ibm_ccf on `cpulong`
+#: against a 1-day limit, on the assumption that 24.4M rows with the card and user
+#: tables joined on would not finish; it finishes in 14 minutes, and `cpulong` only
+#: bought a slower queue.
 #:
 #: `sparkov_slow` has no job of its own: its only distinct column is `reported_at`,
 #: which sparkov's module reads directly and carries as `reported_at_slow`.
 FEATURE_JOBS = (
-    ("ibm_ccf", "cpulong", "250G", "24:00:00"),
-    ("saml_d", "cpulong", "128G", "12:00:00"),
-    ("sparkov", "cpu", "64G", "08:00:00"),
+    ("ibm_ccf", "cpu", "160G", "02:00:00"),
+    ("saml_d", "cpu", "64G", "02:00:00"),
+    ("sparkov", "cpu", "32G", "00:30:00"),
 )
 
 DATASETS = tuple(dataset for dataset, *_ in FEATURE_JOBS)

@@ -34,20 +34,28 @@ def test_jobs_invoke_the_venv_python_by_absolute_path():
     assert "/.venv/bin/python" in render_feature_job("sparkov", "cpu", "64G", "08:00:00")
 
 
-def test_the_ibm_ccf_job_uses_the_long_partition():
-    """24.4M rows with the card and user tables joined on will not finish inside
-    the 1-day cpu limit reliably."""
-    sizing = {dataset: partition for dataset, partition, *_ in FEATURE_JOBS}
-    assert sizing["ibm_ccf"] == "cpulong"
-    assert sizing["sparkov"] == "cpu"
+def test_every_job_fits_the_short_partition():
+    """Measured: the widest build is 14 minutes, well inside the 1-day cpu limit.
+    `cpulong` would only buy a slower queue."""
+    assert {partition for _, partition, *_ in FEATURE_JOBS} == {"cpu"}
+
+
+def test_memory_is_ordered_by_dataset_size():
+    """ibm_ccf peaked at 67.1 GB, saml_d at 20.2, sparkov at 3.7."""
+    memory = {dataset: int(mem.rstrip("G")) for dataset, _, mem, _ in FEATURE_JOBS}
+    assert memory["ibm_ccf"] > memory["saml_d"] > memory["sparkov"]
+    # Headroom over the measured peaks, not a guess at them.
+    assert memory["ibm_ccf"] >= 2 * 67
+    assert memory["saml_d"] >= 2 * 21
+    assert memory["sparkov"] >= 2 * 4
 
 
 def test_a_job_declares_its_resources():
-    script = render_feature_job("ibm_ccf", "cpulong", "250G", "24:00:00")
+    script = render_feature_job("ibm_ccf", "cpu", "160G", "02:00:00")
     assert "--cpus-per-task=4" in script
-    assert "--mem=250G" in script
-    assert "--time=24:00:00" in script
-    assert "--partition=cpulong" in script
+    assert "--mem=160G" in script
+    assert "--time=02:00:00" in script
+    assert "--partition=cpu\n" in script
 
 
 @pytest.mark.parametrize("dataset,partition,memory,walltime", FEATURE_JOBS)
