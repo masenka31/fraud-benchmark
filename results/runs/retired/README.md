@@ -10,4 +10,4 @@ to give the label-delay axis something to bite on. Their two delay regimes score
 identically — 0.975 against 0.975 at a 0.001 seed noise floor — and their val and
 test frauds were 100% `Merchant State == "Italy"`, so they were unusable for the
 leakage axis too. `sparkov_slow` carries that role now. See
-docs/verification-notes.md, "## The IBM CCF subsamples are retired".
+the retired docs/verification-notes.md, "## The IBM CCF subsamples are retired".

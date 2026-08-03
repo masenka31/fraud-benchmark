@@ -16,9 +16,8 @@ row's own timestamp.
 
 **Everything here is synthetic by construction.** The distribution is calibrated to
 be plausible per domain, not fitted to observed reporting behaviour, because no
-observed reporting behaviour ships with these datasets. See
-`docs/verification-notes.md` §"Delay calibration by domain" for the reasoning and
-§"Label delay as shipped" for the invariant checks.
+observed reporting behaviour ships with these datasets. The per-domain reasoning is
+in the comments in `configs/default.yaml`, next to the parameters themselves.
 
 ## Per dataset, at the shipped config
 

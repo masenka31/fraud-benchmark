@@ -4,8 +4,7 @@
 · MIT · **fully synthetic**, built from aggregate real market parameters
 
 **Not payments.** Rows are securities buy/sell orders, so `amount` is a normalised trade
-value rather than a transfer. Deep dive with per-class detail:
-[`amaretto-nuances.md`](amaretto-nuances.md).
+value rather than a transfer.
 
 | | |
 |---|---|

@@ -40,7 +40,7 @@ Two traps worth stating plainly:
 * **The `italy_holdout` split changes almost nothing.** The standard 80% cut falls
   on 2017-05-14 and the first Italy fraud is 2017-11-19, so train contains zero
   Italy frauds *either way*. The holdout only makes the boundary exact, at the cost
-  of 6.2M training rows. See docs/verification-notes.md.
+  of 6.2M training rows.
 
 ## Results
 

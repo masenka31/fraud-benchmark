@@ -24,8 +24,6 @@ Sorted by how much the labels are recoverable from a single column, worst first.
 
 - [`../label-delay.md`](../label-delay.md) — the `reported_at` timestamp, per-dataset
   regimes, and which datasets the delay actually bites on.
-- [`../verification-notes.md`](../verification-notes.md) — the measurement log these pages
-  summarise, including the full leakage audit and the delay calibration.
 - `dataset_card.json` in any prepared dataset's output directory — the same facts,
   machine-readable, as they were at preparation time.
 
