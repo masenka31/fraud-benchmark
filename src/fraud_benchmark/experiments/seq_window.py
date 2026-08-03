@@ -11,7 +11,8 @@ Two deliberate departures from "just concatenate 10x everything":
 
 Lag direction is the one thing that must not be wrong: lag k is the k-th
 PREVIOUS transaction of that user. Shifting the other way leaks the future, which
-would raise the score and raise no error -- hence test_lag_matrix_is_causal.
+would raise the score and raise no error -- hence test_no_future_value_ever_appears
+and test_a_users_first_row_is_zero_filled_not_borrowed.
 """
 
 from __future__ import annotations
