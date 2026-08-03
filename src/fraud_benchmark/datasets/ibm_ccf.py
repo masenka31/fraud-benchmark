@@ -37,9 +37,17 @@ def _parse_money(series: pd.Series) -> pd.Series:
 class IbmCcfAdapter(DatasetAdapter):
     name = "ibm_ccf"
     source = KaggleDataset("ealtman2019/credit-card-transactions")
-    data_license = "CC BY 4.0"
+    # Two upstream sources disagree, so the more specific one wins: the dataset
+    # description body states Apache-2.0, while Kaggle's licence field reads
+    # CC BY 4.0. Both permit commercial use, so `commercial_use` is unaffected
+    # either way. Recorded as a caveat below so the card carries the ambiguity
+    # rather than hiding it. See docs/dataset-licenses.md.
+    data_license = "Apache-2.0"
     commercial_use = True
     caveats = (
+        "Licence provenance is ambiguous: the dataset description body states "
+        "Apache-2.0, Kaggle's licence field reads CC BY 4.0. Both allow commercial "
+        "use. Verify upstream before relying on either for a publication.",
         "Fully synthetic. The bundled cardholder details — names, addresses, card "
         "numbers, CVVs — are fabricated and do not describe real people.",
         "All 11 card columns and all 18 user columns are left-joined onto every "
