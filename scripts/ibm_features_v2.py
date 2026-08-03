@@ -31,7 +31,7 @@ import pandas as pd
 from xgboost import XGBClassifier
 
 from fraud_benchmark.experiments.metrics import best_f1_threshold, score
-from features_v2 import V2_COLUMNS, add_v2_features
+from fraud_benchmark.experiments.features_v2 import V2_COLUMNS, add_v2_features
 from italy_holdout import build_features
 
 LOCATION = ["cat_merchant_state", "merchant_is_online", "merchant_state_missing"]

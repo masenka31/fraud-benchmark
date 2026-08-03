@@ -3,16 +3,11 @@
 Same reasoning as the v1 velocity tests: a lookahead here raises the score and
 raises no error, so it must be asserted directly rather than eyeballed.
 """
-import sys
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-
-from features_v2 import V2_COLUMNS, add_v2_features
+from fraud_benchmark.experiments.features_v2 import V2_COLUMNS, add_v2_features
 
 KW = dict(merchant_col="merchant", state_col="state", city_col="city", mcc_col="mcc",
           channel_col="channel", error_col="error", amount_col="amount")
