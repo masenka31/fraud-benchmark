@@ -10,7 +10,11 @@ from typing import Any
 
 import pandas as pd
 
-from fraud_benchmark.datasets.base import DatasetAdapter, register
+from fraud_benchmark.datasets.base import (
+    DatasetAdapter,
+    register,
+    require_start_date,
+)
 from fraud_benchmark.datasets.files import require_file
 from fraud_benchmark.sources import KaggleCompetition
 
@@ -20,16 +24,6 @@ TEST_TRANSACTION = "test_transaction.csv"
 TEST_IDENTITY = "test_identity.csv"
 
 SECONDS_PER_DAY = 86_400
-
-
-def _require_start_date(options: dict[str, Any]) -> pd.Timestamp:
-    start_date = options.get("start_date")
-    if not start_date:
-        raise ValueError(
-            "ieee_cis requires a 'start_date' option to anchor its relative "
-            "'TransactionDT' offsets; set datasets.ieee_cis.start_date in the config"
-        )
-    return pd.Timestamp(start_date)
 
 
 def _load_with_identity(raw_dir: Path, transactions: str, identity: str) -> pd.DataFrame:
@@ -88,7 +82,7 @@ class IeeeCisAdapter(DatasetAdapter):
     )
 
     def to_canonical(self, raw_dir: Path, options: dict[str, Any]) -> pd.DataFrame:
-        anchor = _require_start_date(options)
+        anchor = require_start_date(options, "ieee_cis", "TransactionDT")
         df = _load_with_identity(raw_dir, TRAIN_TRANSACTION, TRAIN_IDENTITY)
 
         event_time = anchor + pd.to_timedelta(df["TransactionDT"], unit="s")
@@ -102,7 +96,7 @@ class IeeeCisAdapter(DatasetAdapter):
         self, raw_dir: Path, options: dict[str, Any]
     ) -> dict[str, pd.DataFrame]:
         """The unlabelled competition test set, timestamped the same way."""
-        anchor = _require_start_date(options)
+        anchor = require_start_date(options, "ieee_cis", "TransactionDT")
         test = _load_with_identity(raw_dir, TEST_TRANSACTION, TEST_IDENTITY)
         test.insert(
             0, "event_time", anchor + pd.to_timedelta(test["TransactionDT"], unit="s")

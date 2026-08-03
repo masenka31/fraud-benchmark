@@ -111,3 +111,28 @@ def test_registering_without_a_name_is_a_clear_error():
 
     with pytest.raises(ValueError, match="must set a non-empty string 'name'"):
         register(_Nameless)
+
+
+def test_require_start_date_returns_a_timestamp():
+    from fraud_benchmark.datasets.base import require_start_date
+
+    anchor = require_start_date({"start_date": "2023-01-01"}, "paysim", "step")
+    assert anchor == pd.Timestamp("2023-01-01")
+
+
+def test_require_start_date_names_the_option_and_the_column():
+    """The three offset datasets share this; the message must still be specific."""
+    from fraud_benchmark.datasets.base import require_start_date
+
+    with pytest.raises(ValueError, match="datasets.ieee_cis.start_date"):
+        require_start_date({}, "ieee_cis", "TransactionDT")
+    with pytest.raises(ValueError, match="TransactionDT"):
+        require_start_date({}, "ieee_cis", "TransactionDT")
+
+
+def test_an_empty_start_date_is_rejected_like_a_missing_one():
+    """An empty string would otherwise anchor everything to the epoch."""
+    from fraud_benchmark.datasets.base import require_start_date
+
+    with pytest.raises(ValueError, match="start_date"):
+        require_start_date({"start_date": ""}, "banksim", "step")
