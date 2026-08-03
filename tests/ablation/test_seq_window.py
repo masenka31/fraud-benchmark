@@ -3,15 +3,9 @@
 A forward shift would raise the score and raise no error, so this is the one
 property worth a dedicated test.
 """
-import sys
-from pathlib import Path
-
 import numpy as np
-import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-
-from seq_window import lag_matrix
+from fraud_benchmark.experiments.seq_window import lag_matrix
 
 
 def test_lag_one_returns_the_previous_row_of_the_same_user():
