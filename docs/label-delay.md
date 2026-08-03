@@ -69,6 +69,10 @@ because a 7-day delay against a 9,629-day train window is nothing. That is reali
 rather than broken, but it means IBM CCF cannot exercise a delay-aware method.
 `sparkov` at 2.2% is nearly as weak, which is exactly why `sparkov_slow` exists.
 
+Experimentally, the two are one input: `data/features/sparkov.parquet` carries both
+timestamps, so no delay, delay and slow delay are three regimes over one file rather than
+three files. See [`../src/fraud_benchmark/experiments/features/sparkov.py`](../src/fraud_benchmark/experiments/features/sparkov.py).
+
 **The one paired contrast:** `sparkov` and `sparkov_slow` are **row-identical on
 every column but `reported_at`** and share one raw download, so a method can be run
 twice on the same data under 2.2% and 8.9% censoring and the difference is

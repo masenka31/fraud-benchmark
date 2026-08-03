@@ -27,7 +27,7 @@ it. Everything else lives here.
 
 | doc | answers |
 |---|---|
-| [`experiments.md`](experiments.md) | The IBM CCF follow-up experiments: every result with its seed spread, what closed the 0.041-vs-0.764 gap and what did not, and the traps in comparing across splits. |
+| [`experiments.md`](experiments.md) | Two halves: the closed record of the retired IBM CCF experiments — every result with its seed spread, what closed the 0.041-vs-0.764 gap and what did not — and the current experimental surface, being the three feature parquets and the three axes chosen at fit time. |
 | [`../results/summary.md`](../results/summary.md) | The leakage ablation table. The grid that produced it has since been retired; the numbers stand as a record. |
 
 ## Not in version control

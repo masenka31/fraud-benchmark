@@ -1,22 +1,17 @@
-# Experiments on IBM CCF
+# Experiments
 
-> **The code behind this document has been retired.** The six runners in `scripts/`,
-> the `experiments/ablation/` grid, and the `features.py` / `features_v2.py` /
-> `ibm_features.py` modules they imported were removed when feature extraction was
-> reorganised into one module per dataset under `experiments/features/`. The results
-> below stand as the record of what was measured, and the conclusions still inform
-> what the new feature modules do and do not include — the artifact group, the
-> grouped MCC, the relative geography. Reproducing any row means rebuilding its
-> runner against the new parquets. See [`architecture.md`](architecture.md) for the
-> current layout.
+Two halves. **"Results" is a closed record**: the code that produced it — six runners in
+`scripts/`, the `experiments/ablation/` grid, and the feature modules they imported — was
+removed when feature extraction was reorganised into one module per dataset. Those numbers
+are why the new modules keep merchant geography behind an `artifact_` prefix, keep grouped
+MCC out of it, and prefer relative geography to absolute, so they are kept rather than
+deleted with the code. **"The current experimental surface" is what runs today.**
 
-They all asked one question, from different angles: **IBM CCF scores 0.041 average
-precision under the leakage ablation while a one-line rule scores 0.764 — what, if
-anything, closes that gap?**
-
-The ablation itself was separate: `src/fraud_benchmark/experiments/ablation/`,
-results in `results/runs/`, table in `results/summary.md`. This file covers the
-follow-ups.
+The retired work all asked one question, from different angles: **IBM CCF scores 0.041
+average precision under the leakage ablation while a one-line rule scores 0.764 — what, if
+anything, closes that gap?** The ablation itself was separate
+(`experiments/ablation/`, results in `results/runs/`, table in `results/summary.md`); the
+rest of this file covered the follow-ups.
 
 Every number below is **test average precision**, mean ± population sd over seeds
 0/1/2, read from the `results/*.jsonl` files named in each row. Never ROC AUC — at
@@ -28,7 +23,7 @@ a 0.122% base rate it stays high for a model with no useful precision.
 |---|---|---|---|
 | `standard` | `experiments.splits.standard_split` | 80% by `event_time` quantile | Comparable across the runners here |
 | `italy_holdout` | `experiments.splits.italy_holdout_split` | 13,350,884 rows ending 1s before the first Italy fraud | Exactly 80/10/10 by construction, zero Italy frauds in train |
-| ablation | `data.splitting.assign_splits` | 80% cut on timestamp *values* | Tie-safe; **different** from `standard` |
+| ablation *(retired)* | `data.splitting.assign_splits` | 80% cut on timestamp *values* | Tie-safe; **different** from `standard`. Still what `split` in a prepared frame means |
 
 Two traps worth stating plainly:
 
@@ -102,41 +97,57 @@ them.
 Quoted in the script docstrings for orientation, **not measured in this
 repository**: RNN 0.335, CAST fine-tuned 0.565. Verify before citing.
 
-## Running them
+## The current experimental surface
 
-All sbatch files are generated — including these:
+Nothing above runs any more. What exists in its place is three feature parquets, built
+one module per dataset:
 
 ```bash
-.venv/bin/python scripts/slurm/generate.py        # writes scripts/slurm/jobs/
-sbatch scripts/slurm/jobs/mlpoh_standard.sbatch   # one experiment at a time
+python -m fraud_benchmark.experiments.features.ibm_ccf    # 24.4M rows, 82 features
+python -m fraud_benchmark.experiments.features.saml_d     #  9.5M rows, 63 features
+python -m fraud_benchmark.experiments.features.sparkov    # 1.85M rows, 50 features
 ```
 
-Each expects `data/features/ibm_ccf.parquet` to exist already
-(`python -m fraud_benchmark.experiments.build_features ibm_ccf`). Memory is the
-binding constraint: the flattened window is a 15–17 GiB float32 block, so those
-jobs request 250–280 GB and the `cpulong` partition.
+Or via the generated sbatch files, which is how the big two are meant to run:
 
-## Known rough edges
+```bash
+.venv/bin/python scripts/slurm/generate.py    # writes scripts/slurm/jobs/
+scripts/slurm/jobs/submit_all.sh              # all three, no dependencies
+```
 
-`scripts/` grew as one-off experiments. The shared parts have now been promoted
-into `src/fraud_benchmark/experiments/`, and each file in `scripts/` is a thin
-entry point: argparse, an output path, and imports. Three consequences of the old
-layout are gone — the copy-pasted `standard_split` (now
-`experiments.splits.standard_split`), the scripts that imported each other *as
-libraries* through Python's script-directory `sys.path` entry (including private
-names such as `_money`), and the test files that carried a `sys.path.insert` to
-reach them.
+Measured on the real data: sparkov 78s at 3.7 GB peak, saml_d 906s at 20.2 GB. The
+sbatch requests (64 GB, 128 GB, 250 GB) are above those with room to spare.
 
-What is left:
+Three axes are available to an experiment, and they are chosen when a model is fitted
+rather than when a parquet is built:
 
-* The XGBoost parameter block is still inlined in three runners
-  (`italy_holdout.py`, `ibm_features_v2.py`, `seq_window.py`) although
-  `experiments/models.py:fit_xgboost` holds the same values in `XGB_PARAMS`. Each
-  keeps the fitted booster to read `total_gain` off it, which is why they were
-  written out longhand; the parameters could still come from one place.
-* `ibm_features.build_features` and `seq_window.base_features` remain
-  near-duplicates; moving them into the same package made the overlap visible
-  without removing it.
-* `experiments/features_v2.py` (a library) and `scripts/ibm_features_v2.py` (a
-  runner) are one character apart. The directories now distinguish them, but the
-  names do not.
+| axis | values | how |
+|---|---|---|
+| feature set | with or without the generation artifacts | include or drop the `artifact_*` columns |
+| label regime | no delay, delay, slow delay | ignore `reported_at`; use it; use `reported_at_slow` (sparkov only) |
+| split | `standard`, `italy_holdout` | `experiments.splits`; the parquets are split-agnostic |
+
+The leaky/clean axis of the retired ablation is the first of these, moved inside the
+feature definitions: each module's docstring says which of its columns are in the
+artifact group and what was measured about them. The three label regimes replace the
+`oracle`/`censored` pair and the separate `sparkov_slow` dataset, since sparkov's parquet
+carries both timestamps.
+
+## Reproducing anything above
+
+Every runner is gone, so a row in the tables above needs its model code written again
+against the new parquets. Two things make that less than a rewrite from scratch: the
+model side (`experiments/models.py`, `mlp.py`, `metrics.py`, `encoding.py`,
+`splits.py`) is untouched and still holds the fixed hyperparameters every number above
+was measured with, and the causal primitives the feature work needed are in
+`experiments/features/util.py`.
+
+Two caveats carry forward regardless:
+
+* **The feature sets are not the same.** The old `v1` was 36 curated columns and the
+  ablation's `leaky` was ~45 raw ones. IBM CCF's module now produces 82, unfitted. No
+  number above transfers to it.
+* **Encoding is no longer decided in the feature build.** Finding 4 — one-hot beating
+  ordinal by 3.4x — is a fact about `experiments/encoding.py`, which still has both, and
+  it is the strongest single result in this file. Anything rebuilt here should try
+  one-hot or learned embeddings before ordinal codes.

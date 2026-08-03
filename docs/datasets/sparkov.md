@@ -4,10 +4,15 @@
 · CC0 1.0 (public domain) · **simulated with Sparkov/Faker**
 
 **The clean one.** The audit found **zero** flagged values — the only generated dataset
-in the suite whose labels are not recoverable from a single column value. It is the
-benchmark's negative control: in the leakage ablation its `leaky` and `clean` conditions
-are identical by construction, so the gap between them measures the harness's own noise
-floor (0.000–0.002).
+in the suite whose labels are not recoverable from a single column value. That makes it the
+benchmark's negative control: its `artifact_*` columns carry no measured artifact, so
+including or dropping them should change nothing, and whatever gap appears is the
+harness's own noise floor. The retired leakage ablation measured that floor at
+0.000–0.002.
+
+It is also the only dataset carrying **three label-delay regimes** — no delay, the 7-day
+default in `reported_at`, and the 15-day fat-tailed one in `reported_at_slow` — all in a
+single feature parquet, since the rows are identical and only the timestamp differs.
 
 | | |
 |---|---|

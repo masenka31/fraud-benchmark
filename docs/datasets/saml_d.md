@@ -36,12 +36,26 @@ and neither is any aggregate built on `amount` without first normalising.
 
 ⚠ **`entity_id` is the sender only.** Laundering is a multi-party phenomenon; the
 receiving side lives in `Receiver_account` and is passed through but not keyed on.
-Campaign grouping — and therefore `reported_at` — is per sender.
+`experiments/features/saml_d.py` builds a second history keyed on it, so fan-in is
+available as a feature; campaign grouping — and therefore `reported_at` — is per sender.
+
+⚠ **Fan-out separates the opposite way from the textbook pattern.** Measured over all
+9.5M rows of the feature parquet, laundering rows average **2.90** distinct receivers in 7
+days against **6.96** for normal rows, and **1.45** distinct senders per receiver against
+**3.72**. Smurfing predicts the reverse. The cause is the generator: **61% of the normal
+rows are explicit fan patterns** — `Normal_Small_Fan_Out` 3.48M, `Normal_Fan_Out` 2.30M,
+`Normal_Fan_In` 2.10M — so the background traffic is fan-heavy by construction, while the
+9,873 laundering rows spread across a dozen typologies of which only some are fan-shaped
+(`Structuring` 1,870, `Smurfing` 932, `Layered_Fan_In` 656). The gap is large and a model
+does not care about its sign, but **do not read a high fan-out here as evidence of
+laundering**, and do not carry that reading to another dataset.
 
 - **The strongest effects are the phenomenon, not artifacts.** `Receiver_bank_location`
   Nigeria 6.3×, Morocco 6.3×, Albania 5.8×; `Payment_type` Cash Deposit 6.0×, Cash
   Withdrawal 4.3× — directional in the way money laundering actually is. The audit kept
-  the two `*_bank_location` columns in the `clean` condition for this reason.
+  the two `*_bank_location` columns in its `clean` condition for this reason; the feature
+  module prefixes them `artifact_` because they name absolute places, not because they are
+  suspect.
 - The 73 flagged values are all account ids (25 receiver, 24 sender, plus their
   `entity_id` duplicates), none holding more than 0.4% of frauds — recurring mule
   accounts.

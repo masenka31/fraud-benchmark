@@ -4,6 +4,13 @@ Not a separate source. **Row-identical to [`sparkov`](sparkov.md) on every colum
 `reported_at`**, verified equal on all 28 other columns, and it reuses Sparkov's raw
 download rather than fetching again. CC0 1.0.
 
+**It has no feature parquet of its own.** Since the only column that differs is a
+timestamp, `experiments/features/sparkov.py` reads this preparation directly and carries
+its `reported_at` as `reported_at_slow` in `data/features/sparkov.parquet`, aligned on
+`trans_num`. Building it twice would write 173 MB of identical feature columns to express
+one differing timestamp. It is still prepared separately — `fraud-benchmark prepare
+sparkov_slow` — because this page's censoring figures come from its own dataset card.
+
 Everything on the [`sparkov`](sparkov.md) page applies unchanged — same 1,852,394 rows,
 same 9,651 frauds, same 999 cards, same 63/7/30 splits, same artifacts (none), same
 `source_file` and `unix_time` hazards. Only the delay differs:

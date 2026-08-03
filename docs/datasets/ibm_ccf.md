@@ -36,7 +36,8 @@ Fraud is online/US until 2016 and foreign-merchant afterwards:
 So **val frauds are 100% `Merchant State == "Italy"`** and test frauds 94.4%, while
 train holds **zero** Italy frauds and is 73.1% online. The one-line rule
 `Merchant State == "Italy"`, with no fitting of any kind, scores **F1 0.914 on val and
-0.871 on test** — above every model in the ablation (best 0.041 average precision).
+0.871 on test** — above every model in the retired leakage ablation (best 0.041 average
+precision).
 This is not a feature to drop and move on from; it is what the evaluation labels *are*.
 **Do not publish a headline number on IBM CCF without this caveat.**
 
