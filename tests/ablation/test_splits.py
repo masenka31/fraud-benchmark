@@ -8,6 +8,7 @@ import pytest
 
 from fraud_benchmark.experiments.splits import (
     FIRST_ITALY_FRAUD,
+    LAST_LABELLED_FRAUD,
     italy_holdout_split,
     standard_split,
 )
@@ -55,3 +56,20 @@ def test_italy_holdout_train_predates_the_first_italy_fraud():
     out = italy_holdout_split(frame)
     train_end = out.loc[out["split"] == "train", "event_time"].max()
     assert train_end < FIRST_ITALY_FRAUD
+
+
+def test_italy_holdout_drops_rows_after_the_last_labelled_fraud():
+    # Rows after that timestamp are unlabelled, so keeping them would score a model
+    # against absent labels.
+    frame = pd.DataFrame(
+        {
+            "event_time": pd.date_range("2017-01-01", periods=5000, freq="6h"),
+            "is_fraud": [False] * 5000,
+            "amount": [1.0] * 5000,
+        }
+    )
+    # Guard against a vacuous pass: the fixture must genuinely span past the cut.
+    assert (frame["event_time"] > LAST_LABELLED_FRAUD).any()
+
+    out = italy_holdout_split(frame)
+    assert out["event_time"].max() <= LAST_LABELLED_FRAUD
