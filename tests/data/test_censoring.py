@@ -51,3 +51,29 @@ def test_a_cutoff_past_every_report_recovers_the_true_labels():
     frame = _frame()
     labels = censored_labels(frame, cutoff=pd.Timestamp("2030-01-01"))
     assert labels.tolist() == frame["is_fraud"].astype(int).tolist()
+
+
+def test_a_non_fraud_reported_before_the_cutoff_is_still_zero():
+    # Guards the `is_fraud` gate: a genuine, early reported_at must not flip a
+    # non-fraud row to 1.
+    frame = pd.DataFrame(
+        {
+            "event_time": pd.to_datetime(["2024-01-01", "2024-01-02"]),
+            "is_fraud": [False, False],
+            "reported_at": pd.to_datetime(["2023-01-01", None]),
+        }
+    )
+    labels = censored_labels(frame, cutoff=pd.Timestamp("2024-06-01"))
+    assert labels.tolist() == [0, 0]
+
+
+def test_a_fraud_never_reported_is_zero():
+    frame = pd.DataFrame(
+        {
+            "event_time": pd.to_datetime(["2024-01-01"]),
+            "is_fraud": [True],
+            "reported_at": pd.to_datetime([None]),
+        }
+    )
+    labels = censored_labels(frame, cutoff=pd.Timestamp("2030-01-01"))
+    assert labels.tolist() == [0]
