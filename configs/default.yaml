@@ -46,6 +46,19 @@ datasets:
   # last val_fraction of the upstream train file.
   sparkov:
     val_fraction: 0.1
+  # Row-identical to sparkov, differing only in reported_at. At the card-fraud
+  # default Sparkov's 487-day train window censors only 2.1% of train labels, so
+  # the delay barely registers; this regime raises it to ~8.5%. The median stays
+  # plausible for a cardholder noticing on a statement; the tail is deliberately
+  # longer than a realistic chargeback window, which is what does the censoring.
+  # sigma = sqrt(2*ln(60/15)): median 15 days, nominal mean 60. Capped at a year,
+  # since a dispute is not filed after that.
+  sparkov_slow:
+    val_fraction: 0.1
+    delay:
+      median_days: 15.0
+      sigma: 1.665
+      max_delay_days: 365
   # A user may hold several cards; 'user' groups them, 'card' keeps them separate.
   ibm_ccf:
     entity_key: user

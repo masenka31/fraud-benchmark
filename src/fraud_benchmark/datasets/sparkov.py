@@ -93,3 +93,32 @@ class SparkovAdapter(DatasetAdapter):
             "amount": "amt",
             "is_fraud": "is_fraud",
         }
+
+
+@register
+class SparkovSlowAdapter(SparkovAdapter):
+    """Sparkov again, differing only in reporting delay.
+
+    Row-identical to `sparkov` on every column but `reported_at`, so a model can
+    be compared across delay regimes on the same data -- the same design as the
+    two IBM CCF subsamples.
+
+    Why it exists: at the card-fraud default (7-day median) Sparkov's 487-day
+    train window leaves 97.9% of train labels known at the cutoff, so the delay
+    barely registers. The slow regime raises that to roughly 8.5% censored,
+    enough for a delay-aware method to have something to work with. Its delay is
+    set in configs/default.yaml, not here.
+    """
+
+    name = "sparkov_slow"
+    #: Reads the raw files already downloaded for sparkov.
+    raw_name = "sparkov"
+    caveats = SparkovAdapter.caveats + (
+        "Row-identical to 'sparkov' apart from reported_at. It exists to give the "
+        "label-delay axis a second, harsher regime on identical data.",
+        "Its delay is deliberately slower than the card-fraud default: the median "
+        "(15 days) is still plausible for a cardholder noticing on a statement, but "
+        "the tail is stretched well past a realistic chargeback window to make the "
+        "censoring measurable. Treat it as a stress test, not as a realistic "
+        "reporting regime.",
+    )

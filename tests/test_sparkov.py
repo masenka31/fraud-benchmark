@@ -114,3 +114,18 @@ def test_missing_file_is_an_error(tmp_path):
 def test_sparkov_is_registered():
     from fraud_benchmark.datasets.base import list_datasets
     assert "sparkov" in list_datasets()
+
+
+def test_sparkov_slow_shares_sparkovs_raw_download():
+    from fraud_benchmark.datasets.sparkov import SparkovSlowAdapter
+
+    assert SparkovSlowAdapter.raw_name == "sparkov"
+
+
+def test_sparkov_slow_records_that_it_is_a_stress_test():
+    """A reader must not mistake its delay for a realistic reporting regime."""
+    from fraud_benchmark.datasets.sparkov import SparkovSlowAdapter
+
+    joined = " ".join(SparkovSlowAdapter.caveats).lower()
+    assert "stress test" in joined
+    assert "row-identical" in joined

@@ -314,3 +314,23 @@ def test_the_subsamples_keep_the_default_campaign_gap():
     config = load_config()
     for name in ("ibm_ccf_subsample_fast", "ibm_ccf_subsample_slow"):
         assert config.campaign_gap_for(name) == pd.Timedelta(days=1)
+
+
+def test_sparkov_slow_overrides_the_delay_to_a_harsher_regime():
+    """At the card-fraud default Sparkov's 487-day train window censors only
+    2.1% of train labels, so the delay barely registers. sigma and seed inherit."""
+    config = load_config()
+    delay = config.delay_for("sparkov_slow")
+    assert delay.median_days == 15.0
+    assert delay.sigma == 1.665
+    assert delay.max_delay_days == 365
+    assert delay.seed == config.delay.seed
+
+
+def test_sparkov_slow_inherits_sparkovs_val_fraction():
+    """It must split identically to sparkov, or the rows would not correspond."""
+    config = load_config()
+    assert (
+        config.for_dataset("sparkov_slow")["val_fraction"]
+        == config.for_dataset("sparkov")["val_fraction"]
+    )
