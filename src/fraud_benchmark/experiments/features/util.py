@@ -19,6 +19,7 @@ entities look new only because the window was truncated there.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import numpy as np
@@ -490,5 +491,21 @@ def write_features(
     features_dir = Path(features_dir)
     features_dir.mkdir(parents=True, exist_ok=True)
     destination = features_dir / f"{dataset}.parquet"
-    frame.to_parquet(destination, index=False)
+
+    # Written beside the destination and renamed into place, the way the preparation
+    # pipeline swaps a processed directory. A 2.5 GB parquet takes long enough to write
+    # that a reader arriving mid-write gets a truncated file, and the reader here is a
+    # 25-cell grid: the job dependencies order the first build against them, but a
+    # rebuild while any of them is reading would otherwise corrupt that run silently.
+    # os.replace is atomic within a filesystem, and the temp file is in the same
+    # directory so it always is one.
+    temporary = destination.with_suffix(".parquet.tmp")
+    try:
+        frame.to_parquet(temporary, index=False)
+        os.replace(temporary, destination)
+    except BaseException:
+        # Including KeyboardInterrupt and SIGTERM-as-exception: a walltime kill must
+        # not leave a .tmp behind to be mistaken for a build in progress.
+        temporary.unlink(missing_ok=True)
+        raise
     return destination

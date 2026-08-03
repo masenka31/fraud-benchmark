@@ -405,3 +405,41 @@ def test_feature_and_artifact_columns_partition_the_features(tmp_path):
     assert artifact_columns(written) == ["artifact_city"]
     assert set(feature_columns(written)) == set(features.columns)
     assert not any(c.startswith(ARTIFACT_PREFIX) for c in KEY_COLUMNS)
+
+
+def test_write_features_leaves_no_temporary_file_behind(tmp_path):
+    written = write_features(
+        "demo", keys_frame(), pd.DataFrame({"a": [1.0] * 3}), features_dir=tmp_path
+    )
+    assert written.exists()
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_a_failed_write_leaves_neither_a_temporary_nor_a_truncated_parquet(tmp_path):
+    """A walltime kill mid-write must not leave a reader a half-built file."""
+    good = write_features(
+        "demo", keys_frame(), pd.DataFrame({"a": [1.0] * 3}), features_dir=tmp_path
+    )
+    before = good.read_bytes()
+
+    class Exploding(pd.DataFrame):
+        def to_parquet(self, *args, **kwargs):
+            raise KeyboardInterrupt("killed mid-write")
+
+    import fraud_benchmark.experiments.features.util as util
+
+    original = util.pd.concat
+    util.pd.concat = lambda *a, **k: Exploding(original(*a, **k))
+    try:
+        with pytest.raises(KeyboardInterrupt):
+            write_features(
+                "demo", keys_frame(), pd.DataFrame({"a": [2.0] * 3}),
+                features_dir=tmp_path,
+            )
+    finally:
+        util.pd.concat = original
+
+    # The previous build survives untouched, and no .tmp is left to be mistaken
+    # for a build in progress.
+    assert good.read_bytes() == before
+    assert not list(tmp_path.glob("*.tmp"))
