@@ -1,7 +1,8 @@
 """Stage 1: build velocity features once per dataset and cache them.
 
-The 18 stage-2 jobs read this cache. Rebuilding 24M rows of aggregates inside
-each of them would be the obvious way to waste the day.
+The 14 stage-2 jobs read this cache, as do the one-off experiments in `scripts/`.
+Rebuilding 24M rows of aggregates inside each of them would be the obvious way to
+waste the day.
 """
 
 from __future__ import annotations

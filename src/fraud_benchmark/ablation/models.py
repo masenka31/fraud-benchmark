@@ -5,8 +5,8 @@ confound the ablation with tuning effort: a gap between `leaky` and `clean` woul
 no longer be attributable to the columns.
 
 The trivial rule is the floor and matters more than it looks. An earlier probe
-found a boosted model scoring *below* the one-line rule on the IBM CCF subsample;
-without the floor in the table that result is invisible.
+found a boosted model scoring *below* the one-line rule on IBM CCF (0.041 against
+0.764); without the floor in the table that result is invisible.
 """
 
 from __future__ import annotations

@@ -4,7 +4,7 @@ Three conditions through identical code on IBM CCF's standard temporal 80/10/10,
 so the only variable is the feature set:
 
   v1        -- the 36-column set: raw columns, clock, relative geography, and the
-               original velocity aggregates. Scored 0.041 test AP.
+               original velocity aggregates.
   v1_plus   -- v1 with `Merchant State` and its derived flags removed, keeping
                only same_state / same_city. Tests whether location identity is
                carrying anything on this split.
@@ -12,10 +12,11 @@ so the only variable is the feature set:
                recency, decline velocity, burst ratios, entity baseline
                deviation, 30-day memory, amount shape, card age.
 
-The comparison of interest is v2 against the sequential models' 0.335 (RNN) and
-0.565 (CAST fine-tuned). If hand-crafted summaries reach them, the sequential
-advantage was expressible as features; if they plateau near the 0.052 the
-flattened window reached, it was not.
+Measured: v1 0.0333, v1_plus 0.0242, v2 0.0280 test AP (± ~0.001). **The v2
+features made trees worse.** Location identity is worth about 0.009 and the
+relative pair does not replace it. Full table and caveats in docs/experiments.md
+-- in particular, these do not compare to the ablation's 0.041, which uses a
+different feature construction and a different split.
 """
 
 from __future__ import annotations

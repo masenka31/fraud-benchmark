@@ -17,6 +17,12 @@ how much that is worth on its own.
 
 Both are dataset transformations, not fitting steps, so they are applied
 identically to train, val and test before anything is fitted.
+
+The recorded numbers in results/geo_dilution.jsonl (geo_diluted 0.195,
+no_geo_keep_mcc 0.057) were measured on `ibm_ccf_subsample_fast`, which has since
+been retired -- see docs/verification-notes.md, "## The IBM CCF subsamples are
+retired". The default is now the full `ibm_ccf`, so a re-run is comparable to the
+rest of the IBM CCF table but NOT to those two figures.
 """
 
 from __future__ import annotations
@@ -108,7 +114,7 @@ def run(df: pd.DataFrame, condition: str, columns: list[str], out_path: Path) ->
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--dataset", default="ibm_ccf_subsample_fast")
+    ap.add_argument("--dataset", default="ibm_ccf")
     ap.add_argument("--features-dir", type=Path, default=Path("data/features"))
     ap.add_argument("--out", type=Path, default=Path("results/geo_dilution.jsonl"))
     args = ap.parse_args()

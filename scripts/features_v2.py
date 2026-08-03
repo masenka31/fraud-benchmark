@@ -29,6 +29,14 @@ So this builds those summaries directly. Seven groups, all strictly past-only:
 
 Every window is left-closed and every expanding statistic is shifted, so no
 feature can see the row it describes. test_features_v2.py asserts that.
+
+Outcome: **the hypothesis did not hold.** On trees these 26 features scored 0.0280
+against v1's 0.0333 -- worse, by roughly four times the seed spread. The MLP
+measurement is still running. Kept because the features are correct and cheap to
+reuse, not because they helped. See docs/experiments.md.
+
+Note the name: this module is a LIBRARY (no `main`). The experiment that uses it is
+`ibm_features_v2.py`, one character away.
 """
 
 from __future__ import annotations

@@ -112,3 +112,9 @@ def _cmd_info(args) -> int:
         return 1
     print(json.dumps(json.loads(card.read_text()), indent=2))
     return 0
+
+
+if __name__ == "__main__":
+    # `python -m fraud_benchmark.cli` would otherwise import and exit silently,
+    # which reads as a broken install rather than a missing entry point.
+    sys.exit(main())
