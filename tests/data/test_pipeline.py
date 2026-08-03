@@ -7,7 +7,7 @@ import pytest
 
 from fraud_benchmark.data.config import Config
 from fraud_benchmark.data.delay import DelayParams
-from fraud_benchmark.data.pipeline import prepare
+from fraud_benchmark.data.pipeline import _drop_source_label, prepare
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 FIXTURE = FIXTURES / "paysim"
@@ -433,3 +433,20 @@ def test_both_halves_of_the_drop_contract_hold_for_every_dropping_adapter(
     assert source_label not in frame.columns
     assert frame["is_fraud"].dtype == "bool"
     assert int(frame["is_fraud"].sum()) == 2
+
+
+def test_a_stale_source_label_declaration_fails_loudly():
+    """The guard against the one failure mode this design introduces.
+
+    An adapter that renames or mistypes its `source_label_column` would otherwise
+    keep passing its raw label through under a name nobody is watching -- the
+    silent version of exactly the bug the drop exists to prevent.
+    """
+    class _Stale:
+        name = "stale_probe"
+        source_label_column = "NotAColumn"
+        label_descriptive_columns = ()
+
+    frame = pd.DataFrame({"is_fraud": [True], "amount": [1.0]})
+    with pytest.raises(ValueError, match="NotAColumn"):
+        _drop_source_label(frame, _Stale())
