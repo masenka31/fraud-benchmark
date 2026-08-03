@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fraud_benchmark.ablation.features import VELOCITY_COLUMNS, add_velocity_features
+from fraud_benchmark.experiments.features import VELOCITY_COLUMNS, add_velocity_features
 
 
 def frame(rows):

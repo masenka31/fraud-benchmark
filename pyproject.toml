@@ -21,7 +21,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # None of these is used by the pipeline. They back the leakage ablation study in
-# src/fraud_benchmark/ablation/ and the experiments in scripts/; 1.4 is the floor
+# src/fraud_benchmark/experiments/ and the experiments in scripts/; 1.4 is the floor
 # for passing string column names to
 # HistGradientBoostingClassifier(categorical_features=...). torch is CPU-only
 # here -- the cluster nodes have no GPU -- and is needed by scripts/seq_mlp*.py.

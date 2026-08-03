@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from fraud_benchmark.ablation.encoding import UNSEEN, Encoder
+from fraud_benchmark.experiments.encoding import UNSEEN, Encoder
 
 
 def frame(cats, nums):

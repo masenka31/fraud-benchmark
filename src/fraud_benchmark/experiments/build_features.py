@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fraud_benchmark.ablation.features import add_velocity_features
+from fraud_benchmark.experiments.features import add_velocity_features
 
 DEFAULT_PROCESSED = Path("data/processed")
 DEFAULT_FEATURES = Path("data/features")

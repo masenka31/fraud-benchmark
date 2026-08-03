@@ -34,7 +34,7 @@ Sorted by how much the labels are recoverable from a single column, worst first.
 1. **The source's own label column is passed through** into the canonical frame
    (`isFraud`, `fraud`, `Is Fraud?`, `Is_laundering`, `Anomaly`, …). `is_fraud` is the
    canonical label; drop the source column, and anything derived from it, before fitting.
-   `fraud_benchmark.ablation.columns.ALWAYS_EXCLUDED` is the list the ablation uses.
+   `fraud_benchmark.experiments.ablation.columns.ALWAYS_EXCLUDED` is the list the ablation uses.
 2. **Every `reported_at` is synthetic.** No dataset here ships a real reporting timestamp.
 
 Figures in `figures/` are emitted for light and dark by

@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from fraud_benchmark.ablation.grid import CELLS
+from fraud_benchmark.experiments.ablation.grid import CELLS
 
 DEFAULT_RESULTS = Path("results/runs")
 DEFAULT_SUMMARY = Path("results/summary.md")
@@ -128,7 +128,7 @@ def summarize(results_path: Path = DEFAULT_RESULTS) -> str:
             "",
             "## Cells with no results",
             "",
-            "These are in the grid (`fraud_benchmark.ablation.grid`) but have not been",
+            "These are in the grid (`fraud_benchmark.experiments.ablation.grid`) but have not been",
             "run, so the table above is incomplete. Submit them with",
             "`scripts/slurm/jobs/submit_all.sh`.",
             "",

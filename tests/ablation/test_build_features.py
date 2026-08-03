@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from fraud_benchmark.ablation.build_features import MERCHANT_COLUMNS, build
+from fraud_benchmark.experiments.build_features import MERCHANT_COLUMNS, build
 
 
 def source(tmp_path, name, df):

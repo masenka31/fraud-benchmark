@@ -102,7 +102,7 @@ sbatch scripts/slurm/jobs/mlpoh_standard.sbatch   # one experiment at a time
 ```
 
 Each expects `data/features/ibm_ccf.parquet` to exist already
-(`python -m fraud_benchmark.ablation.build_features ibm_ccf`). Memory is the
+(`python -m fraud_benchmark.experiments.build_features ibm_ccf`). Memory is the
 binding constraint: the flattened window is a 15–17 GiB float32 block, so those
 jobs request 250–280 GB and the `cpulong` partition.
 

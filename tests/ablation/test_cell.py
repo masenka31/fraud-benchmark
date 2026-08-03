@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fraud_benchmark.ablation.cell import censored_labels, run_cell
+from fraud_benchmark.experiments.ablation.cell import censored_labels, run_cell
 
 
 def features(n=600, seed=0):

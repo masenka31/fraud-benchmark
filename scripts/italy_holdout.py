@@ -32,7 +32,7 @@ import numpy as np
 import pandas as pd
 from xgboost import XGBClassifier
 
-from fraud_benchmark.ablation.metrics import best_f1_threshold, score
+from fraud_benchmark.experiments.metrics import best_f1_threshold, score
 
 FIRST_ITALY_FRAUD = pd.Timestamp("2017-11-19 12:06:00")
 LAST_LABELLED_FRAUD = pd.Timestamp("2019-10-27 14:54:00")

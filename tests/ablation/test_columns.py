@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from fraud_benchmark.ablation.columns import (
+from fraud_benchmark.experiments.ablation.columns import (
     ALWAYS_EXCLUDED,
     LEAKY_COLUMNS,
     ExcludedColumnError,

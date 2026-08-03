@@ -1,6 +1,6 @@
 import json
 
-from fraud_benchmark.ablation.summarize import summarize
+from fraud_benchmark.experiments.ablation.summarize import summarize
 
 
 def record(dataset, feature_set, regime, model, ap, seed=None):
@@ -114,7 +114,7 @@ def test_grid_cells_with_no_records_are_named(tmp_path):
 
 
 def test_a_complete_grid_reports_no_missing_cells(tmp_path):
-    from fraud_benchmark.ablation.grid import CELLS
+    from fraud_benchmark.experiments.ablation.grid import CELLS
 
     path = write(
         tmp_path,

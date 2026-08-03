@@ -5,7 +5,7 @@ Two families, both generated here so that `scripts/slurm/jobs/` can stay
 gitignored without losing anything:
 
   * the ablation grid -- 4 feature jobs and 14 cell jobs, from
-    `fraud_benchmark.ablation.grid`, wired together by submit_all.sh;
+    `fraud_benchmark.experiments.ablation.grid`, wired together by submit_all.sh;
   * the one-off experiments in `scripts/` -- declared in EXPERIMENTS below. These
     are submitted by hand, one at a time, and each expects
     `data/features/ibm_ccf.parquet` to exist already.
@@ -25,7 +25,7 @@ from pathlib import Path
 
 # The grid itself lives in the package, so summarize.py can report which cells
 # have no results yet. Re-exported here because this module is its historical home.
-from fraud_benchmark.ablation.grid import CELLS, DATASETS  # noqa: F401
+from fraud_benchmark.experiments.ablation.grid import CELLS, DATASETS  # noqa: F401
 
 REPO = Path(__file__).resolve().parents[2]
 PYTHON = REPO / ".venv" / "bin" / "python"
@@ -114,7 +114,7 @@ def render_feature_job(dataset: str) -> str:
 set -euo pipefail
 cd {REPO}
 export OMP_NUM_THREADS=4
-{PYTHON} -m fraud_benchmark.ablation.build_features {dataset}
+{PYTHON} -m fraud_benchmark.experiments.build_features {dataset}
 """
 
 
@@ -142,7 +142,7 @@ def render_cell_job(dataset: str, feature_set: str, regime: str) -> str:
 set -euo pipefail
 cd {REPO}
 export OMP_NUM_THREADS=4
-{PYTHON} -m fraud_benchmark.ablation.cell {dataset} {feature_set} {regime}{rule} --results {results}
+{PYTHON} -m fraud_benchmark.experiments.ablation.cell {dataset} {feature_set} {regime}{rule} --results {results}
 """
 
 

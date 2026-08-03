@@ -3,7 +3,7 @@ import pandas as pd
 import pytest
 from sklearn.metrics import average_precision_score
 
-from fraud_benchmark.ablation.models import (
+from fraud_benchmark.experiments.models import (
     TRIVIAL_RULES,
     fit_logistic,
     fit_xgboost,
