@@ -51,70 +51,70 @@ writing `to_canonical` and `column_mapping`, and optionally overriding `custom_s
 
 ## 2. Experiments — `src/fraud_benchmark/experiments/`
 
-Everything that happens after a dataset is prepared. Reads `data/processed/` and
-`data/features/`, writes to neither. Imports from `data` freely.
+Everything that happens after a dataset is prepared. Reads `data/processed/`, writes
+`data/features/`, and never writes to `data/processed/`. Imports from `data` freely.
 
-The shared modeling stack:
+Three of the seven registered datasets are run experimentally: **IBM CCF**, **SAML-D**
+and **Sparkov**, the last under three label-delay regimes. The other four (paysim,
+banksim, ieee_cis, amaretto) are prepared and documented but not modelled, so nothing
+in this package mentions them.
+
+### Feature extraction — `experiments/features/`
+
+One module per experimental dataset, and each one names every feature it produces. That
+is the point of the layout: reading `features/saml_d.py` is meant to be the whole answer
+to what SAML-D's model sees, so no feature is declared in shared code.
+
+| module | does |
+|---|---|
+| `util.py` | the primitives — `EntityHistory` for past-only aggregates, clock and amount shape, haversine, and `write_features`, which enforces the contract |
+| `ibm_ccf.py` | → `data/features/ibm_ccf.parquet`. Grouped MCC, relative geography, decline velocity, card and cardholder attributes |
+| `sparkov.py` | → `data/features/sparkov.parquet`. Haversine distance from home, and **both** delay regimes in one file |
+| `saml_d.py` | → `data/features/saml_d.parquet`. Two histories — sender and receiver — so fan-out and fan-in are both expressible |
+
+A feature parquet carries `entity_id`, `event_time`, `reported_at`, `is_fraud`, `split`
+and nothing else raw: every other column was computed deliberately. Features are
+**unfitted** — engineered, but with no vocabulary capped, no ordinal code assigned and
+nothing scaled — so one parquet is valid under both the standard split and the Italy
+holdout. Columns naming an absolute place or a specific counterparty carry an
+`artifact_` prefix, which is how a downstream filter drops the group that lets a model
+memorise "Italy = fraud" instead of learning fraud.
+
+Sparkov's three label regimes — no delay, delay, slow delay — are a choice of *column*,
+not of file: the parquet carries `reported_at` and `reported_at_slow`, and ignoring both
+is the no-delay regime.
+
+### The model side
+
+Where the split is chosen and the fitting happens. Fitting inside a feature build would
+tie the parquet to one split, and two are in use.
 
 | module | does |
 |---|---|
 | `columns.py` | what no model may ever see, whatever the experiment — the label part read from the adapter registry |
 | `splits.py` | `standard_split` and `italy_holdout_split` on an already-prepared frame |
-| `build_features.py` | causal velocity features for one dataset, cached to `data/features/` |
-| `features.py` | the velocity feature definitions themselves |
-| `features_v2.py` | 26 history-relative features: novelty, decline velocity, burst ratios |
-| `ibm_features.py` | the IBM CCF feature pipeline — grouped MCC, relative geography |
-| `seq_window.py` | flattened sequence window: target transaction + its previous 9, same user |
-| `mlp.py` | a 3-layer MLP over that window |
-| `geo.py` | the transformations that break IBM CCF's geography oracle |
 | `encoding.py` | categorical encoding and scaling, fitted on train only |
 | `models.py` | logistic regression, XGBoost, and the trivial-rule floor |
+| `mlp.py` | a 3-layer MLP |
 | `metrics.py` | average precision, plus precision/recall/F1 at a validation-chosen threshold |
 
-### The leakage ablation — `experiments/ablation/`
-
-One study among the several this stack supports, and the only one with its own
-subpackage, because it is a grid rather than a single run. Does a model's score survive
-removing the columns the audit flagged as generation artifacts? A 14-cell grid of
-(dataset × `leaky`/`clean` × `oracle`/`censored` labels), run in two stages so the
-expensive feature build happens once per dataset.
-
-| module | does |
-|---|---|
-| `grid.py` | which cells exist — one definition, read by the job generator and the summary |
-| `columns.py` | the study's own condition: which columns the `leaky` arm keeps and the `clean` arm drops |
-| `cell.py` | stage 2: run one cell, appending a record per fit |
-| `summarize.py` | `results/runs/*.jsonl` → `results/summary.md` |
-
-Stage 1 is `experiments/build_features.py`, shared with the other experiments.
-
-Read `results/summary.md` first, then
-[`verification-notes.md`](verification-notes.md) §"Known leakage".
-
 ## 3. Runners — `scripts/`
-
-Argparse and an output path, nothing more: every runner imports its features, splits,
-models and metrics from `experiments/`, so no importable logic lives here. The six
-experiment runners (`italy_holdout`, `geo_dilution`, `ibm_features_v2`, `seq_window`,
-`seq_mlp`, `seq_mlp_v2`) ask why IBM CCF scores 0.041 average precision when a one-line
-rule scores 0.764. Every result is tabled in [`experiments.md`](experiments.md).
 
 `scripts/figures/` holds the two plotting scripts that generate the figures embedded in
 the documentation — neither is feature engineering or model training, and neither is an
 sbatch job.
 
-`scripts/slurm/generate.py` emits **every** sbatch file, the ablation grid and the
-experiments alike, so `scripts/slurm/jobs/` can stay gitignored. Add a job by declaring it
-there, never by hand-writing a file into that directory.
+`scripts/slurm/generate.py` emits **every** sbatch file, so `scripts/slurm/jobs/` can
+stay gitignored. It is three feature builds, one per experimental dataset, with their
+memory and walltime sized by row count. Add a job by declaring it there, never by
+hand-writing a file into that directory.
 
 ## Results — `results/`
 
 | path | holds |
 |---|---|
-| `summary.md` | the ablation table, regenerated by `summarize.py` |
-| `runs/*.jsonl` | one file per ablation cell; a shared file would race |
-| `runs/retired/` | records for cells no longer in the grid, excluded from the summary |
-| `*.jsonl` | one file per experiment in `scripts/` |
+| `*.jsonl`, `runs/` | records from the experiments this cleanup retired, kept as a history of what was measured |
+| `summary.md` | the leakage-ablation table those records produced |
 | `figures/` | generated plots |
 | `logs/` | SLURM stdout and stderr, gitignored |
 

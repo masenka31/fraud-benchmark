@@ -1,5 +1,11 @@
 # Leakage ablation
 
+> **Retired.** The grid that produced this table (`experiments/ablation/`) was removed
+> when feature extraction was reorganised into one module per dataset. The numbers
+> stand as the record of what was measured, and they are why
+> `experiments/features/` keeps IBM CCF's merchant geography behind an `artifact_`
+> prefix rather than as an ordinary feature. Nothing regenerates this file.
+
 Average precision. Base rates here run from 0.10% to 0.52%, so a
 negative-class-dominated metric would stay high for a model with no useful
 precision and hide exactly what this table measures.

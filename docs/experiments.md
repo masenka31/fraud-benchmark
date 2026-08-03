@@ -1,11 +1,20 @@
 # Experiments on IBM CCF
 
-The six runners in `scripts/` (everything outside `scripts/figures/` and
-`scripts/slurm/`). They all ask one question, from different angles: **IBM CCF
-scores 0.041 average precision under the leakage ablation while a one-line rule
-scores 0.764 — what, if anything, closes that gap?**
+> **The code behind this document has been retired.** The six runners in `scripts/`,
+> the `experiments/ablation/` grid, and the `features.py` / `features_v2.py` /
+> `ibm_features.py` modules they imported were removed when feature extraction was
+> reorganised into one module per dataset under `experiments/features/`. The results
+> below stand as the record of what was measured, and the conclusions still inform
+> what the new feature modules do and do not include — the artifact group, the
+> grouped MCC, the relative geography. Reproducing any row means rebuilding its
+> runner against the new parquets. See [`architecture.md`](architecture.md) for the
+> current layout.
 
-The ablation itself is separate: `src/fraud_benchmark/experiments/ablation/`,
+They all asked one question, from different angles: **IBM CCF scores 0.041 average
+precision under the leakage ablation while a one-line rule scores 0.764 — what, if
+anything, closes that gap?**
+
+The ablation itself was separate: `src/fraud_benchmark/experiments/ablation/`,
 results in `results/runs/`, table in `results/summary.md`. This file covers the
 follow-ups.
 

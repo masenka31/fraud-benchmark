@@ -100,10 +100,20 @@ realistic clock: **[`docs/label-delay.md`](docs/label-delay.md)**.
 ## Beyond the pipeline
 
 `src/fraud_benchmark/experiments/` holds everything that happens after a dataset is
-prepared, and reads the pipeline's output without ever writing to it: the shared feature,
-encoding, model and metric stack, the **leakage ablation**
-(`src/fraud_benchmark/experiments/ablation/`), and the **IBM CCF experiments** launched
-from `scripts/`. See [`docs/architecture.md`](docs/architecture.md) for the layout and
+prepared, and reads the pipeline's output without ever writing to it.
+
+Three of the eight datasets are run experimentally — **IBM CCF**, **SAML-D** and
+**Sparkov**, the last under three label-delay regimes. Each has one module in
+`experiments/features/` that names every feature it produces and writes
+`data/features/<dataset>.parquet`; reading that one file is meant to be the whole answer
+to what its model sees. The encoding, model and metric stack sits alongside, and is where
+a split is chosen and anything is fitted.
+
+```bash
+python -m fraud_benchmark.experiments.features.sparkov    # -> data/features/sparkov.parquet
+```
+
+See [`docs/architecture.md`](docs/architecture.md) for the layout and
 [`docs/README.md`](docs/README.md) for everything else.
 
 ## Tests

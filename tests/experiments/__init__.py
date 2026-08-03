@@ -1,1 +1,1 @@
-"""Tests for fraud_benchmark.experiments: features, encoding, models, splits, ablation."""
+"""Tests for fraud_benchmark.experiments: features, encoding, models, splits, metrics."""

@@ -1,9 +1,10 @@
 """Which columns no model may ever see, whatever the experiment.
 
-General, not study-specific: the leakage study's own ablation lives in
-`experiments/ablation/columns.py`. The split matters because this list is a
-correctness invariant -- leaving one of these in invalidates every number
-produced -- while the study's leaky set is a deliberate experimental condition.
+General, not study-specific. This list is a correctness invariant: leaving one of
+these in invalidates every number produced. A column that is merely *suspect* --
+IBM CCF's merchant geography, say -- does not belong here, because excluding it is
+an experimental condition rather than a rule; `experiments/features/` prefixes
+those `artifact_` instead, so a study can include or drop the group by name.
 
 The label part is derived from the adapter registry rather than restated here.
 Before that, each source's raw label column was named in this file as well as in

@@ -1,8 +1,8 @@
 """The three models.
 
 Hyperparameters are fixed across every condition. Tuning per condition would
-confound the ablation with tuning effort: a gap between `leaky` and `clean` would
-no longer be attributable to the columns.
+confound a comparison with tuning effort: a gap between two feature sets, or
+between two label-delay regimes, would no longer be attributable to what changed.
 
 The trivial rule is the floor and matters more than it looks. An earlier probe
 found a boosted model scoring *below* the one-line rule on IBM CCF (0.041 against
