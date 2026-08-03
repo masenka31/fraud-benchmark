@@ -11,7 +11,16 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "slurm"))
 
-from generate import DATASETS, FEATURE_JOBS, render_feature_job, write_all
+from generate import (
+    DATASETS,
+    FEATURE_JOBS,
+    cell_arguments,
+    render_experiment_job,
+    render_feature_job,
+    write_all,
+)
+
+from fraud_benchmark.experiments.grid import CELLS
 
 
 def test_there_is_one_job_per_experimental_dataset():
@@ -65,20 +74,66 @@ def test_a_job_fails_loudly_rather_than_writing_a_partial_result(
     assert "set -euo pipefail" in render_feature_job(dataset, partition, memory, walltime)
 
 
-def test_write_all_emits_every_job_and_a_submit_script(tmp_path):
+def test_write_all_emits_both_families_and_a_submit_script(tmp_path):
     write_all(tmp_path)
     emitted = {path.name for path in tmp_path.glob("*.sbatch")}
-    assert emitted == {f"feat_{dataset}.sbatch" for dataset in DATASETS}
+    assert emitted == {f"feat_{dataset}.sbatch" for dataset in DATASETS} | {
+        f"exp_{cell.name}.sbatch" for cell in CELLS
+    }
 
     submit = (tmp_path / "submit_all.sh").read_text()
     for dataset in DATASETS:
-        assert f"sbatch feat_{dataset}.sbatch" in submit
+        assert f"feat_{dataset}=$(sbatch --parsable feat_{dataset}.sbatch)" in submit
 
 
-def test_the_submit_script_declares_no_dependencies():
-    """The three builds are independent, so nothing waits on anything."""
-    import tempfile
+def test_the_feature_builds_do_not_wait_on_each_other(tmp_path):
+    write_all(tmp_path)
+    submit = (tmp_path / "submit_all.sh").read_text()
+    for line in submit.splitlines():
+        if line.startswith("feat_"):
+            assert "--dependency" not in line
 
-    with tempfile.TemporaryDirectory() as directory:
-        write_all(Path(directory))
-        assert "--dependency" not in (Path(directory) / "submit_all.sh").read_text()
+
+def test_every_experiment_waits_on_its_own_dataset(tmp_path):
+    """A cell reads a feature parquet, so the study must be submittable from cold."""
+    write_all(tmp_path)
+    submit = (tmp_path / "submit_all.sh").read_text()
+    for cell in CELLS:
+        assert (
+            f"sbatch --dependency=afterok:$feat_{cell.config.dataset} "
+            f"exp_{cell.name}.sbatch" in submit
+        ), cell.name
+
+
+def test_each_experiment_writes_its_own_results_file(tmp_path):
+    """One shared file would race: a concurrent append is only atomic below PIPE_BUF."""
+    destinations = set()
+    for cell in CELLS:
+        script = render_experiment_job(cell)
+        assert f"results/experiments/{cell.name}.jsonl" in script
+        destinations.add(f"{cell.name}.jsonl")
+    assert len(destinations) == len(CELLS)
+
+
+def test_a_cell_command_line_passes_only_what_differs_from_the_default():
+    """So the command reads as the difference from the baseline."""
+    baseline = [c for c in CELLS if c.name == "sparkov_xgboost"][0]
+    arguments = cell_arguments(baseline)
+    for flag in ("--history", "--label-delay", "--artifacts", "--split", "--max-rows"):
+        assert flag not in arguments
+
+    slow = [c for c in CELLS if c.config.label_delay == "slow"][0]
+    assert "--label-delay" in cell_arguments(slow)
+
+
+def test_a_cropped_cell_passes_its_row_limit():
+    cropped = [c for c in CELLS if c.config.max_rows is not None]
+    assert cropped, "the MLP cells on the big datasets are cropped"
+    for cell in cropped:
+        arguments = cell_arguments(cell)
+        assert arguments[arguments.index("--max-rows") + 1] == str(cell.config.max_rows)
+
+
+def test_every_experiment_job_declares_its_seeds():
+    for cell in CELLS:
+        assert "--seeds 0 1 2" in render_experiment_job(cell)
