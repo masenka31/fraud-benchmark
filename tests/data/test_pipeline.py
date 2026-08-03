@@ -9,7 +9,7 @@ from fraud_benchmark.data.config import Config
 from fraud_benchmark.data.delay import DelayParams
 from fraud_benchmark.data.pipeline import prepare
 
-FIXTURE = Path(__file__).parent / "fixtures" / "paysim"
+FIXTURE = Path(__file__).parent.parent / "fixtures" / "paysim"
 
 
 @pytest.fixture

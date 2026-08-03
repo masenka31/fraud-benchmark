@@ -7,7 +7,7 @@ import pytest
 from fraud_benchmark.data.adapters.base import get_adapter
 from fraud_benchmark.data.schema import validate_canonical
 
-FIXTURE = Path(__file__).parent / "fixtures" / "amaretto"
+FIXTURE = Path(__file__).parent.parent / "fixtures" / "amaretto"
 
 
 @pytest.fixture

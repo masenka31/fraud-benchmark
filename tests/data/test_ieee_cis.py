@@ -6,7 +6,7 @@ import pytest
 from fraud_benchmark.data.adapters.base import get_adapter
 from fraud_benchmark.data.schema import validate_canonical
 
-FIXTURE = Path(__file__).parent / "fixtures" / "ieee_cis"
+FIXTURE = Path(__file__).parent.parent / "fixtures" / "ieee_cis"
 OPTIONS = {"start_date": "2017-12-01"}
 
 

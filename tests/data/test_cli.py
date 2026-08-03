@@ -5,7 +5,7 @@ import pytest
 
 from fraud_benchmark.data.cli import main
 
-FIXTURES = Path(__file__).parent / "fixtures"
+FIXTURES = Path(__file__).parent.parent / "fixtures"
 
 
 @pytest.fixture
