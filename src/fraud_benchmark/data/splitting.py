@@ -24,10 +24,10 @@ def _cumulative_fraction(df: pd.DataFrame) -> pd.Series:
 
 
 def _cut_at(cumulative: pd.Series, target: float) -> pd.Timestamp:
-    """The last timestamp belonging to a split ending at `target`.
+    """The first timestamp whose cumulative fraction reaches `target`.
 
-    Returns the first timestamp whose cumulative fraction reaches `target`, so a split
-    is never empty even when a single tied block is larger than its target share.
+    Rounding up rather than down keeps a split non-empty even when one tied block is
+    larger than its target share.
     """
     index = int(np.searchsorted(cumulative.to_numpy(), target, side="left"))
     index = min(index, len(cumulative) - 1)
@@ -35,6 +35,7 @@ def _cut_at(cumulative: pd.Series, target: float) -> pd.Timestamp:
 
 
 def _validate_ratios(ratios: tuple[float, float, float]) -> None:
+    """Require three positive ratios summing to 1."""
     if len(ratios) != 3:
         raise ValueError(f"expected three ratios, got {len(ratios)}")
     if not math.isclose(sum(ratios), 1.0, abs_tol=1e-9):
@@ -44,7 +45,7 @@ def _validate_ratios(ratios: tuple[float, float, float]) -> None:
 
 
 def _validate_frame(df: pd.DataFrame) -> None:
-    """Reject input that would otherwise be split silently and wrongly."""
+    """Require a non-empty frame with an `event_time` column and no missing times."""
     if "event_time" not in df.columns:
         raise ValueError("cannot split: frame has no 'event_time' column")
     if len(df) == 0:
@@ -62,6 +63,7 @@ def _validate_frame(df: pd.DataFrame) -> None:
 def _warn_if_any_split_is_empty(
     splits: pd.Series, ratios: tuple[float, float, float], n_distinct: int
 ) -> None:
+    """Warn when tied timestamps left a split with no rows."""
     counts = splits.value_counts()
     empty = [name for name in SPLIT_NAMES if int(counts.get(name, 0)) == 0]
     if empty:
@@ -77,7 +79,7 @@ def _warn_if_any_split_is_empty(
 def split_boundaries(
     df: pd.DataFrame, ratios: tuple[float, float, float]
 ) -> dict[str, pd.Timestamp]:
-    """The last timestamp in the train and val splits."""
+    """The last timestamp of the train and val splits, keyed 'train_end'/'val_end'."""
     _validate_ratios(ratios)
     _validate_frame(df)
     cumulative = _cumulative_fraction(df)
@@ -90,8 +92,7 @@ def split_boundaries(
 def boundary_at(df: pd.DataFrame, fraction: float) -> pd.Timestamp:
     """The last timestamp belonging to the first `fraction` of rows.
 
-    Tie-safe in the same way as the three-way split: the cut lands on a timestamp
-    value, so rows sharing an event_time stay together.
+    `fraction` must be strictly between 0 and 1.
     """
     if not 0 < fraction < 1:
         raise ValueError(f"fraction must be strictly between 0 and 1, got {fraction}")
@@ -102,7 +103,10 @@ def boundary_at(df: pd.DataFrame, fraction: float) -> pd.Timestamp:
 def assign_splits(
     df: pd.DataFrame, ratios: tuple[float, float, float]
 ) -> pd.Series:
-    """Return a categorical split label per row, aligned to `df`'s index."""
+    """Split label per row as a SPLIT_NAMES categorical, aligned to `df`'s index.
+
+    Warns if tied timestamps made any split empty.
+    """
     bounds = split_boundaries(df, ratios)
     times = df["event_time"]
 

@@ -20,10 +20,13 @@ CAMPAIGN_COLUMN = "campaign_id"
 
 
 def assign_campaigns(df: pd.DataFrame, gap: pd.Timedelta) -> pd.Series:
-    """Return a campaign id per row, null for non-fraud rows.
+    """Campaign id per fraud row, <NA> elsewhere, aligned to `df`'s index.
 
-    Ids are integers, dense from 0, in no meaningful order. The result is aligned
-    to `df`'s index.
+    Requires `is_fraud`, `entity_id` and `event_time`. Consecutive frauds on one
+    entity share a campaign while at most `gap` apart. Ids are Int64, dense from
+    0, in no meaningful order.
+
+    Raises ValueError if `gap` is negative.
     """
     if gap < pd.Timedelta(0):
         raise ValueError(f"gap must not be negative, got {gap}")
@@ -37,20 +40,16 @@ def assign_campaigns(df: pd.DataFrame, gap: pd.Timedelta) -> pd.Series:
     entity = ordered["entity_id"]
     elapsed = ordered["event_time"].diff()
 
-    # A new campaign starts at each entity change, or when the wait since the
-    # previous fraud on the same entity exceeds the gap.
-    #
-    # Two pandas-3 traps here, both reproduced on real data before writing this:
-    #  * `entity_id` is `string` dtype, so `entity.ne(entity.shift())` yields <NA>
-    #    on the first row rather than True. Hence `.fillna(True)`.
-    #  * The resulting mask is `bool[pyarrow]`, and `.cumsum()` on that raises
-    #    `TypeError`. Hence the conversion to a numpy bool array.
-    starts = (entity.ne(entity.shift()) | elapsed.gt(gap)).fillna(True)
-    numbering = np.cumsum(starts.to_numpy(dtype="bool")) - 1
-    ids.loc[ordered.index] = pd.array(numbering, dtype="Int64")
+    # Two pandas-3 traps, both reproduced on real data: comparing `string` dtype
+    # yields <NA> on the first row rather than True, hence `.fillna(True)`; and
+    # `.cumsum()` on the resulting `bool[pyarrow]` mask raises TypeError, hence
+    # the numpy round-trip.
+    is_campaign_start = (entity.ne(entity.shift()) | elapsed.gt(gap)).fillna(True)
+    campaign_number = np.cumsum(is_campaign_start.to_numpy(dtype="bool")) - 1
+    ids.loc[ordered.index] = pd.array(campaign_number, dtype="Int64")
     return ids
 
 
 def campaign_sizes(ids: pd.Series) -> pd.Series:
-    """Rows per campaign, for reporting. Ignores nulls."""
+    """Row count per campaign id, indexed by id. Nulls are ignored."""
     return ids.dropna().value_counts()

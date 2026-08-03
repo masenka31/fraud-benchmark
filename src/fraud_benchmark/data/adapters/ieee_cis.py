@@ -27,24 +27,17 @@ SECONDS_PER_DAY = 86_400
 
 
 def _load_with_identity(raw_dir: Path, transactions: str, identity: str) -> pd.DataFrame:
+    """Read a transaction file and left-join its identity file on TransactionID."""
     df = pd.read_csv(require_file(raw_dir, transactions))
     ids = pd.read_csv(require_file(raw_dir, identity))
     return df.merge(ids, how="left", on="TransactionID")
 
 
 def build_uid(df: pd.DataFrame) -> pd.Series:
-    """Derive a pseudo card identifier, falling back to a per-row unique id.
+    """Pseudo card identifier per row: card1 + addr1 + a D1-derived account start day.
 
-    IEEE-CIS has no card identifier. The community heuristic combines card1, addr1
-    and a D1-derived account start day. Two things matter here:
-
-    1. addr1 is null in ~11% of rows and D1 in a few thousand. Under pandas 3,
-       astype(str) on NaN yields <NA> and concatenation propagates it, so the naive
-       heuristic produces NULL entity_id values that fail schema validation.
-    2. Bucketing those rows together under a shared "nan" key would be worse than
-       useless — it would fabricate campaigns out of unrelated transactions.
-
-    So rows missing any component get their own identity instead.
+    This is the community 'uid' heuristic; IEEE-CIS ships no card identifier. Rows
+    missing addr1 (~11%) or D1 fall back to a per-row unique id.
     """
     day = df["TransactionDT"] / SECONDS_PER_DAY
     account_start = (day - df["D1"]).round()
@@ -55,6 +48,9 @@ def build_uid(df: pd.DataFrame) -> pd.Series:
         + "_"
         + account_start.astype(str)
     )
+    # Falling back per row, rather than letting the components be stringified: a
+    # shared "nan" key would fabricate campaigns out of unrelated transactions, and
+    # under pandas 3 the propagated <NA> would fail schema validation anyway.
     incomplete = df["addr1"].isna() | df["D1"].isna()
     return uid.where(~incomplete, "txn_" + df["TransactionID"].astype(str))
 
@@ -96,7 +92,7 @@ class IeeeCisAdapter(DatasetAdapter):
     def auxiliary_frames(
         self, raw_dir: Path, options: dict[str, Any]
     ) -> dict[str, pd.DataFrame]:
-        """The unlabelled competition test set, timestamped the same way."""
+        """The unlabelled competition test set, timestamped and keyed like train."""
         anchor = require_start_date(options, "ieee_cis", "TransactionDT")
         test = _load_with_identity(raw_dir, TEST_TRANSACTION, TEST_IDENTITY)
         test.insert(

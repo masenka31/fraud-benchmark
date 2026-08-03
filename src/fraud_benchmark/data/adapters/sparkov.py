@@ -68,10 +68,10 @@ class SparkovAdapter(DatasetAdapter):
     def custom_splits(
         self, df: pd.DataFrame, options: dict[str, Any]
     ) -> pd.Series:
-        """Preserve the upstream test set; carve validation from the train tail.
+        """Split labels keeping the upstream test file as test.
 
-        The two source files are consecutive in time, so train -> val -> test remains
-        strictly ordered.
+        Validation is the last `val_fraction` of the upstream train file. The two
+        source files are consecutive in time, so train -> val -> test stays ordered.
         """
         val_fraction = float(options.get("val_fraction", DEFAULT_VAL_FRACTION))
         is_test = df["source_file"] == TEST_FILE
@@ -100,18 +100,12 @@ class SparkovAdapter(DatasetAdapter):
 
 @register
 class SparkovSlowAdapter(SparkovAdapter):
-    """Sparkov again, differing only in reporting delay.
+    """`sparkov` under a harsher reporting delay, set in configs/default.yaml.
 
-    Row-identical to `sparkov` on every column but `reported_at`, so a model can
-    be compared across delay regimes on the same data -- the same design as the
-    two IBM CCF subsamples.
-
-    Why it exists: at the card-fraud default (7-day median) Sparkov's 487-day
-    train window leaves 97.8% of train labels known at the cutoff, so the delay
-    barely registers. The slow regime censors 8.9%, enough for a delay-aware
-    method to have something to work with. Its delay is set in
-    configs/default.yaml, not here; see docs/label-delay.md for the measured
-    figures across every dataset.
+    Row-identical to `sparkov` on every column but `reported_at`, so a model can be
+    compared across delay regimes on the same data. The default card-fraud delay
+    leaves 97.8% of sparkov's train labels known at the cutoff; this regime censors
+    8.9%. See docs/label-delay.md for the measured figures.
     """
 
     name = "sparkov_slow"

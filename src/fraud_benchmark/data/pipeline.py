@@ -22,22 +22,21 @@ from fraud_benchmark.data.sources import fetch
 
 
 def _drop_source_label(df: pd.DataFrame, adapter) -> str | None:
-    """Remove the adapter's raw label column. Returns what was dropped, or None.
+    """The adapter's raw label column, or None if it must stay in the frame.
 
-    The canonical frame carries exactly one binary label, so no consumer has to
-    remember to exclude a second one. Two cases keep their column and both are
-    deliberate: a source column already named `is_fraud` is the canonical label
-    itself, and a column listed in `label_descriptive_columns` carries a typology
-    that `is_fraud` reduces to a bool. The second is kept in the frame and
-    excluded from models by `experiments.columns` instead.
+    It stays in two cases: a source column already named `is_fraud` is the
+    canonical label itself, and one listed in `label_descriptive_columns` carries a
+    typology `is_fraud` reduces to a bool (`experiments.columns` hides those from
+    models instead).
+
+    Raises ValueError if the adapter names a column its frame does not contain.
     """
     column = adapter.source_label_column
     if column == "is_fraud" or column in adapter.label_descriptive_columns:
         return None
     if column not in df.columns:
-        # The adapter named a column it did not produce -- a bug in the adapter,
-        # not a dataset quirk, and silence here would let the raw label ride along
-        # under a name nobody is watching.
+        # An adapter bug, not a dataset quirk: staying silent would let the raw
+        # label ride along under a name nobody is watching.
         raise ValueError(
             f"{adapter.name} declares source_label_column {column!r}, which is not "
             f"in its canonical frame; columns are: {sorted(df.columns)}"
@@ -46,7 +45,10 @@ def _drop_source_label(df: pd.DataFrame, adapter) -> str | None:
 
 
 def prepare(name: str, config: Config, *, force: bool = False) -> Path:
-    """Run the full pipeline for one dataset. Returns its output directory."""
+    """Fetch, canonicalize, split, delay and write one dataset.
+
+    Returns the output directory: <processed_dir>/<name>.
+    """
     adapter = get_adapter(name)
     options = config.for_dataset(name)
 
@@ -76,7 +78,7 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
     df = order_columns(df)
 
     aux = adapter.auxiliary_frames(raw_dir, options)
-    card = _build_card(
+    card = _describe_dataset(
         name,
         adapter,
         options,
@@ -91,7 +93,7 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
     return _write_atomically(config.processed_dir / name, df, card, aux)
 
 
-def _build_card(
+def _describe_dataset(
     name,
     adapter,
     options,
@@ -103,6 +105,7 @@ def _build_card(
     delay: DelayParams,
     dropped_label: str | None,
 ) -> dict:
+    """Build the dataset card: provenance, licence, shape, split and delay."""
     return {
         "name": name,
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -132,6 +135,7 @@ def _build_card(
 
 
 def _describe_split(adapter, df, config, *, custom_split: bool) -> dict:
+    """Describe how `df` was split, and how many rows landed in each split."""
     counts = {str(k): int(v) for k, v in df["split"].value_counts().items()}
     if custom_split:
         return {
@@ -150,6 +154,7 @@ def _describe_split(adapter, df, config, *, custom_split: bool) -> dict:
 
 
 def _describe_delay(df, delay: DelayParams, gap) -> dict:
+    """Describe the delay settings alongside the campaign sizes and delays realised."""
     sizes = campaign_sizes(df["campaign_id"])
     fraud = df.loc[df["is_fraud"]]
     delays = (fraud["reported_at"] - fraud["event_time"]).dt.total_seconds() / 86_400
@@ -171,6 +176,7 @@ def _describe_delay(df, delay: DelayParams, gap) -> dict:
 
 
 def _describe_source(source) -> dict:
+    """Flatten a Source into card fields, whatever its concrete type."""
     described = asdict(source) if is_dataclass(source) else {"repr": repr(source)}
     described["type"] = type(source).__name__
     described["url"] = getattr(source, "url", None)
@@ -178,10 +184,10 @@ def _describe_source(source) -> dict:
 
 
 def _validate_auxiliary_keys(aux: dict[str, pd.DataFrame]) -> None:
-    """Auxiliary keys become filenames, so they must not describe a path.
+    """Require every auxiliary key to be a bare filename.
 
-    Without this, a key like "../escape" would write outside the staging directory,
-    bypassing the atomic swap and its rollback entirely.
+    A key like "../escape" would write outside the staging directory, bypassing the
+    atomic swap and its rollback.
     """
     for key in aux:
         if not key or key != Path(key).name or key in (".", ".."):
@@ -197,12 +203,10 @@ def _write_atomically(
     card: dict,
     aux: dict[str, pd.DataFrame] | None = None,
 ) -> Path:
-    """Write into a staging directory, then swap it into place.
+    """Write `df`, `card` and `aux` to `dest`, replacing it atomically. Returns `dest`.
 
-    The previous output is renamed aside rather than deleted, so an interrupted
-    swap leaves it recoverable instead of destroying it. `os.rename` onto a
-    non-empty directory fails, which is why the old output must be moved out of
-    the way before the replace rather than replaced directly.
+    Any previous output is renamed aside rather than deleted, so a failed swap can
+    put it back; `os.rename` onto a non-empty directory would otherwise fail.
     """
     _validate_auxiliary_keys(aux or {})
     dest.parent.mkdir(parents=True, exist_ok=True)

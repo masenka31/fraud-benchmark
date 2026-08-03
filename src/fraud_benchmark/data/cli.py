@@ -14,6 +14,7 @@ from fraud_benchmark.data.sources import FetchError
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """The `fraud-benchmark` parser: `list`, `prepare` and `info` subcommands."""
     parser = argparse.ArgumentParser(
         prog="fraud-benchmark",
         description="Prepare fraud and AML benchmark datasets.",
@@ -42,6 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Dispatch one command line to its handler. Returns a process exit code."""
     parser = build_parser()
     args = parser.parse_args(argv)
 
@@ -57,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _cmd_list() -> int:
+    """Print one line per registered dataset: name, licence, URL."""
     for name in list_datasets():
         adapter = get_adapter(name)
         flag = "" if adapter.commercial_use else "  [noncommercial]"
@@ -66,6 +69,7 @@ def _cmd_list() -> int:
 
 
 def _cmd_prepare(args) -> int:
+    """Prepare one dataset or all of them. Returns 1 if any dataset failed."""
     config = load_config(args.config)
     names = list_datasets() if args.all else [args.dataset]
 
@@ -101,6 +105,7 @@ def _cmd_prepare(args) -> int:
 
 
 def _cmd_info(args) -> int:
+    """Print a prepared dataset's card. Returns 1 if it has not been prepared."""
     config = load_config(args.config)
     card = config.processed_dir / args.dataset / "dataset_card.json"
     if not card.exists():

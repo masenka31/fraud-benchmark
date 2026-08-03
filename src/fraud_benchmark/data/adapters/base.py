@@ -22,13 +22,11 @@ class UnknownDatasetError(KeyError):
 def require_start_date(
     options: dict[str, Any], dataset: str, column: str
 ) -> pd.Timestamp:
-    """The configured anchor for a dataset whose time column is a relative offset.
+    """The timestamp `column`'s zero point, from `datasets.<dataset>.start_date`.
 
-    Three datasets ship an offset rather than a date -- PaySim's hourly `step`,
-    BankSim's daily `step`, IEEE-CIS's `TransactionDT` in seconds -- and none of
-    them can produce a plausible `event_time` without being told where zero is.
-    Defaulting the anchor would silently invent absolute dates, so it is required
-    and the error names the option to set.
+    Required rather than defaulted: a dataset shipping an offset instead of a date
+    cannot place it in absolute time without being told, and a default would invent
+    dates silently. Raises ValueError naming the option when it is unset.
     """
     start_date = options.get("start_date")
     if not start_date:
@@ -57,20 +55,14 @@ class DatasetAdapter(ABC):
     #: False when the upstream licence forbids commercial use (e.g. CC BY-NC-SA).
     #: Drives `prepare --all --exclude-noncommercial`.
     commercial_use: bool = True
-    #: The source column `is_fraud` was derived from. The pipeline drops it, so the
-    #: canonical frame carries exactly one binary label and no consumer has to
-    #: remember to exclude a second one. Required: `register` refuses an adapter
-    #: without it, because forgetting it is how a model gets handed its own answer.
-    #:
-    #: Two adapters are special and both are handled by the drop rule rather than
-    #: by an exception here: sparkov's source column is already named `is_fraud`,
-    #: so there is nothing to drop, and amaretto's is multi-class and therefore
-    #: also listed in `label_descriptive_columns`, which keeps it.
+    #: The source column `is_fraud` was derived from. `register` requires it, and
+    #: the pipeline drops it so the frame carries exactly one binary label; set it
+    #: to "is_fraud" when the source column already has that name. See
+    #: `pipeline._drop_source_label` for the two cases that keep the column.
     source_label_column: str = ""
-    #: Columns that describe the label rather than the transaction, kept because
-    #: they carry what `is_fraud` loses -- amaretto's five FATF classes, saml_d's
-    #: laundering typology. They stay in the frame and out of every model:
-    #: `experiments.columns` builds its drop-list from this declaration.
+    #: Columns describing the label rather than the transaction, e.g. a laundering
+    #: typology that `is_fraud` reduces to a bool. They stay in the frame, and
+    #: `experiments.columns` builds its model drop-list from this declaration.
     label_descriptive_columns: tuple[str, ...] = ()
     #: Human-readable warnings recorded in the dataset card.
     caveats: tuple[str, ...] = ()
@@ -79,33 +71,31 @@ class DatasetAdapter(ABC):
     def to_canonical(self, raw_dir: Path, options: dict[str, Any]) -> pd.DataFrame:
         """Read raw files from `raw_dir` and return a canonical frame.
 
-        The result must contain event_time, entity_id, amount, and is_fraud with the
-        dtypes in schema.REQUIRED_DTYPES, plus any source columns to pass through.
+        Must contain event_time, entity_id, amount and is_fraud with the dtypes in
+        `schema.REQUIRED_DTYPES`; source columns to pass through may follow.
         """
 
     @abstractmethod
     def column_mapping(self, options: dict[str, Any]) -> dict[str, str]:
-        """Map each canonical column to the source column(s) it came from."""
+        """Canonical column name -> the source column(s) or expression behind it."""
 
     def custom_splits(
         self, df: pd.DataFrame, options: dict[str, Any]
     ) -> pd.Series | None:
-        """Optionally supply this dataset's own split labels.
+        """This dataset's own split labels, or None to accept the temporal split.
 
-        Return None — the default — to accept the shared temporal split. Override
-        only when the source dictates the split, e.g. an upstream test set that must
-        be preserved for comparability with published results.
+        Override only when the source dictates the split, e.g. an upstream test set
+        preserved for comparability with published results.
         """
         return None
 
     def auxiliary_frames(
         self, raw_dir: Path, options: dict[str, Any]
     ) -> dict[str, pd.DataFrame]:
-        """Extra frames to write beside the canonical one, keyed by file stem.
+        """Extra frames to write beside the canonical one, keyed by output file stem.
 
-        Default: none. Override for data that belongs with the dataset but is not
-        canonical — e.g. an unlabelled competition test set, which has no is_fraud
-        column and so cannot be validated or split.
+        Override for data that belongs with the dataset but cannot be validated or
+        split, such as an unlabelled competition test set.
         """
         return {}
 
@@ -114,7 +104,11 @@ _REGISTRY: dict[str, type[DatasetAdapter]] = {}
 
 
 def register(cls: type[DatasetAdapter]) -> type[DatasetAdapter]:
-    """Class decorator adding an adapter to the registry."""
+    """Class decorator registering an adapter under its `name`.
+
+    Defaults `raw_name` to `name`. Raises ValueError if `name` or
+    `source_label_column` is unset, or if the name is already registered.
+    """
     name = getattr(cls, "name", None)
     if not isinstance(name, str) or not name:
         raise ValueError(
@@ -137,7 +131,7 @@ def register(cls: type[DatasetAdapter]) -> type[DatasetAdapter]:
 
 
 def get_adapter(name: str) -> DatasetAdapter:
-    """Return an adapter instance for `name`."""
+    """A fresh adapter instance for `name`. Raises UnknownDatasetError if unknown."""
     if name not in _REGISTRY:
         available = ", ".join(sorted(_REGISTRY)) or "(none)"
         raise UnknownDatasetError(f"unknown dataset {name!r}; available: {available}")

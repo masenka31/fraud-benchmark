@@ -31,7 +31,13 @@ class SchemaError(ValueError):
 
 
 def validate_canonical(df: pd.DataFrame) -> None:
-    """Raise SchemaError if `df` is not a valid canonical frame."""
+    """Raise SchemaError unless `df` is a valid canonical frame.
+
+    Checks that the frame is non-empty, that every required column is present with
+    the expected dtype and no nulls, and that event_time falls in a plausible range.
+    `reported_at`, when present, must be datetime64, set only on frauds, and never
+    earlier than the event it labels.
+    """
     if len(df) == 0:
         raise SchemaError("dataset is empty")
 
@@ -87,7 +93,7 @@ def validate_canonical(df: pd.DataFrame) -> None:
 
 
 def order_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Return `df` with core columns first, then all remaining columns unchanged."""
+    """Reorder `df` to CORE_ORDER first, then the remaining columns as they were."""
     core = [c for c in CORE_ORDER if c in df.columns]
     rest = [c for c in df.columns if c not in core]
     return df[core + rest]

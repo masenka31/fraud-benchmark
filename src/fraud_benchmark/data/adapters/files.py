@@ -12,11 +12,15 @@ from pathlib import Path
 
 
 def _all_files(raw_dir: Path) -> list[Path]:
+    """Every file under `raw_dir`, recursively, in path order."""
     return sorted(p for p in raw_dir.rglob("*") if p.is_file())
 
 
 def require_file(raw_dir: Path, name: str) -> Path:
-    """Return the file called `name` under `raw_dir`, searched recursively."""
+    """The file called `name` under `raw_dir`, searched recursively.
+
+    Raises FileNotFoundError listing what was present instead.
+    """
     for path in _all_files(raw_dir):
         if path.name == name:
             return path
@@ -27,10 +31,9 @@ def require_file(raw_dir: Path, name: str) -> Path:
 
 
 def find_single_csv(raw_dir: Path) -> Path:
-    """Return the one CSV under `raw_dir`, erroring if there is not exactly one.
+    """The single CSV under `raw_dir`. Raises FileNotFoundError unless there is one.
 
-    Only for datasets that genuinely ship a single CSV whose name is unstable.
-    Prefer `require_file` when the name is known.
+    For datasets whose one CSV has an unstable name; prefer `require_file` otherwise.
     """
     matches = [p for p in _all_files(raw_dir) if p.suffix.lower() == ".csv"]
     if not matches:
@@ -46,11 +49,12 @@ def find_single_csv(raw_dir: Path) -> Path:
 def require_split_zip_member(
     raw_dir: Path, part_glob: str, member: str, cache_dir: Path
 ) -> Path:
-    """Reassemble a multi-part zip under `raw_dir` and extract one member.
+    """Extract `member` from the fragments matching `part_glob`, cached in `cache_dir`.
 
-    Some datasets ship as numbered fragments (`x.zip.001`, `x.zip.002`, ...) because
-    of file-size limits. Concatenating them in name order reproduces the original
-    archive. The extracted member is cached in `cache_dir`, so the cost is paid once.
+    Fragments are numbered (`x.zip.001`, `x.zip.002`, ...) and concatenating them in
+    numeric order reproduces the archive. Returns the extracted path, re-using it on
+    later calls. Raises FileNotFoundError if the parts are absent, non-numeric, or
+    not a complete 1..N sequence.
     """
     extracted = cache_dir / member
     if extracted.exists():

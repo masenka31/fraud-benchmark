@@ -12,14 +12,12 @@ import pandas as pd
 
 
 def censored_labels(df: pd.DataFrame, cutoff: pd.Timestamp) -> np.ndarray:
-    """The labels a model training at `cutoff` would actually have.
+    """0/1 labels as known at `cutoff`, one per row of `df`.
 
-    A fraud not yet reported is NOT missing from the training data -- it sits in
-    it looking like a legitimate transaction. So the unreported frauds are
-    relabelled 0, not dropped. Dropping them would model a system that somehow
-    knows which rows to distrust, which is precisely the knowledge label delay
-    denies it, and would understate the harm: the damage is wrong labels, not
-    fewer of them.
+    Requires `is_fraud` and `reported_at`. A fraud reported after `cutoff` is
+    labelled 0 rather than dropped: at that moment it is indistinguishable from a
+    legitimate transaction, and dropping it would presume knowledge of which rows
+    to distrust.
     """
     reported = pd.to_datetime(df["reported_at"])
     known_fraud = df["is_fraud"].astype(bool) & (reported <= cutoff)

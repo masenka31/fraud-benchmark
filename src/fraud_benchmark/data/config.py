@@ -34,21 +34,18 @@ class Config:
         return self.datasets.get(name, {})
 
     def campaign_gap_for(self, name: str) -> pd.Timedelta:
-        """The campaign gap for one dataset, honouring a per-dataset override.
+        """The campaign gap for `name`: its `campaign_gap` option, else the global one.
 
-        The right gap is not the same everywhere: Amaretto's anomalies are three
-        orders of magnitude burstier than card fraud.
+        Raises ConfigError if the override is not a valid non-negative duration.
         """
         override = self.for_dataset(name).get("campaign_gap")
         return _parse_gap(override) if override is not None else self.campaign_gap
 
     def delay_for(self, name: str) -> DelayParams:
-        """The delay parameters for one dataset, honouring a partial override.
+        """The delay parameters for `name`, with its `delay:` block overlaid.
 
-        A dataset's `delay:` block overrides only the keys it names; the rest
-        inherit the global block, so changing the global seed still moves every
-        dataset. One distribution does not fit every dataset: PaySim's whole span
-        is 30 days, while IBM CCF's is 10,649.
+        The override supplies only the keys it names; the rest inherit the global
+        block. Raises ConfigError on an unknown key or an uncoercible value.
         """
         override = self.for_dataset(name).get("delay")
         if override is None:
@@ -68,6 +65,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
 
 
 def _validate_ratios(ratios: Any) -> tuple[float, float, float]:
+    """Coerce `split.ratios` to three positive floats summing to 1."""
     if not isinstance(ratios, list) or len(ratios) != 3:
         raise ConfigError(f"split.ratios must be a list of three numbers, got {ratios!r}")
     values = tuple(float(r) for r in ratios)
@@ -79,7 +77,7 @@ def _validate_ratios(ratios: Any) -> tuple[float, float, float]:
 
 
 def _parse_gap(value) -> pd.Timedelta:
-    """Parse a duration like '1d', '1h', '30min' into a Timedelta."""
+    """Parse a non-negative duration such as '1d', '1h' or '30min'."""
     try:
         gap = pd.Timedelta(value)
     except (TypeError, ValueError) as exc:
@@ -94,6 +92,7 @@ def _parse_gap(value) -> pd.Timedelta:
 
 
 def _build_delay(data: dict) -> DelayParams:
+    """Build the global DelayParams from the top-level `delay:` block."""
     delay = data.get("delay") or {}
     try:
         return DelayParams(
@@ -113,9 +112,8 @@ def _build_delay(data: dict) -> DelayParams:
 _DELAY_FIELDS = {f.name for f in fields(DelayParams)}
 
 # Every option any adapter or pipeline stage reads out of a `datasets.<name>`
-# block. Adding an option means adding it here, which is the point: a typo would
-# otherwise leave the dataset silently on its default while the config claims
-# otherwise -- the same argument the delay block already makes one level down.
+# block. A new option must be added here: an unlisted key is rejected rather than
+# leaving the dataset silently on its default while the config claims otherwise.
 DATASET_OPTIONS = frozenset(
     {
         "start_date",     # paysim, banksim, ieee_cis: anchors a relative offset
@@ -187,6 +185,7 @@ def _load_yaml(path: Path | str) -> dict:
 
 
 def _require_paths(data: dict) -> dict:
+    """Return the `paths:` block, requiring both `raw` and `processed`."""
     paths = data.get("paths")
     if not isinstance(paths, dict):
         raise ConfigError(f"config must define a 'paths' mapping, got {paths!r}")

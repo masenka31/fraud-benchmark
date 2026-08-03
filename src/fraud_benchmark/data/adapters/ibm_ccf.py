@@ -29,7 +29,7 @@ MONEY_COLUMNS = (
 
 
 def _parse_money(series: pd.Series) -> pd.Series:
-    """Turn "$134.09" / "$-25.00" into a float."""
+    """Parse $-prefixed money strings such as "$134.09" or "$-25.00" to float64."""
     return series.astype(str).str.replace("$", "", regex=False).astype("float64")
 
 

@@ -64,14 +64,16 @@ Source = KaggleDataset | KaggleCompetition | GitRepo
 
 
 def _has_files(directory: Path) -> bool:
+    """Whether `directory` exists and contains at least one file, recursively."""
     return directory.is_dir() and any(p.is_file() for p in directory.rglob("*"))
 
 
 def fetch(source: Source, dest: Path, *, force: bool = False) -> Path:
     """Download `source` into `dest`, returning `dest`.
 
-    Downloads are cached: if `dest` already contains files, nothing is fetched
-    unless `force` is set.
+    A `dest` that already holds files is left alone unless `force` is set, in which
+    case it is removed and re-downloaded. Raises FetchError on any download failure,
+    or if the download produced no files.
     """
     if _has_files(dest) and not force:
         return dest
@@ -108,7 +110,7 @@ def fetch(source: Source, dest: Path, *, force: bool = False) -> Path:
 
 
 def _git_clone(source: GitRepo, dest: Path) -> None:
-    """Shallow-clone `source` into `dest`, which must be empty."""
+    """Shallow-clone `source` at its ref into `dest`, which must be empty."""
     result = subprocess.run(
         ["git", "clone", "--depth", "1", "--branch", source.ref, source.url, str(dest)],
         capture_output=True,
@@ -121,6 +123,7 @@ def _git_clone(source: GitRepo, dest: Path) -> None:
 
 
 def _http_error_message(source: Source, exc: KaggleApiHTTPError) -> str:
+    """Turn a Kaggle HTTP failure into a message naming the next action to take."""
     status = getattr(exc.response, "status_code", None)
 
     if status == 403 and isinstance(source, KaggleCompetition):
