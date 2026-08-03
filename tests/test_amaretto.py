@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 
 from fraud_benchmark.datasets.base import get_adapter
-from fraud_benchmark.schema import validate_canonical
+from fraud_benchmark.data.schema import validate_canonical
 
 FIXTURE = Path(__file__).parent / "fixtures" / "amaretto"
 
@@ -80,7 +80,7 @@ def test_amaretto_is_mit_licensed_and_commercial():
 
 
 def test_source_is_a_git_repo():
-    from fraud_benchmark.sources import GitRepo
+    from fraud_benchmark.data.sources import GitRepo
 
     assert isinstance(get_adapter("amaretto").source, GitRepo)
 

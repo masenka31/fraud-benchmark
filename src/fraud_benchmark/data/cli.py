@@ -7,10 +7,10 @@ import json
 import sys
 
 import fraud_benchmark.datasets  # noqa: F401  (registers all adapters)
-from fraud_benchmark.config import load_config
+from fraud_benchmark.data.config import load_config
 from fraud_benchmark.datasets.base import UnknownDatasetError, get_adapter, list_datasets
-from fraud_benchmark.pipeline import prepare
-from fraud_benchmark.sources import FetchError
+from fraud_benchmark.data.pipeline import prepare
+from fraud_benchmark.data.sources import FetchError
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -115,6 +115,6 @@ def _cmd_info(args) -> int:
 
 
 if __name__ == "__main__":
-    # `python -m fraud_benchmark.cli` would otherwise import and exit silently,
+    # `python -m fraud_benchmark.data.cli` would otherwise import and exit silently,
     # which reads as a broken install rather than a missing entry point.
     sys.exit(main())

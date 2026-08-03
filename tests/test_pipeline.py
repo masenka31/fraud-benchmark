@@ -5,9 +5,9 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fraud_benchmark.config import Config
-from fraud_benchmark.delay import DelayParams
-from fraud_benchmark.pipeline import prepare
+from fraud_benchmark.data.config import Config
+from fraud_benchmark.data.delay import DelayParams
+from fraud_benchmark.data.pipeline import prepare
 
 FIXTURE = Path(__file__).parent / "fixtures" / "paysim"
 
@@ -31,7 +31,7 @@ def no_download(monkeypatch):
     def fake_fetch(source, dest, *, force=False):
         return FIXTURE
 
-    monkeypatch.setattr("fraud_benchmark.pipeline.fetch", fake_fetch)
+    monkeypatch.setattr("fraud_benchmark.data.pipeline.fetch", fake_fetch)
 
 
 def test_prepare_writes_parquet(config, no_download):
@@ -143,9 +143,9 @@ def test_validation_failure_writes_nothing(config, monkeypatch):
     def fake_fetch(source, dest, *, force=False):
         return FIXTURE
 
-    monkeypatch.setattr("fraud_benchmark.pipeline.fetch", fake_fetch)
+    monkeypatch.setattr("fraud_benchmark.data.pipeline.fetch", fake_fetch)
     monkeypatch.setattr(
-        "fraud_benchmark.pipeline.validate_canonical",
+        "fraud_benchmark.data.pipeline.validate_canonical",
         lambda df: (_ for _ in ()).throw(ValueError("boom")),
     )
     with pytest.raises(ValueError, match="boom"):
@@ -168,7 +168,7 @@ def test_failed_swap_preserves_previous_output(config, no_download, monkeypatch)
     def boom(src, dst):
         raise OSError("swap interrupted")
 
-    monkeypatch.setattr("fraud_benchmark.pipeline.os.replace", boom)
+    monkeypatch.setattr("fraud_benchmark.data.pipeline.os.replace", boom)
 
     with pytest.raises(OSError, match="swap interrupted"):
         prepare("paysim", config)
@@ -194,7 +194,7 @@ def test_concurrent_swap_does_not_raise(config, no_download, monkeypatch):
             raise FileNotFoundError(2, "No such file or directory")
         return real_rename(src, dst)
 
-    monkeypatch.setattr("fraud_benchmark.pipeline.os.rename", racing_rename)
+    monkeypatch.setattr("fraud_benchmark.data.pipeline.os.rename", racing_rename)
 
     out = prepare("paysim", config)
     assert (out / "data.parquet").exists()

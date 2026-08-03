@@ -10,9 +10,10 @@ from typing import Any
 import pandas as pd
 import yaml
 
-from fraud_benchmark.delay import DelayParams
+from fraud_benchmark.data.delay import DelayParams
 
-DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[2] / "configs" / "default.yaml"
+# src/fraud_benchmark/data/config.py -> repo root is four levels up.
+DEFAULT_CONFIG_PATH = Path(__file__).resolve().parents[3] / "configs" / "default.yaml"
 
 
 class ConfigError(ValueError):

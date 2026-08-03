@@ -16,7 +16,7 @@ from fraud_benchmark.datasets.base import (
     require_start_date,
 )
 from fraud_benchmark.datasets.files import require_file
-from fraud_benchmark.sources import KaggleCompetition
+from fraud_benchmark.data.sources import KaggleCompetition
 
 TRAIN_TRANSACTION = "train_transaction.csv"
 TRAIN_IDENTITY = "train_identity.csv"

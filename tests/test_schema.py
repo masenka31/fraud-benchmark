@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from fraud_benchmark.schema import SchemaError, order_columns, validate_canonical
+from fraud_benchmark.data.schema import SchemaError, order_columns, validate_canonical
 
 
 def make_valid_frame():

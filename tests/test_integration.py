@@ -3,9 +3,9 @@
 import pandas as pd
 import pytest
 
-from fraud_benchmark.config import Config
-from fraud_benchmark.delay import DelayParams
-from fraud_benchmark.pipeline import prepare
+from fraud_benchmark.data.config import Config
+from fraud_benchmark.data.delay import DelayParams
+from fraud_benchmark.data.pipeline import prepare
 
 
 @pytest.mark.network

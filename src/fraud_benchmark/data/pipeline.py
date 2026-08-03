@@ -12,13 +12,13 @@ from pathlib import Path
 import pandas as pd
 
 import fraud_benchmark.datasets  # noqa: F401  (registers all adapters)
-from fraud_benchmark.campaigns import assign_campaigns, campaign_sizes
-from fraud_benchmark.config import Config
+from fraud_benchmark.data.campaigns import assign_campaigns, campaign_sizes
+from fraud_benchmark.data.config import Config
 from fraud_benchmark.datasets.base import get_adapter
-from fraud_benchmark.delay import DelayParams, assign_reported_at
-from fraud_benchmark.schema import order_columns, validate_canonical
-from fraud_benchmark.splitting import assign_splits, split_boundaries
-from fraud_benchmark.sources import fetch
+from fraud_benchmark.data.delay import DelayParams, assign_reported_at
+from fraud_benchmark.data.schema import order_columns, validate_canonical
+from fraud_benchmark.data.splitting import assign_splits, split_boundaries
+from fraud_benchmark.data.sources import fetch
 
 
 def prepare(name: str, config: Config, *, force: bool = False) -> Path:

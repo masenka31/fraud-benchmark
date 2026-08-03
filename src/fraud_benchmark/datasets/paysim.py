@@ -16,7 +16,7 @@ from fraud_benchmark.datasets.base import (
     require_start_date,
 )
 from fraud_benchmark.datasets.files import find_single_csv
-from fraud_benchmark.sources import KaggleDataset
+from fraud_benchmark.data.sources import KaggleDataset
 
 
 @register

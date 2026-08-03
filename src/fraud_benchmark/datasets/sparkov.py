@@ -13,8 +13,8 @@ import pandas as pd
 
 from fraud_benchmark.datasets.base import DatasetAdapter, register
 from fraud_benchmark.datasets.files import require_file
-from fraud_benchmark.sources import KaggleDataset
-from fraud_benchmark.splitting import SPLIT_NAMES, boundary_at
+from fraud_benchmark.data.sources import KaggleDataset
+from fraud_benchmark.data.splitting import SPLIT_NAMES, boundary_at
 
 #: The bundle ships a pre-made temporal split. Both halves are labelled and do not
 #: overlap (train ends 2020-06-21 12:13:37, test starts 2020-06-21 12:14:25).

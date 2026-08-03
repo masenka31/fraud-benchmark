@@ -12,7 +12,7 @@ from typing import Any
 
 import pandas as pd
 
-from fraud_benchmark.sources import Source
+from fraud_benchmark.data.sources import Source
 
 
 class UnknownDatasetError(KeyError):

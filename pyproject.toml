@@ -34,7 +34,7 @@ dev = [
 ]
 
 [project.scripts]
-fraud-benchmark = "fraud_benchmark.cli:main"
+fraud-benchmark = "fraud_benchmark.data.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

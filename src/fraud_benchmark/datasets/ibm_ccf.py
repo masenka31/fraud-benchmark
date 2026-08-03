@@ -12,7 +12,7 @@ import pandas as pd
 
 from fraud_benchmark.datasets.base import DatasetAdapter, register
 from fraud_benchmark.datasets.files import require_file
-from fraud_benchmark.sources import KaggleDataset
+from fraud_benchmark.data.sources import KaggleDataset
 
 TRANSACTIONS_FILE = "credit_card_transactions-ibm_v2.csv"
 CARDS_FILE = "sd254_cards.csv"

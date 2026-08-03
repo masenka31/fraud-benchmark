@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fraud_benchmark.delay import DelayParams, assign_reported_at
+from fraud_benchmark.data.delay import DelayParams, assign_reported_at
 
 
 def frame(rows):

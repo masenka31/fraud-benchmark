@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from fraud_benchmark.campaigns import assign_campaigns
+from fraud_benchmark.data.campaigns import assign_campaigns
 
 
 def frame(rows):

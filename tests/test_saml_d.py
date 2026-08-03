@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from fraud_benchmark.datasets.base import get_adapter
-from fraud_benchmark.schema import validate_canonical
+from fraud_benchmark.data.schema import validate_canonical
 
 FIXTURE = Path(__file__).parent / "fixtures" / "saml_d"
 

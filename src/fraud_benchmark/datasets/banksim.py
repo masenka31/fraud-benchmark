@@ -16,7 +16,7 @@ from fraud_benchmark.datasets.base import (
     require_start_date,
 )
 from fraud_benchmark.datasets.files import require_file
-from fraud_benchmark.sources import KaggleDataset
+from fraud_benchmark.data.sources import KaggleDataset
 
 #: The transaction table. The bundle also ships bsNET140513_032310.csv, which is a
 #: graph edge list (Source/Target/Weight) rather than transactions.

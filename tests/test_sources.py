@@ -4,7 +4,7 @@ import requests
 import pytest
 from kagglehub.exceptions import CredentialError, KaggleApiHTTPError
 
-from fraud_benchmark.sources import (
+from fraud_benchmark.data.sources import (
     FetchError,
     KaggleCompetition,
     KaggleDataset,
@@ -21,7 +21,7 @@ def test_kaggle_dataset_download_is_called_with_output_dir(tmp_path, monkeypatch
         (tmp_path / "dest" / "data.csv").write_text("a,b\n1,2\n")
         return str(tmp_path / "dest")
 
-    monkeypatch.setattr("fraud_benchmark.sources.kagglehub.dataset_download", fake_download)
+    monkeypatch.setattr("fraud_benchmark.data.sources.kagglehub.dataset_download", fake_download)
 
     result = fetch(KaggleDataset("ealaxi/paysim1"), tmp_path / "dest")
 
@@ -38,7 +38,7 @@ def test_fetch_skips_download_when_already_present(tmp_path, monkeypatch):
     def fail(*args, **kwargs):
         raise AssertionError("should not download when cached")
 
-    monkeypatch.setattr("fraud_benchmark.sources.kagglehub.dataset_download", fail)
+    monkeypatch.setattr("fraud_benchmark.data.sources.kagglehub.dataset_download", fail)
 
     assert fetch(KaggleDataset("ealaxi/paysim1"), dest) == dest
 
@@ -57,7 +57,7 @@ def test_force_redownloads_even_when_present(tmp_path, monkeypatch):
         (Path(output_dir) / "data.csv").write_text("a,b\n1,2\n")
         return str(dest)
 
-    monkeypatch.setattr("fraud_benchmark.sources.kagglehub.dataset_download", fake_download)
+    monkeypatch.setattr("fraud_benchmark.data.sources.kagglehub.dataset_download", fake_download)
 
     fetch(KaggleDataset("ealaxi/paysim1"), dest, force=True)
     assert called == [True]
@@ -67,7 +67,7 @@ def test_credential_error_produces_actionable_message(tmp_path, monkeypatch):
     def fake_download(handle, **kwargs):
         raise CredentialError("no creds")
 
-    monkeypatch.setattr("fraud_benchmark.sources.kagglehub.dataset_download", fake_download)
+    monkeypatch.setattr("fraud_benchmark.data.sources.kagglehub.dataset_download", fake_download)
 
     with pytest.raises(FetchError, match="docs/kaggle-setup.md"):
         fetch(KaggleDataset("ealaxi/paysim1"), tmp_path / "dest")
@@ -80,7 +80,7 @@ def test_competition_403_explains_rule_acceptance(tmp_path, monkeypatch):
         raise KaggleApiHTTPError("forbidden", response=response)
 
     monkeypatch.setattr(
-        "fraud_benchmark.sources.kagglehub.competition_download", fake_download
+        "fraud_benchmark.data.sources.kagglehub.competition_download", fake_download
     )
 
     with pytest.raises(FetchError, match="accept.*rules"):
@@ -94,7 +94,7 @@ def test_competition_403_message_includes_the_rules_url(tmp_path, monkeypatch):
         raise KaggleApiHTTPError("forbidden", response=response)
 
     monkeypatch.setattr(
-        "fraud_benchmark.sources.kagglehub.competition_download", fake_download
+        "fraud_benchmark.data.sources.kagglehub.competition_download", fake_download
     )
 
     with pytest.raises(FetchError, match="ieee-fraud-detection/rules"):
@@ -106,7 +106,7 @@ def test_empty_download_directory_is_an_error(tmp_path, monkeypatch):
         (tmp_path / "dest").mkdir(parents=True, exist_ok=True)
         return str(tmp_path / "dest")
 
-    monkeypatch.setattr("fraud_benchmark.sources.kagglehub.dataset_download", fake_download)
+    monkeypatch.setattr("fraud_benchmark.data.sources.kagglehub.dataset_download", fake_download)
 
     with pytest.raises(FetchError, match="no files"):
         fetch(KaggleDataset("ealaxi/paysim1"), tmp_path / "dest")
@@ -122,7 +122,7 @@ def test_force_clears_stale_files(tmp_path, monkeypatch):
         (Path(output_dir) / "new_v2.csv").write_text("fresh\n")
         return output_dir
 
-    monkeypatch.setattr("fraud_benchmark.sources.kagglehub.dataset_download", fake_download)
+    monkeypatch.setattr("fraud_benchmark.data.sources.kagglehub.dataset_download", fake_download)
 
     fetch(KaggleDataset("ealaxi/paysim1"), dest, force=True)
 
@@ -131,7 +131,7 @@ def test_force_clears_stale_files(tmp_path, monkeypatch):
 
 
 def test_git_repo_exposes_its_url():
-    from fraud_benchmark.sources import GitRepo
+    from fraud_benchmark.data.sources import GitRepo
 
     repo = GitRepo("https://github.com/necst/amaretto_dataset")
     assert repo.url == "https://github.com/necst/amaretto_dataset"
@@ -139,7 +139,7 @@ def test_git_repo_exposes_its_url():
 
 
 def test_git_clone_is_invoked_with_the_ref(tmp_path, monkeypatch):
-    from fraud_benchmark.sources import GitRepo
+    from fraud_benchmark.data.sources import GitRepo
 
     calls = {}
 
@@ -155,7 +155,7 @@ def test_git_clone_is_invoked_with_the_ref(tmp_path, monkeypatch):
 
         return _Result()
 
-    monkeypatch.setattr("fraud_benchmark.sources.subprocess.run", fake_run)
+    monkeypatch.setattr("fraud_benchmark.data.sources.subprocess.run", fake_run)
 
     fetch(GitRepo("https://example.com/repo", ref="v1"), tmp_path / "dest")
 
@@ -165,7 +165,7 @@ def test_git_clone_is_invoked_with_the_ref(tmp_path, monkeypatch):
 
 
 def test_git_clone_failure_is_a_fetch_error(tmp_path, monkeypatch):
-    from fraud_benchmark.sources import GitRepo
+    from fraud_benchmark.data.sources import GitRepo
 
     def fake_run(cmd, **kwargs):
         class _Result:
@@ -174,7 +174,7 @@ def test_git_clone_failure_is_a_fetch_error(tmp_path, monkeypatch):
 
         return _Result()
 
-    monkeypatch.setattr("fraud_benchmark.sources.subprocess.run", fake_run)
+    monkeypatch.setattr("fraud_benchmark.data.sources.subprocess.run", fake_run)
 
     with pytest.raises(FetchError, match="repository not found"):
         fetch(GitRepo("https://example.com/nope"), tmp_path / "dest")

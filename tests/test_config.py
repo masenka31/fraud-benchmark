@@ -3,7 +3,7 @@ import dataclasses
 import pandas as pd
 import pytest
 
-from fraud_benchmark.config import Config, ConfigError, load_config
+from fraud_benchmark.data.config import Config, ConfigError, load_config
 
 
 def test_load_default_config():
@@ -355,7 +355,7 @@ def test_a_non_mapping_dataset_block_is_rejected(tmp_path):
 
 def test_the_shipped_config_uses_only_known_options():
     """The tripwire is worthless if the default config cannot pass it."""
-    from fraud_benchmark.config import DATASET_OPTIONS
+    from fraud_benchmark.data.config import DATASET_OPTIONS
 
     for name, options in load_config().datasets.items():
         assert not set(options) - DATASET_OPTIONS, name

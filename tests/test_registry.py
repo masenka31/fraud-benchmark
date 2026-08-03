@@ -9,7 +9,7 @@ from fraud_benchmark.datasets.base import (
     list_datasets,
     register,
 )
-from fraud_benchmark.sources import KaggleDataset
+from fraud_benchmark.data.sources import KaggleDataset
 
 
 def make_fake_class(name="fake_for_tests", handle="someone/fake"):

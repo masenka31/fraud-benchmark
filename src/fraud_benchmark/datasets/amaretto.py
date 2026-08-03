@@ -15,7 +15,7 @@ import pandas as pd
 
 from fraud_benchmark.datasets.base import DatasetAdapter, register
 from fraud_benchmark.datasets.files import require_split_zip_member
-from fraud_benchmark.sources import GitRepo
+from fraud_benchmark.data.sources import GitRepo
 
 ARCHIVE_PARTS = "amaretto_dataset_anon.zip.*"
 ARCHIVE_MEMBER = "amaretto_dataset_anon.csv"

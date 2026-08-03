@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from fraud_benchmark.cli import main
+from fraud_benchmark.data.cli import main
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -32,7 +32,7 @@ def no_download(monkeypatch):
     def fake_fetch(source, dest, *, force=False):
         return FIXTURES / dest.name
 
-    monkeypatch.setattr("fraud_benchmark.pipeline.fetch", fake_fetch)
+    monkeypatch.setattr("fraud_benchmark.data.pipeline.fetch", fake_fetch)
 
 
 def test_list_prints_registered_datasets(capsys):
@@ -95,7 +95,7 @@ def test_list_marks_noncommercial_datasets(capsys):
 
 def test_prepare_all_continues_past_a_failure(tmp_path, config_file, monkeypatch, capsys):
     """A failing dataset must not prevent the others from being prepared."""
-    from fraud_benchmark.sources import FetchError
+    from fraud_benchmark.data.sources import FetchError
 
     calls = []
 
@@ -112,14 +112,14 @@ def test_prepare_all_continues_past_a_failure(tmp_path, config_file, monkeypatch
             self.data_license = "CC0 1.0"
             self.source = None
 
-    monkeypatch.setattr("fraud_benchmark.cli.prepare", flaky)
+    monkeypatch.setattr("fraud_benchmark.data.cli.prepare", flaky)
     monkeypatch.setattr(
-        "fraud_benchmark.cli.list_datasets", lambda: ["always_fails", "paysim"]
+        "fraud_benchmark.data.cli.list_datasets", lambda: ["always_fails", "paysim"]
     )
     # _cmd_prepare resolves the adapter before preparing, so this must be stubbed
     # too — otherwise "always_fails" raises UnknownDatasetError and the loop exits
     # before either dataset is attempted.
-    monkeypatch.setattr("fraud_benchmark.cli.get_adapter", _Fake)
+    monkeypatch.setattr("fraud_benchmark.data.cli.get_adapter", _Fake)
 
     assert main(["prepare", "--all", "--config", str(config_file)]) == 1
     # Both were attempted, not just the first.
@@ -143,10 +143,10 @@ def test_exclude_noncommercial_skips_those_datasets(tmp_path, config_file, monke
             self.data_license = "CC BY-NC-SA 4.0"
             self.source = None
 
-    monkeypatch.setattr("fraud_benchmark.cli.prepare", record)
-    monkeypatch.setattr("fraud_benchmark.cli.list_datasets", lambda: ["open_one", "nc_one"])
+    monkeypatch.setattr("fraud_benchmark.data.cli.prepare", record)
+    monkeypatch.setattr("fraud_benchmark.data.cli.list_datasets", lambda: ["open_one", "nc_one"])
     monkeypatch.setattr(
-        "fraud_benchmark.cli.get_adapter",
+        "fraud_benchmark.data.cli.get_adapter",
         lambda n: _Fake(n, commercial=(n == "open_one")),
     )
 
