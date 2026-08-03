@@ -32,17 +32,10 @@ from xgboost import XGBClassifier
 
 from fraud_benchmark.experiments.metrics import best_f1_threshold, score
 from fraud_benchmark.experiments.features_v2 import V2_COLUMNS, add_v2_features
+from fraud_benchmark.experiments.splits import standard_split
 from italy_holdout import build_features
 
 LOCATION = ["cat_merchant_state", "merchant_is_online", "merchant_state_missing"]
-
-
-def standard_split(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.sort_values("event_time", kind="mergesort").reset_index(drop=True)
-    t = df["event_time"]
-    val_start, test_start = t.quantile(0.8), t.quantile(0.9)
-    df["split"] = np.where(t < val_start, "train", np.where(t < test_start, "val", "test"))
-    return df
 
 
 def evaluate(x: pd.DataFrame, y, split, condition: str, out: Path) -> float:

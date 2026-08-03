@@ -29,9 +29,9 @@ import pandas as pd
 import torch
 
 from fraud_benchmark.experiments.features_v2 import V2_COLUMNS, add_v2_features
-from italy_holdout import build_split as italy_holdout_split
+from fraud_benchmark.experiments.splits import italy_holdout_split, standard_split
 from seq_mlp import run_seed, train_statistics
-from seq_window import build, standard_split
+from seq_window import build
 
 
 def main() -> None:

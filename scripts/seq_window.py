@@ -31,7 +31,7 @@ import pandas as pd
 from xgboost import XGBClassifier
 
 from fraud_benchmark.experiments.metrics import best_f1_threshold, score
-from italy_holdout import build_split as italy_holdout_split
+from fraud_benchmark.experiments.splits import italy_holdout_split, standard_split
 from italy_holdout import encode_mcc, _money, _signed_log1p
 
 N_LAGS = 9
@@ -54,15 +54,6 @@ STATIC = [
 
 RARE_COVERAGE = 0.99
 MAX_LEVELS = 256
-
-
-def standard_split(df: pd.DataFrame) -> pd.DataFrame:
-    """The pipeline's own temporal 80/10/10, matching the reported ~0.5 baseline."""
-    df = df.sort_values("event_time", kind="mergesort").reset_index(drop=True)
-    t = df["event_time"]
-    val_start, test_start = t.quantile(0.8), t.quantile(0.9)
-    df["split"] = np.where(t < val_start, "train", np.where(t < test_start, "val", "test"))
-    return df
 
 
 def base_features(df: pd.DataFrame) -> pd.DataFrame:
