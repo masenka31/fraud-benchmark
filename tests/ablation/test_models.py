@@ -54,7 +54,7 @@ def test_the_trivial_rule_scores_one_for_matching_rows():
 
 
 def test_datasets_without_a_rule_return_none():
-    for dataset in ["saml_d", "sparkov"]:
+    for dataset in ["saml_d", "sparkov", "sparkov_slow"]:
         assert dataset not in TRIVIAL_RULES
         assert trivial_rule_scores(pd.DataFrame({"x": [1]}), dataset=dataset) is None
 
@@ -62,7 +62,7 @@ def test_datasets_without_a_rule_return_none():
 def test_the_rule_needs_no_fitting_and_ignores_labels():
     """It is a fixed rule, which is why it is evaluated once per dataset."""
     df = pd.DataFrame({"Merchant State": pd.Series(["Italy"], dtype="string")})
-    assert list(trivial_rule_scores(df, dataset="ibm_ccf_subsample_fast")) == [1.0]
+    assert list(trivial_rule_scores(df, dataset="ibm_ccf")) == [1.0]
 
 
 def test_the_rule_treats_a_null_as_not_matching():

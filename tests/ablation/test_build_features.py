@@ -49,11 +49,5 @@ def test_build_preserves_the_split_column_and_its_counts(tmp_path):
 
 
 def test_every_configured_dataset_names_a_merchant_column(tmp_path):
-    for name in [
-        "ibm_ccf",
-        "ibm_ccf_subsample_fast",
-        "ibm_ccf_subsample_slow",
-        "saml_d",
-        "sparkov",
-    ]:
+    for name in ["ibm_ccf", "saml_d", "sparkov", "sparkov_slow"]:
         assert name in MERCHANT_COLUMNS

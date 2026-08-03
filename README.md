@@ -80,10 +80,15 @@ The code in this repository is MIT licensed (see `LICENSE`).
 upstream provider when you download it. This repository distributes no data — `data/` is
 gitignored and everything is fetched at run time with your own credentials.
 
-Nine datasets are registered: seven distinct sources, plus `ibm_ccf_subsample_fast` and
-`ibm_ccf_subsample_slow`. Those two are crops of IBM CCF to a recent, fully-labelled
-window, row-identical to each other and differing only in reporting delay, so a model can
-be compared across delay regimes on the same data. They reuse IBM CCF's raw download.
+Eight datasets are registered: seven distinct sources, plus `sparkov_slow`. That variant is
+row-identical to `sparkov` on every column but `reported_at`, so a model can be compared
+across two label-delay regimes on the same data; it reuses Sparkov's raw download. At the
+card-fraud default Sparkov censors 2.2% of train labels, which is too little for the delay
+to register; the slow regime censors 8.9%.
+
+Two earlier variants, `ibm_ccf_subsample_fast` and `ibm_ccf_subsample_slow`, were retired:
+their delay contrast turned out to be unmeasurable (average precision 0.975 against 0.975,
+at a 0.001 seed noise floor). See `docs/verification-notes.md`.
 
 Two of the seven sources (BankSim, SAML-D) are **NonCommercial**, and three
 (PaySim, BankSim, SAML-D) are **ShareAlike**. IEEE-CIS is governed by Kaggle competition

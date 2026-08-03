@@ -285,35 +285,25 @@ def test_amaretto_keeps_the_card_fraud_delay_despite_being_aml():
     assert config.delay_for("amaretto").median_days == config.delay.median_days
 
 
-def test_the_fast_subsample_has_a_thirty_day_mean_delay():
-    """sigma = sqrt(2*ln(30/7)) places a lognormal's mean at 30 with median 7."""
-    delay = load_config().delay_for("ibm_ccf_subsample_fast")
-    assert delay.median_days == 7.0
-    assert delay.sigma == pytest.approx(1.706, abs=5e-4)
-    assert delay.max_delay_days == 365.0
-
-
-def test_the_slow_subsample_has_a_sixty_day_mean_delay():
-    """sigma = sqrt(2*ln(60/15))."""
-    delay = load_config().delay_for("ibm_ccf_subsample_slow")
-    assert delay.median_days == 15.0
-    assert delay.sigma == pytest.approx(1.665, abs=5e-4)
-    assert delay.max_delay_days == 730.0
-
-
-def test_both_subsamples_share_one_window():
-    """They must be row-identical; only the delay may differ."""
+def test_saml_d_overrides_the_delay_to_the_aml_regime():
+    """AML reporting runs weeks behind the transaction, not days: detection lags,
+    and the SAR clock starts only at detection. sigma and seed still inherit."""
     config = load_config()
-    fast = config.for_dataset("ibm_ccf_subsample_fast")
-    slow = config.for_dataset("ibm_ccf_subsample_slow")
-    assert fast["start_date"] == slow["start_date"] == "2016-01-01"
-    assert fast["entity_key"] == slow["entity_key"]
+    delay = config.delay_for("saml_d")
+    assert delay.median_days == 30.0
+    assert delay.sigma == config.delay.sigma
+    assert delay.seed == config.delay.seed
 
 
-def test_the_subsamples_keep_the_default_campaign_gap():
+def test_amaretto_keeps_the_card_fraud_delay_despite_being_aml():
+    """Its 83-day span cannot carry a realistic 30-day AML median — that censors
+    53% of train frauds. The mismatch is documented, not repaired."""
     config = load_config()
-    for name in ("ibm_ccf_subsample_fast", "ibm_ccf_subsample_slow"):
-        assert config.campaign_gap_for(name) == pd.Timedelta(days=1)
+    assert config.delay_for("amaretto").median_days == config.delay.median_days
+
+
+
+
 
 
 def test_sparkov_slow_overrides_the_delay_to_a_harsher_regime():

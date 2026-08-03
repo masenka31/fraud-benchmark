@@ -19,10 +19,9 @@ DEFAULT_FEATURES = Path("data/features")
 # The merchant-like column each dataset uses for `merchant_novelty`.
 MERCHANT_COLUMNS: dict[str, str | None] = {
     "ibm_ccf": "Merchant Name",
-    "ibm_ccf_subsample_fast": "Merchant Name",
-    "ibm_ccf_subsample_slow": "Merchant Name",
     "saml_d": "Receiver_account",
     "sparkov": "merchant",
+    "sparkov_slow": "merchant",
 }
 
 

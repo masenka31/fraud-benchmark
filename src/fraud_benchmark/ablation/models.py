@@ -18,9 +18,10 @@ from xgboost import XGBClassifier
 
 # (column, value) pairs that alone identify most of a dataset's frauds.
 TRIVIAL_RULES: dict[str, tuple[str, str]] = {
+    # Not a baseline a train-only model could reach: train holds zero Italy
+    # frauds, so this rule imports knowledge from outside the training data. It
+    # bounds what the labels encode, and is reported as a ceiling, not a floor.
     "ibm_ccf": ("Merchant State", "Italy"),
-    "ibm_ccf_subsample_fast": ("Merchant State", "Italy"),
-    "ibm_ccf_subsample_slow": ("Merchant State", "Italy"),
 }
 
 XGB_PARAMS = {

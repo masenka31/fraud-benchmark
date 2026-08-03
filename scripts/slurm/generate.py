@@ -20,10 +20,9 @@ ACCOUNT = "smidlva1"
 
 DATASETS = (
     "ibm_ccf",
-    "ibm_ccf_subsample_fast",
-    "ibm_ccf_subsample_slow",
     "saml_d",
     "sparkov",
+    "sparkov_slow",
 )
 
 # ibm_ccf runs oracle only: it has 3 censored train labels out of 24,924, so the

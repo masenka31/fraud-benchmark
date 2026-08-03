@@ -538,6 +538,50 @@ actually run — defensible, but not empirical. This bounds what any delay-aware
 can claim: it can compare methods under a stated censoring regime, and cannot establish
 what the real regime is.
 
+## The IBM CCF subsamples are retired (2026-08-03)
+
+`ibm_ccf_subsample_fast` and `ibm_ccf_subsample_slow` existed to give the label-delay axis
+something to bite on: the full dataset's 9,629-day train window censors 3 of 24,924 train
+frauds, so delay has no effect there. The subsamples cropped to 2016-01-01 and censored 3.0%
+and 5.2% respectively.
+
+**Measured, they do not work.** The leakage ablation scored them identically:
+
+| variant | leaky, oracle | leaky, censored | clean, oracle | clean, censored | seed sd |
+|---|---:|---:|---:|---:|---:|
+| fast | 0.975 | 0.974 | 0.014 | 0.015 | 0.001 |
+| slow | 0.975 | 0.974 | 0.014 | 0.014 | 0.001 |
+
+The two regimes differ by 142 train frauds out of 6,441, and that difference moves no number
+past the third decimal against a 0.001 seed noise floor. This confirms an earlier quick probe
+that reached the same verdict with a cruder model.
+
+They also inherited the geography artifact in its worst form — their val and test frauds are
+100% `Merchant State == "Italy"` — so they were unusable for the leakage axis too.
+
+**Replaced by `sparkov_slow`**, which carries the same design (row-identical apart from
+`reported_at`) on a dataset where the effect is real: 8.9% censored against Sparkov's 2.2%,
+verified identical on all 28 non-delay columns.
+
+The delay axis is now Sparkov (2.2%, realistic card fraud), `sparkov_slow` (8.9%, an explicit
+stress test) and SAML-D (20.0%, realistic AML). IBM CCF carries no delay condition.
+
+### The early-cutoff split was not kept either
+
+A split whose train half ends one second before the first Italy fraud (2009-09-12 to
+2017-11-19, exactly 80/10/10) was built and measured — `scripts/italy_holdout.py`, test
+average precision 0.0247 ± 0.0004. It is not registered as a dataset because **the standard
+temporal split already has the property it was built to guarantee**: the 80% cut falls on
+2017-05-14 and the first Italy fraud is 2017-11-19, so train contains zero Italy frauds
+either way. The early-cutoff variant only makes the boundary exact, at the cost of a
+non-standard construction and 6.2M fewer training rows.
+
+Its value was diagnostic, and it is recorded here rather than shipped: it showed that the
+model's dominant feature is `Use Chip` (37.8% of gain), and that the channel distribution of
+fraud inverts across the regime boundary — train fraud is 85.5% online, val fraud 90.4%
+chip-present with zero online. The model's most important feature points the wrong way, which
+is why no amount of feature engineering bridges the two regimes.
+
 ## Open, non-blocking
 
 - **IEEE-CIS emits `PerformanceWarning: DataFrame is highly fragmented`** during preparation.

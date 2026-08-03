@@ -44,8 +44,6 @@ _IBM_CCF_LEAKY = (
 
 LEAKY_COLUMNS: dict[str, tuple[str, ...]] = {
     "ibm_ccf": _IBM_CCF_LEAKY,
-    "ibm_ccf_subsample_fast": _IBM_CCF_LEAKY,
-    "ibm_ccf_subsample_slow": _IBM_CCF_LEAKY,
     # Account identifiers only. Sender_bank_location and Receiver_bank_location
     # are kept: the audit found their effects directional and plausible for money
     # laundering -- the phenomenon, not an artifact.
@@ -54,6 +52,8 @@ LEAKY_COLUMNS: dict[str, tuple[str, ...]] = {
     # two conditions are identical by construction, so the gap between them
     # measures this harness's own noise floor.
     "sparkov": (),
+    # Row-identical to sparkov, so it carries the same (empty) leaky set.
+    "sparkov_slow": (),
 }
 
 
