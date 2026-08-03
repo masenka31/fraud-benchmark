@@ -16,3 +16,6 @@ venv/
 kaggle.json
 .kaggle/
 access_token
+
+# Agent working notes: specs and implementation plans, kept local.
+docs/superpowers/

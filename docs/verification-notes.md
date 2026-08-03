@@ -156,7 +156,7 @@ domain* below for the current values.
 ## Per-dataset delay overrides, and two IBM CCF subsamples (2026-08-02)
 
 Two datasets were degenerate under one global distribution, so `delay:` is now overridable
-per dataset. Spec: `docs/superpowers/specs/2026-08-02-per-dataset-delay-and-ibm-ccf-subsample-design.md`.
+per dataset. Designed in a local working spec (`docs/superpowers/`, not tracked).
 
 ### PaySim: median 1 day
 
@@ -218,8 +218,7 @@ labelled fraud yields **0 frauds in test** — the four dead months swallow the 
 
 ### Artifacts found in IBM CCF while doing this
 
-Three, each found incidentally. Audit planned:
-`docs/superpowers/plans/2026-08-02-ibm-ccf-artifact-audit.md`.
+Three, each found incidentally, during the IBM CCF artifact audit.
 
 1. **The generator stops emitting fraud 2019-10-27** while transactions run to 2020-02-28 — 645,180 rows,
    zero frauds. Handled by the crop.
@@ -234,7 +233,7 @@ All three are superseded by the audit below, which ran on 2026-08-02.
 
 ## Known leakage (2026-08-02)
 
-The audit planned in `docs/superpowers/plans/2026-08-02-ibm-ccf-artifact-audit.md`, run
+The IBM CCF artifact audit, run
 against all seven processed datasets plus `ibm_ccf_subsample_fast` (the slow variant is
 row-identical outside `reported_at`, so it is not swept separately).
 

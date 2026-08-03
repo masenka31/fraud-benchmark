@@ -72,7 +72,7 @@ Expected: `Kaggle credentials successfully validated.` followed by a dict contai
 username. If it raises `UnauthenticatedError`, the credential is missing, in the wrong
 place, or of the wrong type.
 
-## 4. Accept the IEEE-CIS competition rules
+## Accept the IEEE-CIS competition rules
 
 IEEE-CIS is a **competition**, not a plain dataset. The API returns `403 Forbidden` until
 you have accepted its rules once, in a browser, while signed in:
@@ -80,5 +80,4 @@ you have accepted its rules once, in a browser, while signed in:
 <https://www.kaggle.com/c/ieee-fraud-detection/rules>
 
 Click **I Understand and Accept**. This is a one-time action per Kaggle account and cannot
-be done through the API. Only needed before preparing `ieee_cis`, which arrives in the
-second implementation plan.
+be done through the API. Only needed before preparing `ieee_cis`.
