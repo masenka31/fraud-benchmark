@@ -7,6 +7,10 @@ delay and turns it into a `reported_at` timestamp.
 Lognormal rather than Poisson: Poisson models a count of events with variance tied
 to its mean, whereas reporting delay is a continuous, strongly right-skewed waiting
 time — most frauds surface within days, a minority take months.
+
+The delay is calibrated per domain, not per dataset, and whatever censoring results
+is reported rather than tuned. docs/label-delay.md has the shipped parameters and the
+measured censoring for all eight datasets, plus which of them the delay bites on.
 """
 
 from __future__ import annotations

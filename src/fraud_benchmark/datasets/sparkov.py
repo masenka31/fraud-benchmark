@@ -104,10 +104,11 @@ class SparkovSlowAdapter(SparkovAdapter):
     two IBM CCF subsamples.
 
     Why it exists: at the card-fraud default (7-day median) Sparkov's 487-day
-    train window leaves 97.9% of train labels known at the cutoff, so the delay
-    barely registers. The slow regime raises that to roughly 8.5% censored,
-    enough for a delay-aware method to have something to work with. Its delay is
-    set in configs/default.yaml, not here.
+    train window leaves 97.8% of train labels known at the cutoff, so the delay
+    barely registers. The slow regime censors 8.9%, enough for a delay-aware
+    method to have something to work with. Its delay is set in
+    configs/default.yaml, not here; see docs/label-delay.md for the measured
+    figures across every dataset.
     """
 
     name = "sparkov_slow"
