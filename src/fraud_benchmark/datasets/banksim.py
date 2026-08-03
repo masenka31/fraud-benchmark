@@ -10,7 +10,11 @@ from typing import Any
 
 import pandas as pd
 
-from fraud_benchmark.datasets.base import DatasetAdapter, register
+from fraud_benchmark.datasets.base import (
+    DatasetAdapter,
+    register,
+    require_start_date,
+)
 from fraud_benchmark.datasets.files import require_file
 from fraud_benchmark.sources import KaggleDataset
 
@@ -37,12 +41,7 @@ class BankSimAdapter(DatasetAdapter):
     )
 
     def to_canonical(self, raw_dir: Path, options: dict[str, Any]) -> pd.DataFrame:
-        start_date = options.get("start_date")
-        if not start_date:
-            raise ValueError(
-                "banksim requires a 'start_date' option to anchor its relative 'step' "
-                "column; set datasets.banksim.start_date in the config"
-            )
+        anchor = require_start_date(options, "banksim", "step")
 
         df = pd.read_csv(require_file(raw_dir, TRANSACTIONS_FILE))
 
@@ -51,7 +50,6 @@ class BankSimAdapter(DatasetAdapter):
             if pd.api.types.is_string_dtype(df[column]):
                 df[column] = df[column].str.strip("'")
 
-        anchor = pd.Timestamp(start_date)
         df["amount"] = df["amount"].astype("float64")
         df.insert(0, "event_time", anchor + pd.to_timedelta(df["step"], unit="D"))
         df.insert(1, "entity_id", df["customer"].astype("string"))

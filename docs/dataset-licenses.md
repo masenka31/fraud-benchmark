@@ -16,7 +16,8 @@ product** — upstream terms can change, and this table is a convenience, not le
 | PaySim | `paysim` | CC BY-SA 4.0 | Yes | ShareAlike: derived datasets must carry the same licence |
 | BankSim | `banksim` | **CC BY-NC-SA 4.0** | **No** | NonCommercial **and** ShareAlike |
 | Sparkov (Shenoy) | `sparkov` | CC0 1.0 | Yes | Public domain dedication, no attribution required |
-| IBM CCF (Altman) | `ibm_ccf` | Apache-2.0 | Yes | Stated in the dataset description body, not the Kaggle licence field |
+| Sparkov, slow delay | `sparkov_slow` | CC0 1.0 | Yes | Same rows and same download as `sparkov`; only `reported_at` differs |
+| IBM CCF (Altman) | `ibm_ccf` | Apache-2.0 | Yes | **Ambiguous upstream**: the description body says Apache-2.0, the Kaggle licence field says CC BY 4.0. Both allow commercial use. The adapter records Apache-2.0 plus a caveat naming both |
 | SAML-D | `saml_d` | **CC BY-NC-SA 4.0** | **No** | NonCommercial **and** ShareAlike |
 | Amaretto | `amaretto` | MIT | Yes | From the GitHub repository licence |
 | IEEE-CIS / Vesta | `ieee_cis` | Kaggle competition rules | **Check the rules** | Not an SPDX licence. Must be accepted in a browser; competition terms generally prohibit redistribution |

@@ -116,3 +116,13 @@ def test_single_digit_hour_is_tolerated(tmp_path):
 
     frame = get_adapter("ibm_ccf").to_canonical(raw, {"entity_key": "user"})
     assert frame["event_time"].iloc[0] == pd.Timestamp("2002-09-01 06:21")
+
+
+def test_the_licence_ambiguity_is_recorded_not_hidden():
+    """Two upstream sources disagree: the description body says Apache-2.0, the
+    Kaggle licence field says CC BY 4.0. The card must carry both readings."""
+    adapter = get_adapter("ibm_ccf")
+    assert adapter.data_license == "Apache-2.0"
+    assert adapter.commercial_use is True
+    provenance = [c for c in adapter.caveats if "CC BY 4.0" in c and "Apache-2.0" in c]
+    assert len(provenance) == 1, "the disagreement must be stated in the caveats"

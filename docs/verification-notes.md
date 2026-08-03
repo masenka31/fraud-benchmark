@@ -156,7 +156,7 @@ domain* below for the current values.
 ## Per-dataset delay overrides, and two IBM CCF subsamples (2026-08-02)
 
 Two datasets were degenerate under one global distribution, so `delay:` is now overridable
-per dataset. Spec: `docs/superpowers/specs/2026-08-02-per-dataset-delay-and-ibm-ccf-subsample-design.md`.
+per dataset. Designed in a local working spec (`docs/superpowers/`, not tracked).
 
 ### PaySim: median 1 day
 
@@ -203,7 +203,7 @@ Two figures that look wrong but are not:
 
 ### Why 2016-01-01 rather than a relative window
 
-Measured, all cropped at the last labelled fraud:
+Measured, all cropped at the last fraud:
 
 | left crop | rows | frauds | test frauds | known @ cutoff |
 |---|---:|---:|---:|---:|
@@ -218,10 +218,9 @@ labelled fraud yields **0 frauds in test** — the four dead months swallow the 
 
 ### Artifacts found in IBM CCF while doing this
 
-Three, each found incidentally. Audit planned:
-`docs/superpowers/plans/2026-08-02-ibm-ccf-artifact-audit.md`.
+Three, each found incidentally, during the IBM CCF artifact audit.
 
-1. **Labelling stops 2019-10-27** while transactions run to 2020-02-28 — 645,180 rows,
+1. **The generator stops emitting fraud 2019-10-27** while transactions run to 2020-02-28 — 645,180 rows,
    zero frauds. Handled by the crop.
 2. **2017 has 255 frauds** against 3,579 in 2016 and 2,491 in 2018, a 14× dip. Falls
    inside the subsample train split; not otherwise handled.
@@ -234,7 +233,7 @@ All three are superseded by the audit below, which ran on 2026-08-02.
 
 ## Known leakage (2026-08-02)
 
-The audit planned in `docs/superpowers/plans/2026-08-02-ibm-ccf-artifact-audit.md`, run
+The IBM CCF artifact audit, run
 against all seven processed datasets plus `ibm_ccf_subsample_fast` (the slow variant is
 row-identical outside `reported_at`, so it is not swept separately).
 
@@ -537,6 +536,79 @@ data. The domain medians above are estimates of how card disputes and SAR workfl
 actually run — defensible, but not empirical. This bounds what any delay-aware result here
 can claim: it can compare methods under a stated censoring regime, and cannot establish
 what the real regime is.
+
+## The IBM CCF subsamples are retired (2026-08-03)
+
+`ibm_ccf_subsample_fast` and `ibm_ccf_subsample_slow` existed to give the label-delay axis
+something to bite on: the full dataset's 9,629-day train window censors 3 of 24,924 train
+frauds, so delay has no effect there. The subsamples cropped to 2016-01-01 and censored 3.0%
+and 5.2% respectively.
+
+**Measured, they do not work.** The leakage ablation scored them identically:
+
+| variant | leaky, oracle | leaky, censored | clean, oracle | clean, censored | seed sd |
+|---|---:|---:|---:|---:|---:|
+| fast | 0.975 | 0.974 | 0.014 | 0.015 | 0.001 |
+| slow | 0.975 | 0.974 | 0.014 | 0.014 | 0.001 |
+
+The two regimes differ by 142 train frauds out of 6,441, and that difference moves no number
+past the third decimal against a 0.001 seed noise floor. This confirms an earlier quick probe
+that reached the same verdict with a cruder model.
+
+They also inherited the geography artifact in its worst form — their val and test frauds are
+100% `Merchant State == "Italy"` — so they were unusable for the leakage axis too.
+
+**Replaced by `sparkov_slow`**, which carries the same design (row-identical apart from
+`reported_at`) on a dataset where the effect is real: 8.9% censored against Sparkov's 2.2%,
+verified identical on all 28 non-delay columns.
+
+The delay axis is now Sparkov (2.2%, realistic card fraud), `sparkov_slow` (8.9%, an explicit
+stress test) and SAML-D (20.0%, realistic AML). IBM CCF carries no delay condition.
+
+### The early-cutoff split was not kept either
+
+A split whose train half ends one second before the first Italy fraud (2009-09-12 to
+2017-11-19, exactly 80/10/10) was built and measured — `scripts/italy_holdout.py`, test
+average precision 0.0247 ± 0.0004. It is not registered as a dataset because **the standard
+temporal split already has the property it was built to guarantee**: the 80% cut falls on
+2017-05-14 and the first Italy fraud is 2017-11-19, so train contains zero Italy frauds
+either way. The early-cutoff variant only makes the boundary exact, at the cost of a
+non-standard construction and 6.2M fewer training rows.
+
+Its value was diagnostic, and it is recorded here rather than shipped: it showed that the
+model's dominant feature is `Use Chip` (37.8% of gain), and that the channel distribution of
+fraud inverts across the regime boundary — train fraud is 85.5% online, val fraud 90.4%
+chip-present with zero online. The model's most important feature points the wrong way, which
+is why no amount of feature engineering bridges the two regimes.
+
+## Correction: IBM CCF is fully labelled (2026-08-03)
+
+Earlier notes in this file and in the audit plan said IBM CCF's final 645,180 rows were
+"unlabelled, not fraud-free". **That is wrong, and the wording has been fixed.**
+
+`Is Fraud?` has **zero nulls across all 24,386,900 rows**; the only values are 'No' and
+'Yes'. Every row is labelled. What actually happens is that the *generator* stops emitting
+fraud:
+
+| | |
+|---|---|
+| data span | 1991-01-02 .. 2020-02-28 (29.2 years) |
+| first fraud | 1996-07-05 |
+| last fraud | 2019-10-27 |
+| calendar years with >=1 fraud | 24 (1996-2019) |
+| years with zero frauds | 1991-1995, 2020 |
+| rows before the first fraud | 63,739 (2,011 days) |
+| rows after the last fraud | 645,180 (124 days) |
+
+The reason to crop the tail is that it holds no positives to detect, not that its labels are
+missing. At the 0.122% base rate, 645,180 rows would be expected to carry roughly 787 frauds,
+so observing zero is not chance — but "stopped generating" and "stopped labelling" are
+different claims and only the first is supported by the data.
+
+The same correction applies to the 11 fraud-free gaps of three months or more: those are
+genuinely fraud-free stretches, not gaps in labelling. It matters for how the dataset is
+described in a paper — a reader told "unlabelled" will assume missing values they could
+filter on, and there are none.
 
 ## Open, non-blocking
 

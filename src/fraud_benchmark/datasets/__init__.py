@@ -7,7 +7,6 @@ from fraud_benchmark.datasets import (  # noqa: F401
     amaretto,
     banksim,
     ibm_ccf,
-    ibm_ccf_subsample,
     ieee_cis,
     paysim,
     saml_d,

@@ -19,6 +19,26 @@ class UnknownDatasetError(KeyError):
     """Raised when a dataset name has no registered adapter."""
 
 
+def require_start_date(
+    options: dict[str, Any], dataset: str, column: str
+) -> pd.Timestamp:
+    """The configured anchor for a dataset whose time column is a relative offset.
+
+    Three datasets ship an offset rather than a date -- PaySim's hourly `step`,
+    BankSim's daily `step`, IEEE-CIS's `TransactionDT` in seconds -- and none of
+    them can produce a plausible `event_time` without being told where zero is.
+    Defaulting the anchor would silently invent absolute dates, so it is required
+    and the error names the option to set.
+    """
+    start_date = options.get("start_date")
+    if not start_date:
+        raise ValueError(
+            f"{dataset} requires a 'start_date' option to anchor its relative "
+            f"{column!r} column; set datasets.{dataset}.start_date in the config"
+        )
+    return pd.Timestamp(start_date)
+
+
 class DatasetAdapter(ABC):
     """Base class for per-dataset adapters."""
 

@@ -35,8 +35,8 @@ datasets:
     start_date: "2023-01-01"
     # Its whole span is 30 simulated days, so the train window is 14. At the
     # global 7-day median only 47.3% of train frauds are reported by the train
-    # cutoff. This keeps the dataset usable; it does not make a 30-day clock
-    # realistic. sigma and seed inherit.
+    # cutoff; at 1 day, 89.9% are, censoring 10.1%. This keeps the dataset
+    # usable; it does not make a 30-day clock realistic. sigma and seed inherit.
     delay:
       median_days: 1.0
   # BankSim's `step` column is a 0-based day offset (0-179), not a real date.
@@ -46,37 +46,24 @@ datasets:
   # last val_fraction of the upstream train file.
   sparkov:
     val_fraction: 0.1
+  # Row-identical to sparkov, differing only in reported_at. At the card-fraud
+  # default Sparkov's 487-day train window censors only 2.2% of train labels, so
+  # the delay barely registers; this regime raises it to 8.9%. Most of that comes
+  # from sigma rather than the median: at median 15d with sigma 1.0 it would be
+  # ~4.5%, so the fattened tail is doing the work. The median stays
+  # plausible for a cardholder noticing on a statement; the tail is deliberately
+  # longer than a realistic chargeback window, which is what does the censoring.
+  # sigma = sqrt(2*ln(60/15)): median 15 days, nominal mean 60. Capped at a year,
+  # since a dispute is not filed after that.
+  sparkov_slow:
+    val_fraction: 0.1
+    delay:
+      median_days: 15.0
+      sigma: 1.665
+      max_delay_days: 365
   # A user may hold several cards; 'user' groups them, 'card' keeps them separate.
   ibm_ccf:
     entity_key: user
-  # Two crops of ibm_ccf to [2016-01-01, last labelled fraud 2019-10-27]:
-  # 6,569,157 rows, 8,412 frauds, 982 of them in test. Row-identical to each
-  # other; they differ only in reporting delay, so a model can be compared
-  # across delay regimes on the same data.
-  #
-  # Why crop at all: ibm_ccf spans 10,649 days, so a realistic delay censors
-  # 3 of its 24,924 train frauds — no delay effect to measure. Why 2016-01-01
-  # rather than a three-year window: the latter starts in late October 2016 and
-  # discards most of a heavy fraud year. +27% rows buys +58% frauds.
-  ibm_ccf_subsample_fast:
-    entity_key: user
-    start_date: "2016-01-01"
-    delay:
-      # sigma = sqrt(2*ln(30/7)): median 7 days, mean 30. Capped at a year —
-      # untruncated this samples delays out to 1,813 days, well past the end of
-      # the data. The cap bites ~1% of campaigns and pulls the realised mean to
-      # about 25 days.
-      sigma: 1.706
-      max_delay_days: 365
-  ibm_ccf_subsample_slow:
-    entity_key: user
-    start_date: "2016-01-01"
-    delay:
-      # sigma = sqrt(2*ln(60/15)): median 15 days, mean 60. Roughly doubles the
-      # censoring of the fast variant. Realised mean about 51 days after the cap.
-      median_days: 15.0
-      sigma: 1.665
-      max_delay_days: 730
   # TransactionDT is a seconds offset with no stated origin.
   ieee_cis:
     start_date: "2017-12-01"

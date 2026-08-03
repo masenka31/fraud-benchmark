@@ -285,32 +285,85 @@ def test_amaretto_keeps_the_card_fraud_delay_despite_being_aml():
     assert config.delay_for("amaretto").median_days == config.delay.median_days
 
 
-def test_the_fast_subsample_has_a_thirty_day_mean_delay():
-    """sigma = sqrt(2*ln(30/7)) places a lognormal's mean at 30 with median 7."""
-    delay = load_config().delay_for("ibm_ccf_subsample_fast")
-    assert delay.median_days == 7.0
-    assert delay.sigma == pytest.approx(1.706, abs=5e-4)
-    assert delay.max_delay_days == 365.0
+def test_saml_d_overrides_the_delay_to_the_aml_regime():
+    """AML reporting runs weeks behind the transaction, not days: detection lags,
+    and the SAR clock starts only at detection. sigma and seed still inherit."""
+    config = load_config()
+    delay = config.delay_for("saml_d")
+    assert delay.median_days == 30.0
+    assert delay.sigma == config.delay.sigma
+    assert delay.seed == config.delay.seed
 
 
-def test_the_slow_subsample_has_a_sixty_day_mean_delay():
-    """sigma = sqrt(2*ln(60/15))."""
-    delay = load_config().delay_for("ibm_ccf_subsample_slow")
+def test_amaretto_keeps_the_card_fraud_delay_despite_being_aml():
+    """Its 83-day span cannot carry a realistic 30-day AML median — that censors
+    53% of train frauds. The mismatch is documented, not repaired."""
+    config = load_config()
+    assert config.delay_for("amaretto").median_days == config.delay.median_days
+
+
+
+
+
+
+def test_sparkov_slow_overrides_the_delay_to_a_harsher_regime():
+    """At the card-fraud default Sparkov's 487-day train window censors only
+    2.1% of train labels, so the delay barely registers. sigma and seed inherit."""
+    config = load_config()
+    delay = config.delay_for("sparkov_slow")
     assert delay.median_days == 15.0
-    assert delay.sigma == pytest.approx(1.665, abs=5e-4)
-    assert delay.max_delay_days == 730.0
+    assert delay.sigma == 1.665
+    assert delay.max_delay_days == 365
+    assert delay.seed == config.delay.seed
 
 
-def test_both_subsamples_share_one_window():
-    """They must be row-identical; only the delay may differ."""
+def test_sparkov_slow_inherits_sparkovs_val_fraction():
+    """It must split identically to sparkov, or the rows would not correspond."""
     config = load_config()
-    fast = config.for_dataset("ibm_ccf_subsample_fast")
-    slow = config.for_dataset("ibm_ccf_subsample_slow")
-    assert fast["start_date"] == slow["start_date"] == "2016-01-01"
-    assert fast["entity_key"] == slow["entity_key"]
+    assert (
+        config.for_dataset("sparkov_slow")["val_fraction"]
+        == config.for_dataset("sparkov")["val_fraction"]
+    )
 
 
-def test_the_subsamples_keep_the_default_campaign_gap():
-    config = load_config()
-    for name in ("ibm_ccf_subsample_fast", "ibm_ccf_subsample_slow"):
-        assert config.campaign_gap_for(name) == pd.Timedelta(days=1)
+def test_an_unknown_dataset_option_is_rejected(tmp_path):
+    """Same argument as the delay block, one level up: a typo must not leave the
+    dataset silently on its default while the config claims otherwise."""
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  sparkov:\n"
+        "    val_fractio: 0.2\n"
+    )
+    with pytest.raises(ConfigError, match="val_fractio"):
+        load_config(path)
+
+
+def test_the_error_lists_the_valid_dataset_options(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text("datasets:\n  ibm_ccf:\n    entity_ke: card\n")
+    with pytest.raises(ConfigError, match="entity_key"):
+        load_config(path)
+
+
+def test_a_non_mapping_dataset_block_is_rejected(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text("datasets:\n  banksim: 2023-01-01\n")
+    with pytest.raises(ConfigError, match="mapping of options"):
+        load_config(path)
+
+
+def test_the_shipped_config_uses_only_known_options():
+    """The tripwire is worthless if the default config cannot pass it."""
+    from fraud_benchmark.config import DATASET_OPTIONS
+
+    for name, options in load_config().datasets.items():
+        assert not set(options) - DATASET_OPTIONS, name
+
+
+def test_a_bad_campaign_gap_override_is_caught_at_load_time(tmp_path):
+    """Not when its dataset is prepared -- `prepare --all` would die halfway."""
+    path = tmp_path / "custom.yaml"
+    path.write_text("datasets:\n  banksim:\n    campaign_gap: 'not a duration'\n")
+    with pytest.raises(ConfigError, match="duration"):
+        load_config(path)

@@ -1,0 +1,123 @@
+import json
+
+from fraud_benchmark.ablation.summarize import summarize
+
+
+def record(dataset, feature_set, regime, model, ap, seed=None):
+    return {
+        "dataset": dataset,
+        "feature_set": feature_set,
+        "label_regime": regime,
+        "model": model,
+        "seed": seed,
+        "features": [],
+        "n_train_rows": 100,
+        "n_train_positive": 10,
+        "fit_seconds": 1.0,
+        "scores": {
+            "val": {"average_precision": ap, "f1": 0.5, "threshold": 0.5,
+                    "precision": 0.5, "recall": 0.5, "n_rows": 10, "n_positive": 1},
+            "test": {"average_precision": ap, "f1": 0.5, "threshold": 0.5,
+                     "precision": 0.5, "recall": 0.5, "n_rows": 10, "n_positive": 1},
+        },
+    }
+
+
+def write(tmp_path, records):
+    path = tmp_path / "runs.jsonl"
+    path.write_text("\n".join(json.dumps(r) for r in records) + "\n")
+    return path
+
+
+def test_seeds_are_averaged(tmp_path):
+    path = write(
+        tmp_path,
+        [
+            record("sparkov", "leaky", "oracle", "xgboost", 0.4, seed=0),
+            record("sparkov", "leaky", "oracle", "xgboost", 0.6, seed=1),
+        ],
+    )
+    assert "0.500" in summarize(path)
+
+
+def test_the_leakage_gap_is_reported(tmp_path):
+    path = write(
+        tmp_path,
+        [
+            record("ibm_ccf", "leaky", "oracle", "xgboost", 0.80, seed=0),
+            record("ibm_ccf", "clean", "oracle", "xgboost", 0.20, seed=0),
+        ],
+    )
+    assert "0.600" in summarize(path)
+
+
+def test_average_precision_is_named_and_roc_auc_is_absent(tmp_path):
+    path = write(tmp_path, [record("sparkov", "leaky", "oracle", "xgboost", 0.4, seed=0)])
+    text = summarize(path)
+    assert "average precision" in text.lower()
+    assert "roc" not in text.lower()
+
+
+def test_an_empty_results_file_produces_a_message_not_a_crash(tmp_path):
+    path = tmp_path / "runs.jsonl"
+    path.write_text("")
+    assert "no results" in summarize(path).lower()
+
+
+def test_summarize_reads_a_directory_of_per_job_files(tmp_path):
+    """The SLURM jobs write one file each; a shared file would race."""
+    d = tmp_path / "runs"
+    d.mkdir()
+    (d / "a.jsonl").write_text(
+        json.dumps(record("ibm_ccf", "leaky", "oracle", "xgboost", 0.80, seed=0)) + "\n"
+    )
+    (d / "b.jsonl").write_text(
+        json.dumps(record("ibm_ccf", "clean", "oracle", "xgboost", 0.20, seed=0)) + "\n"
+    )
+    text = summarize(d)
+    assert "0.600" in text, "gap must be computed across files"
+
+
+def test_an_empty_results_directory_produces_a_message_not_a_crash(tmp_path):
+    d = tmp_path / "runs"
+    d.mkdir()
+    assert "no results" in summarize(d).lower()
+
+
+def test_a_subdirectory_of_retired_records_is_not_read(tmp_path):
+    """results/runs/retired/ keeps records for cells no longer in the grid.
+
+    They stayed in the summary for a day after the subsamples were retired.
+    """
+    d = tmp_path / "runs"
+    (d / "retired").mkdir(parents=True)
+    (d / "live.jsonl").write_text(
+        json.dumps(record("sparkov", "leaky", "oracle", "xgboost", 0.40, seed=0)) + "\n"
+    )
+    (d / "retired" / "gone.jsonl").write_text(
+        json.dumps(record("ibm_ccf_subsample_fast", "leaky", "oracle", "xgboost", 0.975))
+        + "\n"
+    )
+    text = summarize(d)
+    assert "subsample" not in text
+    assert "0.400" in text
+
+
+def test_grid_cells_with_no_records_are_named(tmp_path):
+    """A summary that tables only what it finds reads as complete either way."""
+    path = write(tmp_path, [record("sparkov", "leaky", "oracle", "xgboost", 0.4, seed=0)])
+    text = summarize(path)
+    assert "Cells with no results" in text
+    assert "`sparkov_slow` / clean / censored" in text
+    # The one cell that does have a record must not be listed as missing.
+    assert "`sparkov` / leaky / oracle" not in text
+
+
+def test_a_complete_grid_reports_no_missing_cells(tmp_path):
+    from fraud_benchmark.ablation.grid import CELLS
+
+    path = write(
+        tmp_path,
+        [record(d, f, r, "xgboost", 0.4, seed=0) for d, f, r in CELLS],
+    )
+    assert "Cells with no results" not in summarize(path)
