@@ -28,6 +28,9 @@ class SamlDAdapter(DatasetAdapter):
     source = KaggleDataset(
         "berkanoztas/synthetic-transaction-monitoring-dataset-aml"
     )
+    source_label_column = "Is_laundering"
+    # Kept: the typology for laundering rows, which is_fraud reduces to a bool.
+    label_descriptive_columns = ("Laundering_type",)
     data_license = "CC BY-NC-SA 4.0"
     commercial_use = False
     caveats = (

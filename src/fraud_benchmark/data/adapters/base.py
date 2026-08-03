@@ -57,6 +57,21 @@ class DatasetAdapter(ABC):
     #: False when the upstream licence forbids commercial use (e.g. CC BY-NC-SA).
     #: Drives `prepare --all --exclude-noncommercial`.
     commercial_use: bool = True
+    #: The source column `is_fraud` was derived from. The pipeline drops it, so the
+    #: canonical frame carries exactly one binary label and no consumer has to
+    #: remember to exclude a second one. Required: `register` refuses an adapter
+    #: without it, because forgetting it is how a model gets handed its own answer.
+    #:
+    #: Two adapters are special and both are handled by the drop rule rather than
+    #: by an exception here: sparkov's source column is already named `is_fraud`,
+    #: so there is nothing to drop, and amaretto's is multi-class and therefore
+    #: also listed in `label_descriptive_columns`, which keeps it.
+    source_label_column: str = ""
+    #: Columns that describe the label rather than the transaction, kept because
+    #: they carry what `is_fraud` loses -- amaretto's five FATF classes, saml_d's
+    #: laundering typology. They stay in the frame and out of every model:
+    #: `experiments.columns` builds its drop-list from this declaration.
+    label_descriptive_columns: tuple[str, ...] = ()
     #: Human-readable warnings recorded in the dataset card.
     caveats: tuple[str, ...] = ()
 
@@ -105,6 +120,13 @@ def register(cls: type[DatasetAdapter]) -> type[DatasetAdapter]:
         raise ValueError(
             f"{cls.__name__} must set a non-empty string 'name' class attribute "
             "before it can be registered"
+        )
+    if not getattr(cls, "source_label_column", ""):
+        raise ValueError(
+            f"{cls.__name__} must set 'source_label_column' to the source column "
+            "its is_fraud was derived from, so the pipeline can drop it. Without "
+            "it the raw label reaches the output and a model can read its own "
+            "answer. Use 'is_fraud' if the source column is already named that."
         )
     if not getattr(cls, "raw_name", ""):
         cls.raw_name = name

@@ -63,6 +63,7 @@ def build_uid(df: pd.DataFrame) -> pd.Series:
 class IeeeCisAdapter(DatasetAdapter):
     name = "ieee_cis"
     source = KaggleCompetition("ieee-fraud-detection")
+    source_label_column = "isFraud"
     data_license = "Competition rules (research use)"
     commercial_use = False
     caveats = (

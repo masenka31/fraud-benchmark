@@ -27,6 +27,7 @@ TRANSACTIONS_FILE = "bs140513_032310.csv"
 class BankSimAdapter(DatasetAdapter):
     name = "banksim"
     source = KaggleDataset("ealaxi/banksim1")
+    source_label_column = "fraud"
     data_license = "CC BY-NC-SA 4.0"
     commercial_use = False
     caveats = (

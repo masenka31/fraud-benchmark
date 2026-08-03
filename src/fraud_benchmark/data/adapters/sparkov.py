@@ -30,6 +30,9 @@ DEFAULT_VAL_FRACTION = 0.1
 class SparkovAdapter(DatasetAdapter):
     name = "sparkov"
     source = KaggleDataset("kartik2112/fraud-detection")
+    # The source column is already named is_fraud and is cast in place, so there is
+    # nothing for the pipeline to drop.
+    source_label_column = "is_fraud"
     data_license = "CC0 1.0"
     commercial_use = True
     caveats = (

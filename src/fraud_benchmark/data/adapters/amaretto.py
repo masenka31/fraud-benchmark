@@ -29,6 +29,11 @@ EXTRACT_DIR = "_extracted"
 class AmarettoAdapter(DatasetAdapter):
     name = "amaretto"
     source = GitRepo("https://github.com/necst/amaretto_dataset")
+    source_label_column = "Anomaly"
+    # Anomaly IS the label source and is 0 plus five FATF classes, so dropping it
+    # would throw away the typology. Listed here, which keeps it in the frame and
+    # out of every model.
+    label_descriptive_columns = ("Anomaly",)
     data_license = "MIT"
     commercial_use = True
     caveats = (

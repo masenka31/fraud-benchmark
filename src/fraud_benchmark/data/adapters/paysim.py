@@ -23,6 +23,7 @@ from fraud_benchmark.data.sources import KaggleDataset
 class PaySimAdapter(DatasetAdapter):
     name = "paysim"
     source = KaggleDataset("ealaxi/paysim1")
+    source_label_column = "isFraud"
     data_license = "CC BY-SA 4.0"
     commercial_use = True
     caveats = (

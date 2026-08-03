@@ -17,6 +17,7 @@ def make_fake_class(name="fake_for_tests", handle="someone/fake"):
     # __abstractmethods__ once, at class creation, so assigning them afterwards
     # leaves the class permanently un-instantiable.
     class _FakeAdapter(DatasetAdapter):
+        source_label_column = "is_fraud"
         caveats = ("this dataset is fake",)
 
         def to_canonical(self, raw_dir, options):
@@ -136,3 +137,44 @@ def test_an_empty_start_date_is_rejected_like_a_missing_one():
 
     with pytest.raises(ValueError, match="start_date"):
         require_start_date({"start_date": ""}, "banksim", "step")
+
+
+def test_every_adapter_declares_its_source_label_column():
+    """A new adapter that forgets this would pass its raw label to models."""
+    from fraud_benchmark.data.adapters.base import list_datasets, get_adapter
+
+    for name in list_datasets():
+        adapter = get_adapter(name)
+        assert isinstance(adapter.source_label_column, str)
+        assert adapter.source_label_column, f"{name} declares an empty label column"
+
+
+def test_registration_rejects_an_adapter_with_no_source_label_column():
+    from fraud_benchmark.data.adapters import base
+
+    class Unlabelled(base.DatasetAdapter):
+        name = "unlabelled_probe"
+        source = KaggleDataset("x/y")
+
+        def to_canonical(self, raw_dir, options):
+            raise NotImplementedError
+
+        def column_mapping(self, options):
+            return {}
+
+    with pytest.raises(ValueError, match="source_label_column"):
+        base.register(Unlabelled)
+
+
+def test_label_descriptive_columns_defaults_to_empty():
+    from fraud_benchmark.data.adapters.base import get_adapter
+
+    assert get_adapter("banksim").label_descriptive_columns == ()
+
+
+def test_the_multiclass_labels_are_declared_descriptive():
+    """Kept in the frame, never a feature."""
+    from fraud_benchmark.data.adapters.base import get_adapter
+
+    assert get_adapter("amaretto").label_descriptive_columns == ("Anomaly",)
+    assert get_adapter("saml_d").label_descriptive_columns == ("Laundering_type",)

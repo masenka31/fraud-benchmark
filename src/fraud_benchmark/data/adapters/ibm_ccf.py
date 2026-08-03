@@ -37,6 +37,7 @@ def _parse_money(series: pd.Series) -> pd.Series:
 class IbmCcfAdapter(DatasetAdapter):
     name = "ibm_ccf"
     source = KaggleDataset("ealtman2019/credit-card-transactions")
+    source_label_column = "Is Fraud?"
     # Two upstream sources disagree, so the more specific one wins: the dataset
     # description body states Apache-2.0, while Kaggle's licence field reads
     # CC BY 4.0. Both permit commercial use, so `commercial_use` is unaffected
