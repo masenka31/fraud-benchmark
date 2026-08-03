@@ -12,9 +12,9 @@ import json
 import time
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
+from fraud_benchmark.data.censoring import censored_labels
 from fraud_benchmark.experiments.build_features import DEFAULT_FEATURES
 from fraud_benchmark.experiments.ablation.columns import feature_columns
 from fraud_benchmark.experiments.encoding import Encoder
@@ -22,21 +22,6 @@ from fraud_benchmark.experiments.metrics import best_f1_threshold, score
 from fraud_benchmark.experiments.models import fit_logistic, fit_xgboost, trivial_rule_scores
 
 DEFAULT_RESULTS = Path("results/runs.jsonl")
-
-
-def censored_labels(df: pd.DataFrame, cutoff: pd.Timestamp) -> np.ndarray:
-    """The labels a model training at `cutoff` would actually have.
-
-    A fraud not yet reported is NOT missing from the training data -- it sits in
-    it looking like a legitimate transaction. So the unreported frauds are
-    relabelled 0, not dropped. Dropping them would model a system that somehow
-    knows which rows to distrust, which is precisely the knowledge label delay
-    denies it, and would understate the harm: the damage is wrong labels, not
-    fewer of them.
-    """
-    reported = pd.to_datetime(df["reported_at"])
-    known_fraud = df["is_fraud"].astype(bool) & (reported <= cutoff)
-    return known_fraud.to_numpy().astype(int)
 
 
 def _append(path: Path, record: dict) -> None:

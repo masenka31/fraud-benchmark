@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fraud_benchmark.experiments.ablation.cell import censored_labels, run_cell
+from fraud_benchmark.experiments.ablation.cell import run_cell
 
 
 def features(n=600, seed=0):
@@ -40,42 +40,6 @@ def features(n=600, seed=0):
             "merchant_novelty": rng.integers(0, 2, n),
         }
     )
-
-
-def test_censored_labels_hide_frauds_reported_after_the_cutoff():
-    df = pd.DataFrame(
-        {
-            "is_fraud": [True, True, False],
-            "reported_at": pd.to_datetime(["2023-01-02", "2023-02-01", None]),
-        }
-    )
-    y = censored_labels(df, cutoff=pd.Timestamp("2023-01-15"))
-    assert list(y) == [1, 0, 0]
-
-
-def test_censored_labels_keep_every_row():
-    """An unreported fraud is not missing from the data -- it looks legitimate.
-
-    Dropping it would model a system that knows which rows to distrust, which
-    is exactly what label delay denies it.
-    """
-    df = pd.DataFrame(
-        {
-            "is_fraud": [True, True],
-            "reported_at": pd.to_datetime(["2023-01-02", "2023-02-01"]),
-        }
-    )
-    y = censored_labels(df, cutoff=pd.Timestamp("2023-01-15"))
-    assert len(y) == 2
-    assert list(y) == [1, 0]
-
-
-def test_censored_labels_never_invent_a_fraud():
-    """A non-fraud row stays 0 no matter what reported_at says."""
-    df = pd.DataFrame(
-        {"is_fraud": [False, False], "reported_at": pd.to_datetime(["2023-01-01", None])}
-    )
-    assert list(censored_labels(df, cutoff=pd.Timestamp("2023-06-01"))) == [0, 0]
 
 
 def test_run_cell_writes_one_record_per_model(tmp_path):
