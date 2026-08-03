@@ -1,0 +1,33 @@
+% Corrected against measured data on 2026-08-03. Every Transactions, Features,
+% Duration and Fraud/Susp. Rate cell below was recomputed from the prepared
+% datasets; see docs/verification-notes.md. ULB is not in the pipeline, so its
+% figures are from the published source.
+%
+% Convention for Features: raw columns as shipped, EXCLUDING label columns and
+% meaningless row-index columns. Applied uniformly, which the previous version
+% did not do (IEEE-CIS counted its id and label; IBM CCF counted one of three
+% tables).
+\begin{table*}
+\centering
+\caption{Descriptive characteristics and recommendation status for major public fraud and AML benchmark datasets. \emph{Task}: F\,=\,Fraud, AML\,=\,Anti-Money Laundering. \emph{Type}: R\,=\,Real, S\,=\,Synthetic. \emph{Features} counts raw columns as shipped, excluding label and row-index columns. ``---'' denotes not disclosed or not applicable. IBM CCF spans 29 years, but its generator emits fraud only between 1996-07-05 and 2019-10-27, and intermittently even then: 11 stretches of three months or more contain no fraud at all, and the final 645{,}180 rows (124 days) are fraud-free. Every row carries an explicit label; the quiet periods are genuinely fraud-free rather than unlabelled.}
+\label{tab:dataset_chars}
+\small
+\setlength{\tabcolsep}{3pt}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}llllrrlrl@{}}
+\toprule
+\textbf{Dataset} & \textbf{Year} & \textbf{Task} & \textbf{Type} & \textbf{Transactions} & \textbf{Features} & \textbf{Duration} & \textbf{Fraud/Susp.\ Rate} & \textbf{Recommendation} \\
+\midrule
+ULB Credit Card Fraud~\cite{mlgulb2015creditcardfraud} & 2013 & F & R & 284{,}807 & 30 & 2 days & 0.172\% & Retire \\
+PaySim~\cite{lopez2016paysim} & 2016 & F & S & 6{,}362{,}620 & 9 raw & 30 days (sim.) & 0.13\% & Not recommended \\
+BankSim~\cite{lopezrojas2014banksim} & 2014 & F & S & 594{,}643 & 9 raw & 180 days (sim.) & 1.21\% & Not recommended \\
+IEEE-CIS / Vesta~\cite{ieeecis2019} & 2019 & F & R & 590{,}540 & 432 & 6 months (181 d) & 3.50\% & Recommended (caution) \\
+Sparkov~\cite{shenoy_creditcard_2019} & 2020 & F & S & 1{,}852{,}394 & 21 raw & 24 months (730 d) & 0.52\% & Recommended \\
+IBM CCF~\cite{altmanSynthesizingCreditCard2021} & 2019 & F & S & 24{,}386{,}900 & 44 raw & 29 years (fraud 1996--2019) & 0.12\% & Recommended (concept drift) \\
+\midrule
+SAML-D~\cite{Oztas2023SAMLD} & 2023 & AML & S & 9{,}504{,}852 & 10 raw & 10.5 months (320 d) & 0.10\% & Supplementary \\
+Amaretto~\cite{DaniloLabanca2022AmarettoActiveLearning} & 2022 & AML & S & 29{,}704{,}090 & 10 raw & 12 weeks (83 d) & 0.27\% & Supplementary \\
+\bottomrule
+\end{tabular}%
+}
+\end{table*}

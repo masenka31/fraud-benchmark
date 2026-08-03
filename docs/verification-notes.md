@@ -203,7 +203,7 @@ Two figures that look wrong but are not:
 
 ### Why 2016-01-01 rather than a relative window
 
-Measured, all cropped at the last labelled fraud:
+Measured, all cropped at the last fraud:
 
 | left crop | rows | frauds | test frauds | known @ cutoff |
 |---|---:|---:|---:|---:|
@@ -221,7 +221,7 @@ labelled fraud yields **0 frauds in test** — the four dead months swallow the 
 Three, each found incidentally. Audit planned:
 `docs/superpowers/plans/2026-08-02-ibm-ccf-artifact-audit.md`.
 
-1. **Labelling stops 2019-10-27** while transactions run to 2020-02-28 — 645,180 rows,
+1. **The generator stops emitting fraud 2019-10-27** while transactions run to 2020-02-28 — 645,180 rows,
    zero frauds. Handled by the crop.
 2. **2017 has 255 frauds** against 3,579 in 2016 and 2,491 in 2018, a 14× dip. Falls
    inside the subsample train split; not otherwise handled.
@@ -581,6 +581,35 @@ model's dominant feature is `Use Chip` (37.8% of gain), and that the channel dis
 fraud inverts across the regime boundary — train fraud is 85.5% online, val fraud 90.4%
 chip-present with zero online. The model's most important feature points the wrong way, which
 is why no amount of feature engineering bridges the two regimes.
+
+## Correction: IBM CCF is fully labelled (2026-08-03)
+
+Earlier notes in this file and in the audit plan said IBM CCF's final 645,180 rows were
+"unlabelled, not fraud-free". **That is wrong, and the wording has been fixed.**
+
+`Is Fraud?` has **zero nulls across all 24,386,900 rows**; the only values are 'No' and
+'Yes'. Every row is labelled. What actually happens is that the *generator* stops emitting
+fraud:
+
+| | |
+|---|---|
+| data span | 1991-01-02 .. 2020-02-28 (29.2 years) |
+| first fraud | 1996-07-05 |
+| last fraud | 2019-10-27 |
+| calendar years with >=1 fraud | 24 (1996-2019) |
+| years with zero frauds | 1991-1995, 2020 |
+| rows before the first fraud | 63,739 (2,011 days) |
+| rows after the last fraud | 645,180 (124 days) |
+
+The reason to crop the tail is that it holds no positives to detect, not that its labels are
+missing. At the 0.122% base rate, 645,180 rows would be expected to carry roughly 787 frauds,
+so observing zero is not chance — but "stopped generating" and "stopped labelling" are
+different claims and only the first is supported by the data.
+
+The same correction applies to the 11 fraud-free gaps of three months or more: those are
+genuinely fraud-free stretches, not gaps in labelling. It matters for how the dataset is
+described in a paper — a reader told "unlabelled" will assume missing values they could
+filter on, and there are none.
 
 ## Open, non-blocking
 
