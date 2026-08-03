@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fraud_benchmark.datasets.base import get_adapter
+from fraud_benchmark.data.adapters.base import get_adapter
 from fraud_benchmark.data.schema import validate_canonical
 
 FIXTURE = Path(__file__).parent / "fixtures" / "saml_d"
@@ -64,7 +64,7 @@ def test_missing_file_is_an_error(tmp_path):
 
 
 def test_saml_d_is_registered():
-    from fraud_benchmark.datasets.base import list_datasets
+    from fraud_benchmark.data.adapters.base import list_datasets
     assert "saml_d" in list_datasets()
 
 

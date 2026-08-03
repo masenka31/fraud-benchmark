@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from fraud_benchmark.datasets.files import find_single_csv, require_file
+from fraud_benchmark.data.adapters.files import find_single_csv, require_file
 
 
 def test_require_file_finds_a_named_file(tmp_path):
@@ -62,7 +62,7 @@ def _make_split_zip(tmp_path, member_name, member_bytes, part_size):
 
 
 def test_split_zip_member_is_reassembled_and_extracted(tmp_path):
-    from fraud_benchmark.datasets.files import require_split_zip_member
+    from fraud_benchmark.data.adapters.files import require_split_zip_member
 
     raw = _make_split_zip(tmp_path, "data.csv", b"a,b\n1,2\n" * 500, part_size=97)
     out = require_split_zip_member(raw, "archive.zip.*", "data.csv", tmp_path / "cache")
@@ -70,7 +70,7 @@ def test_split_zip_member_is_reassembled_and_extracted(tmp_path):
 
 
 def test_split_zip_extraction_is_cached(tmp_path):
-    from fraud_benchmark.datasets.files import require_split_zip_member
+    from fraud_benchmark.data.adapters.files import require_split_zip_member
 
     raw = _make_split_zip(tmp_path, "data.csv", b"x\n" * 100, part_size=64)
     cache = tmp_path / "cache"
@@ -84,7 +84,7 @@ def test_split_zip_extraction_is_cached(tmp_path):
 
 
 def test_split_zip_leaves_no_reassembled_archive(tmp_path):
-    from fraud_benchmark.datasets.files import require_split_zip_member
+    from fraud_benchmark.data.adapters.files import require_split_zip_member
 
     raw = _make_split_zip(tmp_path, "data.csv", b"y\n" * 100, part_size=64)
     cache = tmp_path / "cache"
@@ -93,7 +93,7 @@ def test_split_zip_leaves_no_reassembled_archive(tmp_path):
 
 
 def test_missing_split_parts_is_an_error(tmp_path):
-    from fraud_benchmark.datasets.files import require_split_zip_member
+    from fraud_benchmark.data.adapters.files import require_split_zip_member
 
     empty = tmp_path / "raw"
     empty.mkdir()
@@ -103,7 +103,7 @@ def test_missing_split_parts_is_an_error(tmp_path):
 
 def test_unpadded_parts_are_ordered_numerically(tmp_path):
     """Lexicographic order would put .10 before .2 and corrupt the archive."""
-    from fraud_benchmark.datasets.files import require_split_zip_member
+    from fraud_benchmark.data.adapters.files import require_split_zip_member
 
     payload = b"z\n" * 4000
     whole = tmp_path / "whole.zip"
@@ -126,7 +126,7 @@ def test_unpadded_parts_are_ordered_numerically(tmp_path):
 
 
 def test_a_missing_part_is_reported_clearly(tmp_path):
-    from fraud_benchmark.datasets.files import require_split_zip_member
+    from fraud_benchmark.data.adapters.files import require_split_zip_member
 
     raw = _make_split_zip(tmp_path, "data.csv", b"q\n" * 500, part_size=97)
     parts = sorted((raw / "Data").iterdir())

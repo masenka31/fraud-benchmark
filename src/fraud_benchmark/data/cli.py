@@ -6,9 +6,9 @@ import argparse
 import json
 import sys
 
-import fraud_benchmark.datasets  # noqa: F401  (registers all adapters)
+import fraud_benchmark.data.adapters  # noqa: F401  (registers all adapters)
 from fraud_benchmark.data.config import load_config
-from fraud_benchmark.datasets.base import UnknownDatasetError, get_adapter, list_datasets
+from fraud_benchmark.data.adapters.base import UnknownDatasetError, get_adapter, list_datasets
 from fraud_benchmark.data.pipeline import prepare
 from fraud_benchmark.data.sources import FetchError
 

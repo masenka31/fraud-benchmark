@@ -4,7 +4,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fraud_benchmark.datasets.base import get_adapter
+from fraud_benchmark.data.adapters.base import get_adapter
 from fraud_benchmark.data.schema import validate_canonical
 
 FIXTURE = Path(__file__).parent / "fixtures" / "amaretto"
@@ -98,6 +98,6 @@ def test_column_mapping_documents_provenance():
 
 
 def test_amaretto_is_registered():
-    from fraud_benchmark.datasets.base import list_datasets
+    from fraud_benchmark.data.adapters.base import list_datasets
 
     assert "amaretto" in list_datasets()

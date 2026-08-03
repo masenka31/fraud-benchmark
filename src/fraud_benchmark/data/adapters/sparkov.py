@@ -11,8 +11,8 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from fraud_benchmark.datasets.base import DatasetAdapter, register
-from fraud_benchmark.datasets.files import require_file
+from fraud_benchmark.data.adapters.base import DatasetAdapter, register
+from fraud_benchmark.data.adapters.files import require_file
 from fraud_benchmark.data.sources import KaggleDataset
 from fraud_benchmark.data.splitting import SPLIT_NAMES, boundary_at
 

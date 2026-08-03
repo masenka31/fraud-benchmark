@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fraud_benchmark.datasets.base import get_adapter
+from fraud_benchmark.data.adapters.base import get_adapter
 from fraud_benchmark.data.schema import validate_canonical
 
 FIXTURE = Path(__file__).parent / "fixtures" / "paysim"
@@ -62,7 +62,7 @@ def test_missing_csv_is_an_error(tmp_path):
 
 
 def test_paysim_is_registered():
-    from fraud_benchmark.datasets.base import list_datasets
+    from fraud_benchmark.data.adapters.base import list_datasets
 
     assert "paysim" in list_datasets()
 
@@ -75,7 +75,7 @@ def test_paysim_declares_its_data_license():
 def test_every_registered_adapter_declares_a_data_license():
     # Guards against a future adapter shipping with the "unknown" default,
     # which would silently omit the dataset's terms from its card.
-    from fraud_benchmark.datasets.base import list_datasets
+    from fraud_benchmark.data.adapters.base import list_datasets
 
     undeclared = [
         name for name in list_datasets()

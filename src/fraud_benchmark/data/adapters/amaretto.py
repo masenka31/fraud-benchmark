@@ -13,8 +13,8 @@ from typing import Any
 
 import pandas as pd
 
-from fraud_benchmark.datasets.base import DatasetAdapter, register
-from fraud_benchmark.datasets.files import require_split_zip_member
+from fraud_benchmark.data.adapters.base import DatasetAdapter, register
+from fraud_benchmark.data.adapters.files import require_split_zip_member
 from fraud_benchmark.data.sources import GitRepo
 
 ARCHIVE_PARTS = "amaretto_dataset_anon.zip.*"

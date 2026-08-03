@@ -235,7 +235,7 @@ def test_card_records_the_shared_split_strategy(config, no_download):
 
 def test_auxiliary_frames_are_written_alongside(config, no_download, monkeypatch):
     import pandas as pd
-    from fraud_benchmark.datasets.base import get_adapter
+    from fraud_benchmark.data.adapters.base import get_adapter
 
     adapter = get_adapter("paysim")
     monkeypatch.setattr(
@@ -250,7 +250,7 @@ def test_auxiliary_frames_are_written_alongside(config, no_download, monkeypatch
 
 def test_auxiliary_frames_are_recorded_in_the_card(config, no_download, monkeypatch):
     import pandas as pd
-    from fraud_benchmark.datasets.base import get_adapter
+    from fraud_benchmark.data.adapters.base import get_adapter
 
     adapter = get_adapter("paysim")
     monkeypatch.setattr(
@@ -275,7 +275,7 @@ def test_auxiliary_keys_that_are_not_plain_filenames_are_rejected(
     config, no_download, monkeypatch, bad_key
 ):
     import pandas as pd
-    from fraud_benchmark.datasets.base import get_adapter
+    from fraud_benchmark.data.adapters.base import get_adapter
 
     monkeypatch.setattr(
         type(get_adapter("paysim")),
@@ -303,7 +303,7 @@ def test_a_failing_auxiliary_write_preserves_previous_output(
         def to_parquet(self, *args, **kwargs):
             raise OSError("aux write failed")
 
-    from fraud_benchmark.datasets.base import get_adapter
+    from fraud_benchmark.data.adapters.base import get_adapter
 
     monkeypatch.setattr(
         type(get_adapter("paysim")),

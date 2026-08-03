@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from fraud_benchmark.datasets.base import get_adapter
+from fraud_benchmark.data.adapters.base import get_adapter
 from fraud_benchmark.data.schema import validate_canonical
 
 FIXTURE = Path(__file__).parent / "fixtures" / "banksim"
@@ -73,5 +73,5 @@ def test_missing_start_date_is_an_error():
 
 
 def test_banksim_is_registered():
-    from fraud_benchmark.datasets.base import list_datasets
+    from fraud_benchmark.data.adapters.base import list_datasets
     assert "banksim" in list_datasets()

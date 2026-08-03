@@ -13,8 +13,8 @@ split → campaign → delay → write**, orchestrated by `pipeline.py`.
 | `cli.py` | `list`, `prepare`, `info` |
 | `pipeline.py` | stage orchestration, and the atomic directory swap on write |
 | `sources.py` | fetching from Kaggle or git, with errors a human can act on |
-| `datasets/` | one adapter per dataset; `base.py` holds the interface and registry |
-| `datasets/files.py` | locating a named file, or reassembling a multi-part zip |
+| `data/adapters/` | one adapter per dataset; `base.py` holds the interface and registry |
+| `data/adapters/files.py` | locating a named file, or reassembling a multi-part zip |
 | `schema.py` | the canonical schema every adapter must produce, and its validator |
 | `splitting.py` | temporal splits, cut on timestamp values so ties cannot straddle |
 | `campaigns.py` | grouping frauds into campaigns (one entity, gap-bounded) |

@@ -10,12 +10,12 @@ from typing import Any
 
 import pandas as pd
 
-from fraud_benchmark.datasets.base import (
+from fraud_benchmark.data.adapters.base import (
     DatasetAdapter,
     register,
     require_start_date,
 )
-from fraud_benchmark.datasets.files import require_file
+from fraud_benchmark.data.adapters.files import require_file
 from fraud_benchmark.data.sources import KaggleDataset
 
 #: The transaction table. The bundle also ships bsNET140513_032310.csv, which is a

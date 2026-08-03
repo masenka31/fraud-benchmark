@@ -11,10 +11,10 @@ from pathlib import Path
 
 import pandas as pd
 
-import fraud_benchmark.datasets  # noqa: F401  (registers all adapters)
+import fraud_benchmark.data.adapters  # noqa: F401  (registers all adapters)
 from fraud_benchmark.data.campaigns import assign_campaigns, campaign_sizes
 from fraud_benchmark.data.config import Config
-from fraud_benchmark.datasets.base import get_adapter
+from fraud_benchmark.data.adapters.base import get_adapter
 from fraud_benchmark.data.delay import DelayParams, assign_reported_at
 from fraud_benchmark.data.schema import order_columns, validate_canonical
 from fraud_benchmark.data.splitting import assign_splits, split_boundaries
