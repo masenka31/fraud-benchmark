@@ -1,4 +1,4 @@
-"""Dataset preparation: download, canonicalize, validate, split, label-delay, write.
+"""Dataset preparation: download, canonicalize, validate, split, group, delay, write.
 
 Everything a prepared dataset needs and nothing more. The stages run in the order
 `pipeline.prepare` calls them; `censoring` is the exception, used at training time
