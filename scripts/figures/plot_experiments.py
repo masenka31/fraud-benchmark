@@ -87,13 +87,23 @@ def draw_baselines(ax, rows: list[dict], colours: dict) -> None:
     positions = np.arange(len(DATASETS))
     width = 0.26
     for index, model in enumerate(MODELS):
-        values, errors = [], []
-        for dataset in DATASETS:
+        offsets, values, errors = [], [], []
+        for slot, dataset in enumerate(DATASETS):
             row = by_key.get((dataset, model))
-            values.append(row["test_ap"] if row else 0.0)
-            errors.append(row["test_ap_sd"] if row else 0.0)
+            offset = slot + (index - 1) * width
+            if row is None:
+                # No bar at all. A zero-height bar is indistinguishable from a
+                # measured average precision of 0.0, which is a real possible result.
+                ax.text(
+                    offset, 0.012, "not run", rotation=90, ha="center", va="bottom",
+                    color=colours["muted"], fontsize=7.5,
+                )
+                continue
+            offsets.append(offset)
+            values.append(row["test_ap"])
+            errors.append(row["test_ap_sd"])
         ax.bar(
-            positions + (index - 1) * width,
+            offsets,
             values,
             width,
             yerr=errors,
