@@ -52,8 +52,12 @@ def make_parquet(directory, dataset="sparkov", n=N, slow=True):
     )
     extra = ()
     if slow:
+        # Strictly later than `reported_at`, but not so late that every train label
+        # disappears -- an all-negative training set is rejected outright, and it
+        # would not be a delay regime worth measuring anyway.
         keys["reported_at_slow"] = [
-            (t + pd.Timedelta(days=800)) if f else pd.NaT for t, f in zip(time, fraud)
+            (t + pd.Timedelta(days=10 if i % 2 else 800)) if f else pd.NaT
+            for i, (t, f) in enumerate(zip(time, fraud))
         ]
         extra = ("reported_at_slow",)
 
@@ -277,6 +281,72 @@ def test_continuous_and_categorical_indices_partition_the_columns(features_dir):
 
 def test_the_matrix_is_float32(features_dir):
     assert prepare(config(), features_dir).x.dtype == np.dtype("float32")
+
+
+# --- a run that cannot measure anything must fail, not report NaN ----------
+
+
+def test_a_split_with_no_frauds_is_rejected(tmp_path):
+    """Average precision is undefined there, and a NaN record reads as a result."""
+    rng = np.random.default_rng(1)
+    n = 400
+    time = [BASE + pd.Timedelta(hours=i) for i in range(n)]
+    fraud = np.zeros(n, dtype=bool)
+    fraud[:20] = True  # every fraud in the earliest rows, so val and test have none
+
+    keys = pd.DataFrame(
+        {
+            "entity_id": pd.Series([f"card{i % 5}" for i in range(n)], dtype="string"),
+            "event_time": time,
+            "reported_at": [
+                (t + pd.Timedelta(days=1)) if f else pd.NaT
+                for t, f in zip(time, fraud)
+            ],
+            "is_fraud": fraud,
+            "split": pd.Series(["train"] * n, dtype="string"),
+        }
+    )
+    features = pd.DataFrame(
+        {
+            name: rng.random(n)
+            for name in (
+                "amount_log1p", "seconds_since_prev_txn", "hour",
+                "distance_from_home_km", "distance_over_entity_mean",
+                "amount_over_entity_mean", "txn_count_24h",
+                "first_merchant_for_entity",
+            )
+        }
+    )
+    features["category"] = pd.Series(["a", "b"] * (n // 2), dtype="string").astype(
+        "category"
+    )
+    features["artifact_merchant"] = pd.Series(["m"] * n, dtype="string").astype(
+        "category"
+    )
+    write_features("sparkov", keys, features, features_dir=tmp_path)
+
+    with pytest.raises(ExperimentError, match="contains no frauds"):
+        prepare(config(), tmp_path)
+
+
+def test_a_delay_that_hides_every_train_label_is_rejected(tmp_path):
+    """Training on all-negative labels fits nothing and would report it as a score."""
+    directory = make_parquet(tmp_path)
+    frame = pd.read_parquet(directory / "sparkov.parquet")
+    # Every fraud reported long after the whole span ends.
+    frame["reported_at"] = frame["reported_at"].where(
+        ~frame["is_fraud"], BASE + pd.Timedelta(days=9999)
+    )
+    frame.to_parquet(directory / "sparkov.parquet", index=False)
+
+    with pytest.raises(ExperimentError, match="no fraud is labelled in train"):
+        prepare(config(label_delay="on"), directory)
+
+
+def test_append_record_refuses_to_write_a_nan(tmp_path):
+    """Python writes NaN as a bare literal that json.loads accepts and pandas does not."""
+    with pytest.raises(ValueError):
+        append_record({"aggregate": float("nan")}, tmp_path / "out.jsonl")
 
 
 # --- end to end -----------------------------------------------------------

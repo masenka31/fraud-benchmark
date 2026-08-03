@@ -276,6 +276,29 @@ def prepare(config: ExperimentConfig, features_dir: Path | str = FEATURE_DIR) ->
         if len(index) == 0:
             raise ExperimentError(f"the {name} split is empty after preparation")
 
+    # A split with no positives scores NaN average precision, and a NaN record reads
+    # as a result rather than as a run that could not measure anything -- worse, it
+    # serialises as a bare `NaN`, which is not valid JSON. Reachable with a small
+    # --max-rows on a dataset whose frauds are not spread evenly, which is all of them.
+    for name in ("val", "test"):
+        positives = int(y_true[rows[name]].sum())
+        if positives == 0:
+            raise ExperimentError(
+                f"the {name} split contains no frauds, so average precision is "
+                f"undefined; at a {y_true.mean() * 100:.3f}% base rate a "
+                f"{len(rows[name]):,}-row split is too small, so raise --max-rows"
+            )
+    if int(y[rows["train"]].sum()) == 0:
+        raise ExperimentError(
+            "no fraud is labelled in train"
+            + (
+                f" -- the {config.label_delay!r} delay regime hid all "
+                f"{int(y_true[rows['train']].sum())} of them"
+                if config.label_delay != "off"
+                else ""
+            )
+        )
+
     return Prepared(
         x=x,
         y=y,
@@ -412,11 +435,18 @@ def _rule_record(prepared: Prepared) -> dict:
 
 
 def append_record(record: dict, destination: Path | str = DEFAULT_RESULTS) -> Path:
-    """Append one JSON line. One file per invocation is the caller's business."""
+    """Append one JSON line. One file per invocation is the caller's business.
+
+    `allow_nan=False` so a NaN cannot reach disk. Python writes it as a bare `NaN`,
+    which json.loads accepts and most other readers reject, so the file would parse
+    here and fail in a notebook. Serialising is also the last point at which a metric
+    that could not be computed is still distinguishable from one that was.
+    """
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    line = json.dumps(record, allow_nan=False)
     with open(destination, "a") as handle:
-        handle.write(json.dumps(record) + "\n")
+        handle.write(line + "\n")
     return destination
 
 
