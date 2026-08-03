@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from fraud_benchmark.ablation.grid import CELLS
+
 DEFAULT_RESULTS = Path("results/runs")
 DEFAULT_SUMMARY = Path("results/summary.md")
 
@@ -19,8 +21,12 @@ DEFAULT_SUMMARY = Path("results/summary.md")
 def _lines(path: Path) -> list[str]:
     """Every JSONL line under `path`, which may be one file or a directory.
 
-    The SLURM jobs write one file each -- eighteen jobs appending to a single
+    The SLURM jobs write one file each -- fourteen jobs appending to a single
     file would race -- so the normal case is a directory.
+
+    The glob is deliberately non-recursive: `results/runs/retired/` holds records
+    for cells that are no longer part of the grid, kept as evidence for
+    docs/verification-notes.md but excluded from the summary.
     """
     path = Path(path)
     if path.is_dir():
@@ -30,6 +36,18 @@ def _lines(path: Path) -> list[str]:
             for line in f.read_text().splitlines()
         ]
     return path.read_text().splitlines() if path.exists() else []
+
+
+def _missing_cells(df: pd.DataFrame) -> list[tuple[str, str, str]]:
+    """Grid cells with no records, so the table cannot quietly omit one.
+
+    A summary that simply tables whatever it finds reads as complete whether or
+    not it is. `sparkov_slow`'s four cells were absent for a day exactly this way.
+    """
+    present = set(
+        zip(df["dataset"], df["feature_set"], df["label_regime"], strict=True)
+    )
+    return [cell for cell in CELLS if cell not in present]
 
 
 def _load(path: Path) -> pd.DataFrame:
@@ -103,6 +121,19 @@ def summarize(results_path: Path = DEFAULT_RESULTS) -> str:
             f"| {dataset} | {split} | {regime} | {model} | "
             f"{leaky_cell} | {clean_cell} | {gap_cell} | {cell(spread)} |"
         )
+
+    missing = _missing_cells(df)
+    if missing:
+        lines += [
+            "",
+            "## Cells with no results",
+            "",
+            "These are in the grid (`fraud_benchmark.ablation.grid`) but have not been",
+            "run, so the table above is incomplete. Submit them with",
+            "`scripts/slurm/jobs/submit_all.sh`.",
+            "",
+        ]
+        lines += [f"- `{d}` / {f} / {r}" for d, f, r in missing]
 
     return "\n".join(lines) + "\n"
 

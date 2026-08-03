@@ -3,7 +3,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "slurm"))
 
-from generate import CELLS, FEATURE_JOBS, render_cell_job, render_feature_job, write_all
+from generate import (
+    CELLS,
+    EXPERIMENTS,
+    FEATURE_JOBS,
+    render_cell_job,
+    render_experiment_job,
+    render_feature_job,
+    write_all,
+)
 
 
 def test_ibm_ccf_has_no_censored_cell():
@@ -65,8 +73,51 @@ def test_write_all_emits_a_submit_script_with_dependencies(tmp_path):
     write_all(tmp_path)
     submit = (tmp_path / "submit_all.sh").read_text()
     assert "--dependency=afterok" in submit
-    assert len(list(tmp_path.glob("*.sbatch"))) == 18   # 4 feature + 14 cell
+    # 4 feature + 14 cell + 11 experiment
+    assert len(list(tmp_path.glob("*.sbatch"))) == 29
 
 
 def test_feature_job_writes_to_the_features_dir():
     assert "build_features" in render_feature_job("sparkov")
+
+
+def test_every_experiment_job_is_generated_not_hand_written(tmp_path):
+    """scripts/slurm/jobs/ is gitignored, so a hand-written job is lost on clone."""
+    write_all(tmp_path)
+    for name, *_ in EXPERIMENTS:
+        assert (tmp_path / f"{name}.sbatch").exists()
+
+
+def test_the_ordinal_mlp_jobs_pass_their_encoding_explicitly():
+    """seq_mlp.py defaults to --encoding onehot.
+
+    Omitting the flag -- as the original hand-written jobs did, before it existed
+    -- writes one-hot results into a file named for the ordinal run.
+    """
+    # seq_mlp_v2.py is excluded: it has no --encoding flag, being one-hot only.
+    configurable = [e for e in EXPERIMENTS if e[1] == "seq_mlp.py"]
+    assert len(configurable) == 4
+    for name, _script, arguments, results, *_ in configurable:
+        assert "--encoding" in arguments, f"{name} relies on the default encoding"
+        encoding = arguments[arguments.index("--encoding") + 1]
+        # Only the one-hot runs carry the encoding in their filename; the ordinal
+        # ones predate the flag and keep their original names.
+        assert (encoding == "onehot") == ("onehot" in results), (
+            f"{name} runs {encoding} but writes to {results}"
+        )
+
+
+def test_no_experiment_job_names_a_retired_dataset():
+    for entry in EXPERIMENTS:
+        assert not any("subsample" in argument for argument in entry[2])
+
+
+def test_an_experiment_job_declares_its_own_memory():
+    """The sequence-window jobs need 250-280G; the tabular ones need 128G."""
+    script = render_experiment_job(
+        "seq_standard", "seq_window.py", ("--split", "standard"),
+        "seq_window_standard.jsonl", "250G", "24:00:00",
+    )
+    assert "--mem=250G" in script
+    assert "scripts/seq_window.py" in script
+    assert "--split standard" in script

@@ -82,3 +82,42 @@ def test_an_empty_results_directory_produces_a_message_not_a_crash(tmp_path):
     d = tmp_path / "runs"
     d.mkdir()
     assert "no results" in summarize(d).lower()
+
+
+def test_a_subdirectory_of_retired_records_is_not_read(tmp_path):
+    """results/runs/retired/ keeps records for cells no longer in the grid.
+
+    They stayed in the summary for a day after the subsamples were retired.
+    """
+    d = tmp_path / "runs"
+    (d / "retired").mkdir(parents=True)
+    (d / "live.jsonl").write_text(
+        json.dumps(record("sparkov", "leaky", "oracle", "xgboost", 0.40, seed=0)) + "\n"
+    )
+    (d / "retired" / "gone.jsonl").write_text(
+        json.dumps(record("ibm_ccf_subsample_fast", "leaky", "oracle", "xgboost", 0.975))
+        + "\n"
+    )
+    text = summarize(d)
+    assert "subsample" not in text
+    assert "0.400" in text
+
+
+def test_grid_cells_with_no_records_are_named(tmp_path):
+    """A summary that tables only what it finds reads as complete either way."""
+    path = write(tmp_path, [record("sparkov", "leaky", "oracle", "xgboost", 0.4, seed=0)])
+    text = summarize(path)
+    assert "Cells with no results" in text
+    assert "`sparkov_slow` / clean / censored" in text
+    # The one cell that does have a record must not be listed as missing.
+    assert "`sparkov` / leaky / oracle" not in text
+
+
+def test_a_complete_grid_reports_no_missing_cells(tmp_path):
+    from fraud_benchmark.ablation.grid import CELLS
+
+    path = write(
+        tmp_path,
+        [record(d, f, r, "xgboost", 0.4, seed=0) for d, f, r in CELLS],
+    )
+    assert "Cells with no results" not in summarize(path)

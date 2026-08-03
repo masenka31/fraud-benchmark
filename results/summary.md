@@ -16,26 +16,6 @@ calibrates how much of every other row to believe.
 | ibm_ccf | val | n/a | trivial_rule | 0.841 | - | - | - |
 | ibm_ccf | val | oracle | logistic | 0.007 | 0.010 | -0.004 | - |
 | ibm_ccf | val | oracle | xgboost | 0.011 | 0.007 | 0.004 | 0.003 |
-| ibm_ccf_subsample_fast | test | censored | logistic | 0.027 | 0.015 | 0.012 | - |
-| ibm_ccf_subsample_fast | test | censored | xgboost | 0.974 | 0.015 | 0.960 | 0.001 |
-| ibm_ccf_subsample_fast | test | n/a | trivial_rule | 0.839 | - | - | - |
-| ibm_ccf_subsample_fast | test | oracle | logistic | 0.027 | 0.016 | 0.012 | - |
-| ibm_ccf_subsample_fast | test | oracle | xgboost | 0.975 | 0.014 | 0.961 | 0.001 |
-| ibm_ccf_subsample_fast | val | censored | logistic | 0.031 | 0.018 | 0.013 | - |
-| ibm_ccf_subsample_fast | val | censored | xgboost | 0.966 | 0.015 | 0.951 | 0.002 |
-| ibm_ccf_subsample_fast | val | n/a | trivial_rule | 0.800 | - | - | - |
-| ibm_ccf_subsample_fast | val | oracle | logistic | 0.032 | 0.018 | 0.014 | - |
-| ibm_ccf_subsample_fast | val | oracle | xgboost | 0.968 | 0.016 | 0.952 | 0.005 |
-| ibm_ccf_subsample_slow | test | censored | logistic | 0.026 | 0.015 | 0.011 | - |
-| ibm_ccf_subsample_slow | test | censored | xgboost | 0.974 | 0.014 | 0.960 | 0.001 |
-| ibm_ccf_subsample_slow | test | n/a | trivial_rule | 0.839 | - | - | - |
-| ibm_ccf_subsample_slow | test | oracle | logistic | 0.027 | 0.016 | 0.012 | - |
-| ibm_ccf_subsample_slow | test | oracle | xgboost | 0.975 | 0.014 | 0.961 | 0.001 |
-| ibm_ccf_subsample_slow | val | censored | logistic | 0.031 | 0.018 | 0.013 | - |
-| ibm_ccf_subsample_slow | val | censored | xgboost | 0.974 | 0.014 | 0.960 | 0.009 |
-| ibm_ccf_subsample_slow | val | n/a | trivial_rule | 0.800 | - | - | - |
-| ibm_ccf_subsample_slow | val | oracle | logistic | 0.032 | 0.018 | 0.014 | - |
-| ibm_ccf_subsample_slow | val | oracle | xgboost | 0.968 | 0.016 | 0.952 | 0.005 |
 | saml_d | test | censored | logistic | 0.075 | 0.064 | 0.012 | - |
 | saml_d | test | censored | xgboost | 0.486 | 0.452 | 0.033 | 0.003 |
 | saml_d | test | oracle | logistic | 0.072 | 0.064 | 0.009 | - |
@@ -52,3 +32,14 @@ calibrates how much of every other row to believe.
 | sparkov | val | censored | xgboost | 0.951 | 0.951 | 0.000 | 0.004 |
 | sparkov | val | oracle | logistic | 0.431 | 0.431 | 0.000 | - |
 | sparkov | val | oracle | xgboost | 0.954 | 0.954 | 0.000 | 0.002 |
+
+## Cells with no results
+
+These are in the grid (`fraud_benchmark.ablation.grid`) but have not been
+run, so the table above is incomplete. Submit them with
+`scripts/slurm/jobs/submit_all.sh`.
+
+- `sparkov_slow` / leaky / oracle
+- `sparkov_slow` / leaky / censored
+- `sparkov_slow` / clean / oracle
+- `sparkov_slow` / clean / censored
