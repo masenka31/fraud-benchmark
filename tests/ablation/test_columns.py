@@ -127,3 +127,24 @@ def test_cyclical_and_customer_date_parts_are_kept():
     cols = feature_columns(df, dataset="ibm_ccf", feature_set="clean")
     for name in ["Month", "Day", "Time", "Birth Year", "Acct Open Date", "dob"]:
         assert name in cols
+
+
+def test_every_source_label_column_is_always_excluded():
+    """The canonical frame passes each source's raw label through, so a dataset
+    added to the grid later must not be handed its own answer."""
+    for column in ("Is Fraud?", "Is_laundering", "isFraud", "fraud", "Anomaly"):
+        assert column in ALWAYS_EXCLUDED, column
+
+
+def test_the_paysim_detector_output_is_excluded():
+    """isFlaggedFraud is the simulator's own decision, not a model input."""
+    assert "isFlaggedFraud" in ALWAYS_EXCLUDED
+
+
+def test_a_frame_carrying_a_raw_label_column_drops_it():
+    df = pd.DataFrame(
+        {"amount": [1.0], "fraud": [1], "isFraud": [1], "Anomaly": [3],
+         "is_fraud": [True], "merchant": ["m"]}
+    )
+    columns = feature_columns(df, dataset="sparkov", feature_set="clean")
+    assert columns == ["amount", "merchant"]

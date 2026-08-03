@@ -16,15 +16,28 @@ FEATURE_SETS = ("leaky", "clean")
 # `source_file` is here because Sparkov's splits come from separate upstream
 # files, so it predicts the split perfectly. `Laundering_type` describes the
 # label and is non-null only for laundering rows.
+#
+# EVERY source's own label column belongs here, including the four datasets not
+# currently in the grid: the canonical frame passes the raw label through, so a
+# dataset added to LEAKY_COLUMNS later would otherwise hand a model its own
+# answer. docs/datasets/ points readers at this set as the canonical drop-list.
 ALWAYS_EXCLUDED = frozenset(
     {
         "is_fraud",
         "reported_at",
         "campaign_id",
         "split",
-        "Is Fraud?",
-        "Is_laundering",
-        "Laundering_type",
+        # Source label columns, one per dataset.
+        "Is Fraud?",        # ibm_ccf
+        "Is_laundering",    # saml_d
+        "Laundering_type",  # saml_d: describes the label
+        "isFraud",          # paysim, ieee_cis
+        "fraud",            # banksim
+        "Anomaly",          # amaretto: the 5-class label is_fraud is derived from
+        # Not a label, but the simulator's own detector output rather than an
+        # input any model would have at scoring time.
+        "isFlaggedFraud",   # paysim
+        # Row identifiers and split provenance.
         "trans_num",
         "source_file",
     }
