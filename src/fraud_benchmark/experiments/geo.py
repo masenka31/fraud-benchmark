@@ -22,7 +22,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from fraud_benchmark.experiments.ablation.columns import (
+from fraud_benchmark.experiments.columns import (
     ABSOLUTE_TIME_COLUMNS,
     ALWAYS_EXCLUDED,
 )

@@ -1,47 +1,24 @@
-"""Which columns a model may see.
+"""Which columns the leakage ablation removes.
 
-Two separate sets, deliberately not merged. ALWAYS_EXCLUDED is the label and
-anything derived from it -- leaving one of these in invalidates every number in
-the study. LEAKY_COLUMNS is the ablation: the generation artifacts the audit
-measured, present in the `leaky` condition and absent in the `clean` one.
+The study's own condition, not a correctness invariant: LEAKY_COLUMNS is present in
+the `leaky` arm and absent in the `clean` one, and the gap between them is the
+result. What no model may see under any condition lives in `experiments/columns.py`,
+and is re-exported here so a caller reading one cell's column list finds both in
+one place.
 """
 
 from __future__ import annotations
 
 import pandas as pd
 
-FEATURE_SETS = ("leaky", "clean")
-
-# The label, anything derived from it, row identifiers, and split provenance.
-# `source_file` is here because Sparkov's splits come from separate upstream
-# files, so it predicts the split perfectly. `Laundering_type` describes the
-# label and is non-null only for laundering rows.
-#
-# EVERY source's own label column belongs here, including the four datasets not
-# currently in the grid: the canonical frame passes the raw label through, so a
-# dataset added to LEAKY_COLUMNS later would otherwise hand a model its own
-# answer. docs/datasets/ points readers at this set as the canonical drop-list.
-ALWAYS_EXCLUDED = frozenset(
-    {
-        "is_fraud",
-        "reported_at",
-        "campaign_id",
-        "split",
-        # Source label columns, one per dataset.
-        "Is Fraud?",        # ibm_ccf
-        "Is_laundering",    # saml_d
-        "Laundering_type",  # saml_d: describes the label
-        "isFraud",          # paysim, ieee_cis
-        "fraud",            # banksim
-        "Anomaly",          # amaretto: the 5-class label is_fraud is derived from
-        # Not a label, but the simulator's own detector output rather than an
-        # input any model would have at scoring time.
-        "isFlaggedFraud",   # paysim
-        # Row identifiers and split provenance.
-        "trans_num",
-        "source_file",
-    }
+from fraud_benchmark.experiments.columns import (  # noqa: F401  (re-exported)
+    ABSOLUTE_TIME_COLUMNS,
+    ALWAYS_EXCLUDED,
+    ExcludedColumnError,
+    assert_no_excluded,
 )
+
+FEATURE_SETS = ("leaky", "clean")
 
 # From docs/verification-notes.md, "## Known leakage". `Merchant Name` is added
 # beyond the tuple the audit suggested: a merchant id encodes its own location,
@@ -68,47 +45,6 @@ LEAKY_COLUMNS: dict[str, tuple[str, ...]] = {
     # Row-identical to sparkov, so it carries the same (empty) leaky set.
     "sparkov_slow": (),
 }
-
-
-# Columns that restate event_time and therefore encode split membership. The
-# splits are temporal, so an absolute clock lets a tree isolate the split
-# boundary as a threshold -- sparkov's `unix_time` separates them exactly
-# (train max 1367492969 < val min 1367493022). Dropping event_time while
-# keeping these would be self-defeating, and a dtype check does not catch them:
-# `trans_date_trans_time` is stored as a string and `unix_time` as an int.
-#
-# Cyclical and relative parts are KEPT -- Month, Day, time-of-day -- because
-# they are what a real detector uses and they generalise forward. Customer
-# attributes that happen to be dates (Birth Year, Acct Open Date) are kept too:
-# they describe the cardholder, not when the transaction happened.
-ABSOLUTE_TIME_COLUMNS = frozenset(
-    {
-        "trans_date_trans_time",  # sparkov: event_time as a string
-        "unix_time",              # sparkov: event_time as an int
-        "Date",                   # saml_d: the absolute date
-        "Year",                   # ibm_ccf: with Month and Day, reconstructs it
-    }
-)
-
-
-class ExcludedColumnError(AssertionError):
-    """Raised when a column that must never reach a model is about to."""
-
-
-def assert_no_excluded(columns: list[str]) -> None:
-    """Raise if any always-excluded column is in `columns`.
-
-    A tripwire for callers that assemble a column list themselves rather than
-    taking `feature_columns` output verbatim -- which is every consumer that
-    adds, renames, or re-orders columns downstream. Calling it on
-    `feature_columns` output cannot fail today; it is there so that a future
-    change to the filter is caught by a test rather than by a wrong result.
-    """
-    leaked = sorted(set(ALWAYS_EXCLUDED) & set(columns))
-    if leaked:
-        raise ExcludedColumnError(
-            f"columns that must never reach a model are present: {leaked}"
-        )
 
 
 def feature_columns(df: pd.DataFrame, dataset: str, feature_set: str) -> list[str]:

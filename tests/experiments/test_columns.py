@@ -19,8 +19,14 @@ def test_label_and_its_derivatives_are_always_excluded():
         assert name in ALWAYS_EXCLUDED
 
 
-def test_source_raw_labels_are_always_excluded():
-    for name in ["Is Fraud?", "Is_laundering", "Laundering_type"]:
+def test_the_kept_label_descriptive_columns_are_always_excluded():
+    """The two columns the pipeline keeps because is_fraud loses what they carry.
+
+    The raw binary labels used to be listed here too. They are dropped at
+    preparation time now, so they cannot appear in a frame at all -- see
+    tests/experiments/test_general_columns.py, which owns that property.
+    """
+    for name in ["Laundering_type", "Anomaly"]:
         assert name in ALWAYS_EXCLUDED
 
 
@@ -129,11 +135,19 @@ def test_cyclical_and_customer_date_parts_are_kept():
         assert name in cols
 
 
-def test_every_source_label_column_is_always_excluded():
-    """The canonical frame passes each source's raw label through, so a dataset
-    added to the grid later must not be handed its own answer."""
-    for column in ("Is Fraud?", "Is_laundering", "isFraud", "fraud", "Anomaly"):
-        assert column in ALWAYS_EXCLUDED, column
+def test_a_dataset_added_later_cannot_be_handed_its_own_answer():
+    """Two defences, and this asserts the second.
+
+    The raw label column is dropped at preparation time, so it is not in the frame
+    to exclude. What survives preparation is the label-descriptive columns, and
+    those come from the adapters' own declarations rather than from a list here --
+    so a newly added dataset is covered by registering it.
+    """
+    from fraud_benchmark.data.adapters.base import get_adapter, list_datasets
+
+    for name in list_datasets():
+        for column in get_adapter(name).label_descriptive_columns:
+            assert column in ALWAYS_EXCLUDED, f"{name}: {column}"
 
 
 def test_the_paysim_detector_output_is_excluded():
@@ -141,10 +155,15 @@ def test_the_paysim_detector_output_is_excluded():
     assert "isFlaggedFraud" in ALWAYS_EXCLUDED
 
 
-def test_a_frame_carrying_a_raw_label_column_drops_it():
+def test_a_frame_carrying_a_label_descriptive_column_drops_it():
+    """Reduced to the columns that can actually reach a model.
+
+    `fraud` and `isFraud` used to be in this frame. The pipeline drops them now, so
+    a frame containing them could only come from a hand-built fixture -- testing
+    against one would assert a filter the real data never exercises.
+    """
     df = pd.DataFrame(
-        {"amount": [1.0], "fraud": [1], "isFraud": [1], "Anomaly": [3],
-         "is_fraud": [True], "merchant": ["m"]}
+        {"amount": [1.0], "Anomaly": [3], "is_fraud": [True], "merchant": ["m"]}
     )
     columns = feature_columns(df, dataset="sparkov", feature_set="clean")
     assert columns == ["amount", "merchant"]
