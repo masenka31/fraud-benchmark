@@ -1,12 +1,13 @@
 # Experiments on IBM CCF
 
-Everything in `scripts/` other than `plot_monthly_fraud.py`. They all ask one
-question, from different angles: **IBM CCF scores 0.041 average precision under the
-leakage ablation while a one-line rule scores 0.764 — what, if anything, closes
-that gap?**
+The six runners in `scripts/` (everything outside `scripts/figures/` and
+`scripts/slurm/`). They all ask one question, from different angles: **IBM CCF
+scores 0.041 average precision under the leakage ablation while a one-line rule
+scores 0.764 — what, if anything, closes that gap?**
 
-The ablation itself is separate: `src/fraud_benchmark/ablation/`, results in
-`results/runs/`, table in `results/summary.md`. This file covers the follow-ups.
+The ablation itself is separate: `src/fraud_benchmark/experiments/ablation/`,
+results in `results/runs/`, table in `results/summary.md`. This file covers the
+follow-ups.
 
 Every number below is **test average precision**, mean ± population sd over seeds
 0/1/2, read from the `results/*.jsonl` files named in each row. Never ROC AUC — at
@@ -16,9 +17,9 @@ a 0.122% base rate it stays high for a model with no useful precision.
 
 | split | built by | train | note |
 |---|---|---|---|
-| `standard` | `standard_split` in the scripts | 80% by `event_time` quantile | Comparable across the scripts here |
-| `italy_holdout` | `italy_holdout.build_split` | 13,350,884 rows ending 1s before the first Italy fraud | Exactly 80/10/10 by construction, zero Italy frauds in train |
-| ablation | `splitting.assign_splits` | 80% cut on timestamp *values* | Tie-safe; **different** from `standard` |
+| `standard` | `experiments.splits.standard_split` | 80% by `event_time` quantile | Comparable across the runners here |
+| `italy_holdout` | `experiments.splits.italy_holdout_split` | 13,350,884 rows ending 1s before the first Italy fraud | Exactly 80/10/10 by construction, zero Italy frauds in train |
+| ablation | `data.splitting.assign_splits` | 80% cut on timestamp *values* | Tie-safe; **different** from `standard` |
 
 Two traps worth stating plainly:
 
@@ -108,18 +109,25 @@ jobs request 250–280 GB and the `cpulong` partition.
 
 ## Known rough edges
 
-`scripts/` grew as one-off experiments and has not been consolidated:
+`scripts/` grew as one-off experiments. The shared parts have now been promoted
+into `src/fraud_benchmark/experiments/`, and each file in `scripts/` is a thin
+entry point: argparse, an output path, and imports. Three consequences of the old
+layout are gone — the copy-pasted `standard_split` (now
+`experiments.splits.standard_split`), the scripts that imported each other *as
+libraries* through Python's script-directory `sys.path` entry (including private
+names such as `_money`), and the test files that carried a `sys.path.insert` to
+reach them.
 
-* `standard_split` is copy-pasted in two remaining scripts; the XGBoost parameter
-  block is inlined four times although `ablation/models.py:fit_xgboost` already
-  does exactly that; `italy_holdout.build_features` and `seq_window.base_features`
-  are near-duplicates.
-* `italy_holdout.py` and `features_v2.py` are imported *as libraries* by the other
-  scripts (including private names such as `_money`), which works only because
-  Python puts a script's own directory on `sys.path`. Three test files carry a
-  `sys.path.insert` to reach them.
-* `features_v2.py` (a library, no `main`) and `ibm_features_v2.py` (an experiment)
-  are one character apart.
+What is left:
 
-The fix is to promote the shared parts into `src/fraud_benchmark/experiments/` and
-leave each file in `scripts/` as a thin entry point. Not yet done.
+* The XGBoost parameter block is still inlined in three runners
+  (`italy_holdout.py`, `ibm_features_v2.py`, `seq_window.py`) although
+  `experiments/models.py:fit_xgboost` holds the same values in `XGB_PARAMS`. Each
+  keeps the fitted booster to read `total_gain` off it, which is why they were
+  written out longhand; the parameters could still come from one place.
+* `ibm_features.build_features` and `seq_window.base_features` remain
+  near-duplicates; moving them into the same package made the overlap visible
+  without removing it.
+* `experiments/features_v2.py` (a library) and `scripts/ibm_features_v2.py` (a
+  runner) are one character apart. The directories now distinguish them, but the
+  names do not.

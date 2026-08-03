@@ -22,7 +22,7 @@ it. Everything else lives here.
 
 | doc | answers |
 |---|---|
-| [`architecture.md`](architecture.md) | Repository layout: the pipeline's stages and modules, the ablation's, what `scripts/` is for, where results go, and the conventions to respect before changing anything. |
+| [`architecture.md`](architecture.md) | Repository layout: the preparation stages and modules in `data/`, the modeling stack and the ablation in `experiments/`, what `scripts/` is for, where results go, and the conventions to respect before changing anything. |
 
 ## Findings
 

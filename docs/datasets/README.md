@@ -38,4 +38,4 @@ Sorted by how much the labels are recoverable from a single column, worst first.
 2. **Every `reported_at` is synthetic.** No dataset here ships a real reporting timestamp.
 
 Figures in `figures/` are emitted for light and dark by
-`scripts/plot_dataset_caveats.py`; the pages embed the light variant.
+`scripts/figures/plot_dataset_caveats.py`; the pages embed the light variant.

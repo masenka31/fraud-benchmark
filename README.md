@@ -99,9 +99,11 @@ realistic clock: **[`docs/label-delay.md`](docs/label-delay.md)**.
 
 ## Beyond the pipeline
 
-Two studies read the pipeline's output and never write to it — a **leakage ablation**
-(`src/fraud_benchmark/ablation/`) and a set of **IBM CCF experiments** (`scripts/`). See
-[`docs/architecture.md`](docs/architecture.md) for the layout and
+`src/fraud_benchmark/experiments/` holds everything that happens after a dataset is
+prepared, and reads the pipeline's output without ever writing to it: the shared feature,
+encoding, model and metric stack, the **leakage ablation**
+(`src/fraud_benchmark/experiments/ablation/`), and the **IBM CCF experiments** launched
+from `scripts/`. See [`docs/architecture.md`](docs/architecture.md) for the layout and
 [`docs/README.md`](docs/README.md) for everything else.
 
 ## Tests

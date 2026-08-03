@@ -1,9 +1,9 @@
 # Repository layout
 
-Three separable pieces. Only the first is the benchmark itself; the other two are studies
-that read its output and never write to it.
+Three separable pieces. Only the first is the benchmark itself; the second holds the
+studies that read its output and never write to it, and the third is how they are launched.
 
-## 1. The pipeline — `src/fraud_benchmark/`
+## 1. Dataset preparation — `src/fraud_benchmark/data/`
 
 Driven by the `fraud-benchmark` CLI. Stages, in order: **fetch → canonicalize → validate →
 split → campaign → delay → write**, orchestrated by `pipeline.py`.
@@ -13,13 +13,22 @@ split → campaign → delay → write**, orchestrated by `pipeline.py`.
 | `cli.py` | `list`, `prepare`, `info` |
 | `pipeline.py` | stage orchestration, and the atomic directory swap on write |
 | `sources.py` | fetching from Kaggle or git, with errors a human can act on |
-| `data/adapters/` | one adapter per dataset; `base.py` holds the interface and registry |
-| `data/adapters/files.py` | locating a named file, or reassembling a multi-part zip |
+| `adapters/` | one adapter per dataset; `base.py` holds the interface and registry |
+| `adapters/files.py` | locating a named file, or reassembling a multi-part zip |
 | `schema.py` | the canonical schema every adapter must produce, and its validator |
 | `splitting.py` | temporal splits, cut on timestamp values so ties cannot straddle |
 | `campaigns.py` | grouping frauds into campaigns (one entity, gap-bounded) |
 | `delay.py` | the synthetic `reported_at` timestamp, lognormal per campaign |
+| `censoring.py` | reading `reported_at` back: the labels a model at a cutoff would have |
 | `config.py` | `configs/default.yaml` plus per-dataset overrides |
+
+`censoring.py` is the one module here that no pipeline stage calls. It lives beside
+`delay.py` anyway, because it is the only correct way to consume what `delay.py` writes,
+and an experiment that reimplemented it slightly differently would silently measure
+something else.
+
+**This package may not import from `experiments`.** Preparation knows nothing about
+features or models; the dependency runs one way only.
 
 **An adapter's only job** is turning one dataset's raw files into a canonical frame. It
 knows nothing about splitting, label delay, or output formats. Adding a dataset means
@@ -34,35 +43,60 @@ writing `to_canonical` and `column_mapping`, and optionally overriding `custom_s
   split strategy and counts, the realised delay parameters, column mapping, caveats.
 - occasionally an auxiliary frame, e.g. IEEE-CIS's `unlabelled_test.parquet`.
 
-## 2. The leakage ablation — `src/fraud_benchmark/ablation/`
+## 2. Experiments — `src/fraud_benchmark/experiments/`
 
-Does a model's score survive removing the columns the audit flagged as generation
-artifacts? A 14-cell grid of (dataset × `leaky`/`clean` × `oracle`/`censored` labels), run
-in two stages so the expensive feature build happens once per dataset.
+Everything that happens after a dataset is prepared. Reads `data/processed/` and
+`data/features/`, writes to neither. Imports from `data` freely.
+
+The shared modeling stack:
+
+| module | does |
+|---|---|
+| `splits.py` | `standard_split` and `italy_holdout_split` on an already-prepared frame |
+| `build_features.py` | causal velocity features for one dataset, cached to `data/features/` |
+| `features.py` | the velocity feature definitions themselves |
+| `features_v2.py` | 26 history-relative features: novelty, decline velocity, burst ratios |
+| `ibm_features.py` | the IBM CCF feature pipeline — grouped MCC, relative geography |
+| `seq_window.py` | flattened sequence window: target transaction + its previous 9, same user |
+| `mlp.py` | a 3-layer MLP over that window |
+| `geo.py` | the transformations that break IBM CCF's geography oracle |
+| `encoding.py` | categorical encoding and scaling, fitted on train only |
+| `models.py` | logistic regression, XGBoost, and the trivial-rule floor |
+| `metrics.py` | average precision, plus precision/recall/F1 at a validation-chosen threshold |
+
+### The leakage ablation — `experiments/ablation/`
+
+One study among the several this stack supports, and the only one with its own
+subpackage, because it is a grid rather than a single run. Does a model's score survive
+removing the columns the audit flagged as generation artifacts? A 14-cell grid of
+(dataset × `leaky`/`clean` × `oracle`/`censored` labels), run in two stages so the
+expensive feature build happens once per dataset.
 
 | module | does |
 |---|---|
 | `grid.py` | which cells exist — one definition, read by the job generator and the summary |
-| `build_features.py` | stage 1: causal velocity features, cached to `data/features/` |
-| `features.py` | the velocity feature definitions themselves |
 | `columns.py` | which columns a model may see; the two exclusion sets |
 | `cell.py` | stage 2: run one cell, appending a record per fit |
-| `encoding.py` | categorical encoding and scaling, fitted on train only |
-| `models.py` | logistic regression, XGBoost, and the trivial-rule floor |
-| `metrics.py` | average precision, plus precision/recall/F1 at a validation-chosen threshold |
 | `summarize.py` | `results/runs/*.jsonl` → `results/summary.md` |
+
+Stage 1 is `experiments/build_features.py`, shared with the other experiments.
 
 Read `results/summary.md` first, then
 [`verification-notes.md`](verification-notes.md) §"Known leakage".
 
-## 3. The IBM CCF experiments — `scripts/`
+## 3. Runners — `scripts/`
 
-Follow-ups asking why IBM CCF scores 0.041 average precision when a one-line rule scores
-0.764: feature engineering, geography ablation, flattened sequence windows, MLPs. Every
-result is tabled in [`experiments.md`](experiments.md), which also names the known rough
-edges in this directory — it grew as one-off experiments and has not been consolidated.
+Argparse and an output path, nothing more: every runner imports its features, splits,
+models and metrics from `experiments/`, so no importable logic lives here. The six
+experiment runners (`italy_holdout`, `geo_dilution`, `ibm_features_v2`, `seq_window`,
+`seq_mlp`, `seq_mlp_v2`) ask why IBM CCF scores 0.041 average precision when a one-line
+rule scores 0.764. Every result is tabled in [`experiments.md`](experiments.md).
 
-`scripts/slurm/generate.py` emits **every** sbatch file, the ablation grid and these
+`scripts/figures/` holds the two plotting scripts that generate the figures embedded in
+the documentation — neither is feature engineering or model training, and neither is an
+sbatch job.
+
+`scripts/slurm/generate.py` emits **every** sbatch file, the ablation grid and the
 experiments alike, so `scripts/slurm/jobs/` can stay gitignored. Add a job by declaring it
 there, never by hand-writing a file into that directory.
 
@@ -85,4 +119,6 @@ there, never by hand-writing a file into that directory.
 - **Every feature window is left-closed** and excludes the row it describes.
 - **Splits are cut on timestamp values, not row positions**, so tied timestamps cannot
   straddle a boundary.
-- **The pipeline's output is read-only** to both studies.
+- **The pipeline's output is read-only** to everything in `experiments/`.
+- **`data/` may not import from `experiments/`.** Tests mirror the split: `tests/data/`
+  and `tests/experiments/`.
