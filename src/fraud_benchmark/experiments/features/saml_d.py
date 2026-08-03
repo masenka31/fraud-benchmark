@@ -10,13 +10,29 @@ the sending account, but half the signal is on the receiving side, so this modul
 builds two histories -- one keyed on the sender, one on the receiver -- and the
 features that matter are the shapes those two make together:
 
-    fan-out   `distinct_receivers_24h/7d` -- one account paying many new
-              counterparties in a week is smurfing described as behaviour
-    fan-in    `receiver_distinct_senders_7d`, `receiver_in_count_24h/7d` -- many
-              accounts converging on one is the collection end of the same pattern
+    fan-out   `distinct_receivers_24h/7d` -- how many counterparties one account
+              pays inside a window
+    fan-in    `receiver_distinct_senders_7d`, `receiver_in_count_24h/7d` -- how
+              many accounts converge on one
 
-Neither is expressible as a per-row aggregate over the sender alone, which is why
-the generic velocity block is the smaller half of this file.
+Fan-in is not expressible as a per-row aggregate over the sender alone, which is
+why the generic velocity block is the smaller half of this file.
+
+**Both separate in the opposite direction from the textbook story, and the reason
+is in how the dataset was generated.** Measured over all 9.5M rows, laundering rows
+average 2.90 distinct receivers in 7 days against 6.96 for normal rows, and 1.45
+distinct senders per receiver against 3.72. Smurfing would predict the reverse. The
+explanation is that 61% of the *normal* rows are generated as explicit fan patterns
+-- `Normal_Small_Fan_Out` 3.48M, `Normal_Fan_Out` 2.30M, `Normal_Fan_In` 2.10M --
+so the background traffic is fan-heavy by construction, while the 9,873 laundering
+rows spread across a dozen typologies of which only some are fan-shaped
+(`Structuring` 1,870, `Smurfing` 932, `Layered_Fan_In` 656).
+
+The features are kept, because the gap is large and a model does not care about its
+sign, and `receiver_sender_concentration_7d` (0.48 against 0.27) points the way the
+narrative expects. But do not read a high fan-out here as evidence of laundering,
+and do not carry that reading to another dataset: it is a property of this
+generator, not of laundering.
 
 ## Amounts are not comparable across rows
 
