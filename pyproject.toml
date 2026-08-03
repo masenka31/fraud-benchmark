@@ -23,7 +23,7 @@ dependencies = [
 # Neither is used by the pipeline. They back the leakage ablation study in
 # src/fraud_benchmark/ablation/; 1.4 is the floor for passing string column names
 # to HistGradientBoostingClassifier(categorical_features=...).
-dev = ["pytest>=8", "scikit-learn>=1.4", "xgboost>=2.0"]
+dev = ["pytest>=8", "scikit-learn>=1.4", "xgboost>=2.0", "matplotlib>=3.8"]
 
 [project.scripts]
 fraud-benchmark = "fraud_benchmark.cli:main"
