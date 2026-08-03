@@ -99,20 +99,15 @@ repository**: RNN 0.335, CAST fine-tuned 0.565. Verify before citing.
 
 ## The current experimental surface
 
-Nothing above runs any more. What exists in its place is three feature parquets, built
-one module per dataset:
+Nothing above runs any more. What exists in its place is three feature parquets and a
+25-cell grid over them.
+
+### Building the parquets
 
 ```bash
 python -m fraud_benchmark.experiments.features.ibm_ccf    # 24.4M rows, 82 features
 python -m fraud_benchmark.experiments.features.saml_d     #  9.5M rows, 63 features
 python -m fraud_benchmark.experiments.features.sparkov    # 1.85M rows, 50 features
-```
-
-Or via the generated sbatch files, which is how the big two are meant to run:
-
-```bash
-.venv/bin/python scripts/slurm/generate.py    # writes scripts/slurm/jobs/
-scripts/slurm/jobs/submit_all.sh              # all three, no dependencies
 ```
 
 Measured on the full prepared datasets, 2026-08-03:
@@ -125,23 +120,78 @@ Measured on the full prepared datasets, 2026-08-03:
 
 SAML-D costs more wall-clock than the dataset 2.5x its size because four of its features
 are trailing-distinct counts, which is a genuine sliding-window problem and so a
-Python-level walk over the sorted rows rather than a pandas call. All three fit the short
-partition; the sbatch requests carry ~2.5x the measured memory.
+Python-level walk over the sorted rows rather than a pandas call.
 
-Three axes are available to an experiment, and they are chosen when a model is fitted
-rather than when a parquet is built:
+### Running one experiment
 
-| axis | values | how |
+```bash
+python scripts/run_experiment.py --dataset sparkov --model xgboost \
+    --history 10 --label-delay slow
+```
+
+Six axes, all chosen at fit time rather than when a parquet is built — which is why the
+parquets are built once and read by every combination:
+
+| axis | values | what it changes |
 |---|---|---|
-| feature set | with or without the generation artifacts | include or drop the `artifact_*` columns |
-| label regime | no delay, delay, slow delay | ignore `reported_at`; use it; use `reported_at_slow` (sparkov only) |
-| split | `standard`, `italy_holdout` | `experiments.splits`; the parquets are split-agnostic |
+| `--dataset` | `ibm_ccf`, `saml_d`, `sparkov` | which parquet |
+| `--model` | `xgboost`, `mlp`, `logistic` | one module each under `experiments/estimators/` |
+| `--history N` | 0, or N lags | N per-entity previous transactions concatenated on |
+| `--label-delay` | `off`, `on`, `slow` | which labels *training* sees |
+| `--artifacts` | `drop`, `keep` | the `artifact_` column group |
+| `--split` | `standard`, `italy_holdout` | where the boundaries fall |
 
-The leaky/clean axis of the retired ablation is the first of these, moved inside the
-feature definitions: each module's docstring says which of its columns are in the
-artifact group and what was measured about them. The three label regimes replace the
-`oracle`/`censored` pair and the separate `sparkov_slow` dataset, since sparkov's parquet
-carries both timestamps.
+`--label-delay` is the one worth stating precisely. `off` trains on `is_fraud`. `on`
+trains on the labels known at the train cutoff, so a fraud reported later stays in the
+training data **labelled 0 rather than dropped** — at that moment it is
+indistinguishable from a legitimate transaction, and dropping it would presume knowing
+which rows to distrust. `slow` is the same against `reported_at_slow`, which only
+Sparkov carries. Validation and test always use true labels: they measure what
+happened, and censoring them would score the delay instead of the model.
+
+`--history` lags a short per-dataset `HISTORY_COLUMNS` rather than every feature,
+because IBM CCF's 82 features at 10 lags is 902 columns over 24.4M rows, 88 GB. The
+target row always keeps the full feature set; only the lags are narrow. A lag that does
+not exist is `-1.0`, not `0.0` — an entity's first transaction has no previous gap, and
+a zero there reads as a measured zero. `--history-columns all` overrides the subset.
+
+The leaky/clean axis of the retired ablation is `--artifacts`, moved inside the feature
+definitions: each module's docstring says which of its columns are in the group and what
+was measured about them. The three label regimes replace the `oracle`/`censored` pair
+and the separate `sparkov_slow` dataset.
+
+### Running the whole study
+
+```bash
+.venv/bin/python scripts/slurm/generate.py    # 3 feature builds + 25 experiments
+scripts/slurm/jobs/submit_all.sh              # each cell chained behind its build
+```
+
+The grid is `fraud_benchmark.experiments.grid`, four groups rather than a cross product
+— a full cross of the six axes is 216 cells, most of which answer nothing. Each group
+changes exactly one thing against a common baseline:
+
+| group | cells | question |
+|---|---:|---|
+| baseline | 9 | what does each model score on each dataset, cleanly? |
+| history | 9 | does concatenating the previous 10 transactions help? |
+| delay | 4 | what does training on the labels a detector would have had cost? |
+| artifacts | 3 | what does the generator's own geography supply? |
+
+### Reading the results
+
+Each cell appends one JSON record to `results/experiments/<cell>.jsonl`.
+
+```bash
+python scripts/summarize.py --write                  # table + results/experiments.md
+python scripts/summarize.py --json                   # flat rows, for a notebook
+python scripts/figures/plot_experiments.py           # results/figures/experiments_*.png
+```
+
+The summary reports the **delta against each cell's own baseline**, not the absolute
+score, and marks a cell with no results as *not run* rather than omitting it. Live
+numbers are in [`../results/experiments.md`](../results/experiments.md); the tables
+above this section are the retired study and do not compare.
 
 ## Reproducing anything above
 

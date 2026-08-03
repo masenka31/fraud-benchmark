@@ -110,10 +110,20 @@ to what its model sees. The encoding, model and metric stack sits alongside, and
 a split is chosen and anything is fitted.
 
 ```bash
-python -m fraud_benchmark.experiments.features.sparkov    # -> data/features/sparkov.parquet
+python -m fraud_benchmark.experiments.features.sparkov       # -> data/features/sparkov.parquet
+python scripts/run_experiment.py --dataset sparkov \
+    --model xgboost --history 10 --label-delay slow          # -> results/experiments/
+python scripts/summarize.py --write                          # -> results/experiments.md
 ```
 
-See [`docs/architecture.md`](docs/architecture.md) for the layout and
+An experiment picks a dataset, a model (`xgboost`, `mlp`, `logistic`), how many previous
+transactions to concatenate, and which labels *training* is allowed to see — `off`, `on`
+or `slow`, the last being Sparkov's harsher reporting regime. Validation and test always
+use true labels. `scripts/slurm/jobs/submit_all.sh` runs the whole 25-cell grid from
+cold.
+
+See [`docs/architecture.md`](docs/architecture.md) for the layout,
+[`docs/experiments.md`](docs/experiments.md) for what each axis measures, and
 [`docs/README.md`](docs/README.md) for everything else.
 
 ## Tests
