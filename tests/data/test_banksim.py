@@ -50,6 +50,18 @@ def test_is_fraud_is_boolean(frame):
     assert frame["is_fraud"].tolist() == [False, False, True, False, True]
 
 
+def test_the_declared_source_label_is_a_column_this_adapter_produces(frame):
+    """The pipeline drops the raw label by the name declared here, so a stale name
+    would silently drop nothing. Absence after the drop is a pipeline property and
+    is asserted in tests/data/test_pipeline.py -- to_canonical does not drop."""
+    adapter = get_adapter("banksim")
+    assert adapter.source_label_column == "fraud"
+    assert adapter.source_label_column in frame.columns
+    assert adapter.source_label_column not in adapter.label_descriptive_columns
+    # And the label derived from it survives with the fixture's values.
+    assert frame["is_fraud"].tolist() == [False, False, True, False, True]
+
+
 def test_amount_is_float(frame):
     assert frame["amount"].iloc[0] == 4.55
 

@@ -21,6 +21,30 @@ from fraud_benchmark.data.splitting import assign_splits, split_boundaries
 from fraud_benchmark.data.sources import fetch
 
 
+def _drop_source_label(df: pd.DataFrame, adapter) -> str | None:
+    """Remove the adapter's raw label column. Returns what was dropped, or None.
+
+    The canonical frame carries exactly one binary label, so no consumer has to
+    remember to exclude a second one. Two cases keep their column and both are
+    deliberate: a source column already named `is_fraud` is the canonical label
+    itself, and a column listed in `label_descriptive_columns` carries a typology
+    that `is_fraud` reduces to a bool. The second is kept in the frame and
+    excluded from models by `experiments.columns` instead.
+    """
+    column = adapter.source_label_column
+    if column == "is_fraud" or column in adapter.label_descriptive_columns:
+        return None
+    if column not in df.columns:
+        # The adapter named a column it did not produce -- a bug in the adapter,
+        # not a dataset quirk, and silence here would let the raw label ride along
+        # under a name nobody is watching.
+        raise ValueError(
+            f"{adapter.name} declares source_label_column {column!r}, which is not "
+            f"in its canonical frame; columns are: {sorted(df.columns)}"
+        )
+    return column
+
+
 def prepare(name: str, config: Config, *, force: bool = False) -> Path:
     """Run the full pipeline for one dataset. Returns its output directory."""
     adapter = get_adapter(name)
@@ -29,6 +53,9 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
     raw_dir = fetch(adapter.source, config.raw_dir / adapter.raw_name, force=force)
 
     df = adapter.to_canonical(raw_dir, options)
+    dropped_label = _drop_source_label(df, adapter)
+    if dropped_label is not None:
+        df = df.drop(columns=[dropped_label])
     validate_canonical(df)
 
     df = df.sort_values("event_time", kind="stable").reset_index(drop=True)
@@ -58,6 +85,7 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
         custom_split=supplied is not None,
         gap=gap,
         delay=delay,
+        dropped_label=dropped_label,
     )
     card["auxiliary"] = {key: int(len(frame)) for key, frame in aux.items()}
     return _write_atomically(config.processed_dir / name, df, card, aux)
@@ -73,6 +101,7 @@ def _build_card(
     custom_split: bool,
     gap: pd.Timedelta,
     delay: DelayParams,
+    dropped_label: str | None,
 ) -> dict:
     return {
         "name": name,
@@ -93,6 +122,10 @@ def _build_card(
         "split": _describe_split(adapter, df, config, custom_split=custom_split),
         "label_delay": _describe_delay(df, delay, gap),
         "column_mapping": adapter.column_mapping(options),
+        # What the label-drop stage removed. `column_mapping` still names the source
+        # column as is_fraud's provenance; this says it is no longer in the output.
+        "dropped_source_label": dropped_label,
+        "label_descriptive_columns": list(adapter.label_descriptive_columns),
         "options": options,
         "caveats": list(adapter.caveats),
     }

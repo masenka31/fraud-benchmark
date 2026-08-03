@@ -37,6 +37,18 @@ def test_is_fraud_comes_from_the_yes_no_column(frame):
     assert frame["is_fraud"].tolist() == [False, False, True, False, True]
 
 
+def test_the_declared_source_label_is_a_column_this_adapter_produces(frame):
+    """The pipeline drops the raw label by the name declared here, so a stale name
+    would silently drop nothing. Absence after the drop is a pipeline property and
+    is asserted in tests/data/test_pipeline.py -- to_canonical does not drop."""
+    adapter = get_adapter("ibm_ccf")
+    assert adapter.source_label_column == "Is Fraud?"
+    assert adapter.source_label_column in frame.columns
+    assert adapter.source_label_column not in adapter.label_descriptive_columns
+    # And the label derived from it survives with the fixture's values.
+    assert frame["is_fraud"].tolist() == [False, False, True, False, True]
+
+
 def test_entity_id_defaults_to_the_user(frame):
     assert frame["entity_id"].tolist() == ["0", "0", "0", "1", "1"]
 

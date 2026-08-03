@@ -9,7 +9,8 @@ from fraud_benchmark.data.config import Config
 from fraud_benchmark.data.delay import DelayParams
 from fraud_benchmark.data.pipeline import prepare
 
-FIXTURE = Path(__file__).parent.parent / "fixtures" / "paysim"
+FIXTURES = Path(__file__).parent.parent / "fixtures"
+FIXTURE = FIXTURES / "paysim"
 
 
 @pytest.fixture
@@ -350,3 +351,85 @@ def test_the_card_records_the_resolved_delay(config_with_override, no_download):
     # 1.0, not the global 7.0 — a card must never misreport what produced it.
     assert card["label_delay"]["median_days"] == 1.0
     assert card["label_delay"]["sigma"] == 1.0
+
+
+@pytest.fixture
+def run_prepare(tmp_path, monkeypatch):
+    """Run `prepare` for any dataset against its committed fixture directory.
+
+    The `no_download`/`config` pair above is paysim-only; the label-drop rule has
+    to be checked on datasets whose source column is kept or already canonical.
+    """
+
+    def run(name, options=None):
+        monkeypatch.setattr(
+            "fraud_benchmark.data.pipeline.fetch",
+            lambda source, dest, *, force=False: FIXTURES / name,
+        )
+        config = Config(
+            raw_dir=tmp_path / "raw",
+            processed_dir=tmp_path / "processed",
+            split_ratios=(0.6, 0.2, 0.2),
+            delay=DelayParams(median_days=7.0, sigma=1.0, seed=0),
+            campaign_gap=pd.Timedelta(days=1),
+            datasets={name: dict(options or {})},
+        )
+        return prepare(name, config)
+
+    return run
+
+
+def test_prepare_drops_the_source_label_column(run_prepare):
+    """The output carries one binary label. A second one is an answer key."""
+    out = run_prepare("paysim", {"start_date": "2023-01-01"})
+    frame = pd.read_parquet(out / "data.parquet")
+    assert "isFraud" not in frame.columns
+    assert "is_fraud" in frame.columns
+
+
+def test_prepare_keeps_a_label_descriptive_column(run_prepare):
+    """saml_d's typology is kept: is_fraud cannot express which typology it was."""
+    out = run_prepare("saml_d")
+    frame = pd.read_parquet(out / "data.parquet")
+    assert "Laundering_type" in frame.columns
+    assert "Is_laundering" not in frame.columns
+
+
+def test_the_card_records_the_dropped_label_column(run_prepare):
+    """The output must say what was removed, or the drop is invisible."""
+    out = run_prepare("paysim", {"start_date": "2023-01-01"})
+    card = json.loads((out / "dataset_card.json").read_text())
+    assert card["dropped_source_label"] == "isFraud"
+
+
+def test_a_dataset_whose_source_label_is_already_canonical_keeps_it(run_prepare):
+    """sparkov's source column IS is_fraud -- the drop must not delete the label."""
+    out = run_prepare("sparkov")
+    frame = pd.read_parquet(out / "data.parquet")
+    assert "is_fraud" in frame.columns
+    assert frame["is_fraud"].dtype == "bool"
+
+
+@pytest.mark.parametrize(
+    ("name", "source_label", "options"),
+    [
+        ("paysim", "isFraud", {"start_date": "2023-01-01"}),
+        ("banksim", "fraud", {"start_date": "2023-01-01"}),
+        ("ibm_ccf", "Is Fraud?", {"entity_key": "user"}),
+        ("ieee_cis", "isFraud", {"start_date": "2017-12-01"}),
+        ("saml_d", "Is_laundering", {}),
+    ],
+)
+def test_both_halves_of_the_drop_contract_hold_for_every_dropping_adapter(
+    run_prepare, name, source_label, options
+):
+    """The raw label is gone AND is_fraud survived carrying the same rows.
+
+    Only `prepare` can be observed for this: `to_canonical` does not drop, so the
+    adapter-level tests assert the declaration instead. Each fixture has 5 rows,
+    2 of them fraudulent.
+    """
+    frame = pd.read_parquet(run_prepare(name, options) / "data.parquet")
+    assert source_label not in frame.columns
+    assert frame["is_fraud"].dtype == "bool"
+    assert int(frame["is_fraud"].sum()) == 2
