@@ -37,8 +37,8 @@ as many as 20,000 rows — the largest is `V242 == 2.0` at 5,218 rows / 35.1% fr
 high-fraud slices are exactly what they should look like. The **raw** columns are
 unremarkable at a 3.5% base rate: `ProductCD == C` 3.3×, `card6 == credit` 1.9×.
 
-⚠ **`isFraud` is passed through.** Drop it before fitting.
-
+- **`isFraud` is dropped by the pipeline.** `is_fraud` is the only label in the output;
+  the card records the removal in `dropped_source_label`.
 - **The competition test set has no labels** and is excluded from the benchmark. It is
   written separately as `unlabelled_test.parquet` — 506,691 rows, spanning
   2018-07-02 → 2018-12-31, cleanly after the labelled period.

@@ -29,9 +29,11 @@ carries this.
 ⚠ **`type` is a hard gate.** `CASH_IN`, `DEBIT` and `PAYMENT` — 3,592,211 rows, 56.5%
 of the dataset — contain **exactly zero** frauds.
 
-⚠ **`isFraud` and `isFlaggedFraud` are passed through** in the canonical frame. Drop
-both before fitting; `isFlaggedFraud` is the simulator's own detector output, not an
-input a model would have.
+⚠ **`isFlaggedFraud` is passed through and must still be dropped before fitting.** It is
+the simulator's own detector output, not an input a model would have at scoring time, so
+it is in `fraud_benchmark.experiments.columns.ALWAYS_EXCLUDED`. The label column
+`isFraud` is a different matter: the pipeline drops it, and the card records that in
+`dropped_source_label`.
 
 - `oldbalanceOrg == 10,000,000.0` is 142 rows, all 142 fraud — the simulator's
   balance cap showing through.

@@ -26,9 +26,8 @@ same way (`M980657600`: 83.2% fraud, 20.4% of all frauds).
 
 ![BankSim fraud rate by category](figures/banksim_categories_light.png)
 
-⚠ **`fraud`, the source label column, is passed through** in the canonical frame. Drop
-it before fitting.
-
+- **`fraud`, the source label column, is dropped by the pipeline.** `is_fraud` is the only
+  label in the output; the card records the removal in `dropped_source_label`.
 - **Daily timestamps mean heavy ties** — every transaction on a day shares one
   `event_time`. Splits are cut on timestamp *values* so a tied block never straddles a
   boundary, which is why the ratios land at 80.0/10.6/9.4 rather than exactly 80/10/10.

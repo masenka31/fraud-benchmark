@@ -51,8 +51,8 @@ way — and a merchant id encodes its own location.
 843 frauds at 6.7% (55× base) with **none** in Italy; MCC 4411 is 50.0% fraud over 634
 rows. 24 MCC values are flagged.
 
-⚠ **`Is Fraud?` is passed through.** Drop it before fitting.
-
+- **`Is Fraud?` is dropped by the pipeline.** `is_fraud` is the only label in the output;
+  the card records the removal in `dropped_source_label`.
 - **The tail is labelled, not unlabelled.** `Is Fraud?` has zero nulls across all
   24,386,900 rows. The last fraud is 2019-10-27 and the following 645,180 rows carry
   none — the *generator* stopped emitting fraud. There are also 11 fraud-free gaps of

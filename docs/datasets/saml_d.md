@@ -23,10 +23,12 @@ Passed through: `Receiver_account`, `Payment_currency`, `Received_currency`,
 
 ## Artifacts and disclaimers
 
-⚠ **`Laundering_type` describes the label.** It records the typology for laundering rows
-(Smurfing, Fan-Out, …) and `Normal_*` values otherwise, so it is label-adjacent, not an
-input. It is in the ablation's `ALWAYS_EXCLUDED` set. Drop it, together with
-`Is_laundering`.
+⚠ **`Laundering_type` describes the label, and is kept on purpose.** It records the
+typology for laundering rows (Smurfing, Fan-Out, …) and `Normal_*` values otherwise —
+information `is_fraud` reduces to a bool, which is why the frame keeps it while
+`Is_laundering` is dropped. The adapter declares it in `label_descriptive_columns`, and
+`fraud_benchmark.experiments.columns.ALWAYS_EXCLUDED` reads that declaration, so it stays
+in the data and out of every model. Never use it as an input.
 
 ⚠ **Amounts span 13 currencies and are NOT converted.** `Payment_currency` and
 `Received_currency` differ per row, so **cross-row amount comparison is not meaningful**

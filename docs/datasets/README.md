@@ -31,10 +31,16 @@ Sorted by how much the labels are recoverable from a single column, worst first.
 
 ## Two things that apply to every dataset
 
-1. **The source's own label column is passed through** into the canonical frame
-   (`isFraud`, `fraud`, `Is Fraud?`, `Is_laundering`, `Anomaly`, …). `is_fraud` is the
-   canonical label; drop the source column, and anything derived from it, before fitting.
-   `fraud_benchmark.experiments.ablation.columns.ALWAYS_EXCLUDED` is the list the ablation uses.
+1. **The canonical frame carries exactly one binary label, `is_fraud`.** Each adapter
+   declares the source column it derived that from — `isFraud`, `fraud`, `Is Fraud?`,
+   `Is_laundering` — and the pipeline drops it, so there is no second label to remember
+   to exclude. Two columns are kept, because `is_fraud` loses what they carry:
+   amaretto's `Anomaly` (0 plus five FATF typology classes) and saml_d's
+   `Laundering_type` (the typology for laundering rows). Both are declared
+   label-descriptive by their adapters and are excluded from every model by
+   `fraud_benchmark.experiments.columns.ALWAYS_EXCLUDED`, which builds that part of its
+   list from the adapter registry rather than restating column names. Each dataset's
+   card records what was removed in `dropped_source_label`.
 2. **Every `reported_at` is synthetic.** No dataset here ships a real reporting timestamp.
 
 Figures in `figures/` are emitted for light and dark by

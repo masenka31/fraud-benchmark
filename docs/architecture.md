@@ -38,9 +38,15 @@ writing `to_canonical` and `column_mapping`, and optionally overriding `custom_s
 **Output** per dataset, under `data/processed/<name>/`:
 
 - `data.parquet` — the canonical frame: `event_time`, `entity_id`, `amount`, `is_fraud`,
-  `split`, `reported_at`, `campaign_id`, then every source column passed through.
+  `split`, `reported_at`, `campaign_id`, then every source column passed through **except
+  the raw label**. Each adapter declares the `source_label_column` its `is_fraud` came
+  from and the pipeline drops it, so the frame carries exactly one binary label. A raw
+  label survives only where it carries what `is_fraud` loses — amaretto's five-class
+  `Anomaly`, saml_d's `Laundering_type` — declared as `label_descriptive_columns` and
+  excluded from every model by `experiments/columns.py`.
 - `dataset_card.json` — provenance: source, licence, row and fraud counts, time range,
-  split strategy and counts, the realised delay parameters, column mapping, caveats.
+  split strategy and counts, the realised delay parameters, column mapping,
+  `dropped_source_label`, `label_descriptive_columns`, caveats.
 - occasionally an auxiliary frame, e.g. IEEE-CIS's `unlabelled_test.parquet`.
 
 ## 2. Experiments — `src/fraud_benchmark/experiments/`
@@ -52,6 +58,7 @@ The shared modeling stack:
 
 | module | does |
 |---|---|
+| `columns.py` | what no model may ever see, whatever the experiment — the label part read from the adapter registry |
 | `splits.py` | `standard_split` and `italy_holdout_split` on an already-prepared frame |
 | `build_features.py` | causal velocity features for one dataset, cached to `data/features/` |
 | `features.py` | the velocity feature definitions themselves |
@@ -75,7 +82,7 @@ expensive feature build happens once per dataset.
 | module | does |
 |---|---|
 | `grid.py` | which cells exist — one definition, read by the job generator and the summary |
-| `columns.py` | which columns a model may see; the two exclusion sets |
+| `columns.py` | the study's own condition: which columns the `leaky` arm keeps and the `clean` arm drops |
 | `cell.py` | stage 2: run one cell, appending a record per fit |
 | `summarize.py` | `results/runs/*.jsonl` → `results/summary.md` |
 

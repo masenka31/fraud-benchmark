@@ -240,7 +240,10 @@ row-identical outside `reported_at`, so it is not swept separately).
 **Method.** For every column of every dataset, the per-value fraud rate against the
 dataset's base rate. Excluded: the label and everything derived from it — `is_fraud`,
 `reported_at`, `campaign_id`, `split`, and each source's own raw label column (`Is Fraud?`,
-`fraud`, `isFraud`, `Is_laundering`, `Laundering_type`, `Anomaly`). A value is **flagged**
+`fraud`, `isFraud`, `Is_laundering`, `Laundering_type`, `Anomaly`). Those raw label columns
+were in the frame when this sweep ran; the pipeline drops them now, so the drop-list no
+longer needs to name them and only the two kept typology columns remain in it. A value is
+**flagged**
 when it covers ≥100 rows, carries ≥20 frauds, runs at ≥10× the base rate, and has a Poisson
 upper-tail p < 1e-9. The last two conditions earn their keep: without them SAML-D's `Time`
 column returns 627 "oracles" that are pure small-number noise — 86,400 distinct

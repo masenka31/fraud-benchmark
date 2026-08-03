@@ -33,7 +33,8 @@ Hence 63/7/30. The two files are consecutive in time, so train → val → test 
 strictly ordered.
 
 ⚠ **`source_file` predicts the split perfectly** — it records which upstream file each
-row came from. Drop it before fitting; it is in the ablation's `ALWAYS_EXCLUDED` set.
+row came from. Drop it before fitting; it is in
+`fraud_benchmark.experiments.columns.ALWAYS_EXCLUDED`.
 
 ⚠ **`unix_time` and `trans_date_trans_time` restate `event_time` as an absolute clock.**
 Because the splits are temporal, a tree can isolate the split boundary as a threshold
