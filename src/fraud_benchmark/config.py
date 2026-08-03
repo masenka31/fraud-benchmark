@@ -111,6 +111,38 @@ def _build_delay(data: dict) -> DelayParams:
 
 _DELAY_FIELDS = {f.name for f in fields(DelayParams)}
 
+# Every option any adapter or pipeline stage reads out of a `datasets.<name>`
+# block. Adding an option means adding it here, which is the point: a typo would
+# otherwise leave the dataset silently on its default while the config claims
+# otherwise -- the same argument the delay block already makes one level down.
+DATASET_OPTIONS = frozenset(
+    {
+        "start_date",     # paysim, banksim, ieee_cis: anchors a relative offset
+        "val_fraction",   # sparkov: size of the validation tail
+        "entity_key",     # ibm_ccf: 'user' or 'card'
+        "delay",          # any: partial DelayParams override
+        "campaign_gap",   # any: overrides campaign.gap
+    }
+)
+
+
+def _validate_dataset_options(datasets: Any) -> dict[str, dict[str, Any]]:
+    """Reject a dataset block that is not a mapping, or names an unknown option."""
+    if not isinstance(datasets, dict):
+        raise ConfigError(f"'datasets' must be a mapping, got {datasets!r}")
+    for name, options in datasets.items():
+        if not isinstance(options, dict):
+            raise ConfigError(
+                f"datasets.{name} must be a mapping of options, got {options!r}"
+            )
+        unknown = sorted(set(options) - DATASET_OPTIONS)
+        if unknown:
+            raise ConfigError(
+                f"unknown option(s) for dataset {name}: {', '.join(unknown)}; "
+                f"valid options are {', '.join(sorted(DATASET_OPTIONS))}"
+            )
+    return datasets
+
 
 def _merge_delay(base: DelayParams, override: Any, name: str) -> DelayParams:
     """Overlay a per-dataset `delay:` block onto the global one."""
@@ -177,10 +209,11 @@ def load_config(path: Path | str | None = None) -> Config:
         split_ratios=_validate_ratios(data.get("split", {}).get("ratios")),
         delay=_build_delay(data),
         campaign_gap=_parse_gap((data.get("campaign") or {}).get("gap", "1d")),
-        datasets=data.get("datasets") or {},
+        datasets=_validate_dataset_options(data.get("datasets") or {}),
     )
     # Resolve every override now: a bad one that only raised when its dataset was
     # prepared would let `prepare --all` die halfway, after writing other datasets.
     for name in config.datasets:
         config.delay_for(name)
+        config.campaign_gap_for(name)
     return config

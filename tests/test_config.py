@@ -324,3 +324,46 @@ def test_sparkov_slow_inherits_sparkovs_val_fraction():
         config.for_dataset("sparkov_slow")["val_fraction"]
         == config.for_dataset("sparkov")["val_fraction"]
     )
+
+
+def test_an_unknown_dataset_option_is_rejected(tmp_path):
+    """Same argument as the delay block, one level up: a typo must not leave the
+    dataset silently on its default while the config claims otherwise."""
+    path = tmp_path / "custom.yaml"
+    path.write_text(
+        "datasets:\n"
+        "  sparkov:\n"
+        "    val_fractio: 0.2\n"
+    )
+    with pytest.raises(ConfigError, match="val_fractio"):
+        load_config(path)
+
+
+def test_the_error_lists_the_valid_dataset_options(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text("datasets:\n  ibm_ccf:\n    entity_ke: card\n")
+    with pytest.raises(ConfigError, match="entity_key"):
+        load_config(path)
+
+
+def test_a_non_mapping_dataset_block_is_rejected(tmp_path):
+    path = tmp_path / "custom.yaml"
+    path.write_text("datasets:\n  banksim: 2023-01-01\n")
+    with pytest.raises(ConfigError, match="mapping of options"):
+        load_config(path)
+
+
+def test_the_shipped_config_uses_only_known_options():
+    """The tripwire is worthless if the default config cannot pass it."""
+    from fraud_benchmark.config import DATASET_OPTIONS
+
+    for name, options in load_config().datasets.items():
+        assert not set(options) - DATASET_OPTIONS, name
+
+
+def test_a_bad_campaign_gap_override_is_caught_at_load_time(tmp_path):
+    """Not when its dataset is prepared -- `prepare --all` would die halfway."""
+    path = tmp_path / "custom.yaml"
+    path.write_text("datasets:\n  banksim:\n    campaign_gap: 'not a duration'\n")
+    with pytest.raises(ConfigError, match="duration"):
+        load_config(path)
