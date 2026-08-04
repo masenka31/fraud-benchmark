@@ -19,7 +19,6 @@ entities look new only because the window was truncated there.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import numpy as np
@@ -487,7 +486,7 @@ def write_features(
     temporary = destination.with_suffix('.parquet.tmp')
     try:
         frame.to_parquet(temporary, index=False)
-        os.replace(temporary, destination)
+        Path(temporary).replace(destination)
     except BaseException:
         # Including KeyboardInterrupt and SIGTERM-as-exception: a walltime kill must
         # not leave a .tmp behind to be mistaken for a build in progress.

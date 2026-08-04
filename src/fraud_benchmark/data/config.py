@@ -167,7 +167,7 @@ def _merge_delay(base: DelayParams, override: Any, name: str) -> DelayParams:
 def _load_yaml(path: Path | str) -> dict:
     """Read a YAML file, turning any read/parse failure into a ConfigError."""
     try:
-        with open(path) as handle:
+        with Path(path).open() as handle:
             return yaml.safe_load(handle) or {}
     except FileNotFoundError as exc:
         raise ConfigError(f'config file not found: {path}') from exc

@@ -43,7 +43,7 @@ class CappedOrdinalEncoder:
         self.max_levels = max_levels
         self.vocabularies_: dict[str, list[str]] = {}
 
-    def fit(self, train: pd.DataFrame, columns: list[str]) -> 'CappedOrdinalEncoder':
+    def fit(self, train: pd.DataFrame, columns: list[str]) -> CappedOrdinalEncoder:
         for column in columns:
             values = train[column].astype('string').fillna(_NULL)
             counts = values.value_counts(normalize=True)
@@ -81,7 +81,7 @@ class Encoder:
         categorical: list[str] | None = None,
         numeric: list[str] | None = None,
         scale: bool = False,
-    ) -> 'Encoder':
+    ) -> Encoder:
         self.scale_ = scale
         self.numeric_ = list(numeric or [])
         for col in categorical or []:

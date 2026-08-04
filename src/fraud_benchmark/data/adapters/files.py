@@ -78,9 +78,9 @@ def require_split_zip_member(raw_dir: Path, part_glob: str, member: str, cache_d
     cache_dir.mkdir(parents=True, exist_ok=True)
     archive = cache_dir / '_reassembled.zip'
     try:
-        with open(archive, 'wb') as combined:
+        with Path(archive).open('wb') as combined:
             for part in parts:
-                with open(part, 'rb') as fragment:
+                with Path(part).open('rb') as fragment:
                     shutil.copyfileobj(fragment, combined)
         with zipfile.ZipFile(archive) as zf:
             zf.extract(member, cache_dir)

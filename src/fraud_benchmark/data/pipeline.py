@@ -240,15 +240,15 @@ def _write_atomically(
         (staging / 'dataset_card.json').write_text(json.dumps(card, indent=2, default=str) + '\n')
 
         try:
-            os.rename(dest, previous)
+            Path(dest).rename(previous)
         except FileNotFoundError:
             # No previous output, or a concurrent run moved it first. Either is fine.
             pass
-        os.replace(staging, dest)
+        Path(staging).replace(dest)
     except BaseException:
         # The swap failed after the old output was moved aside; put it back.
         if previous.exists() and not dest.exists():
-            os.rename(previous, dest)
+            Path(previous).rename(dest)
         raise
     finally:
         for path in (staging, previous):

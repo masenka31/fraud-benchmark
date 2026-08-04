@@ -472,7 +472,7 @@ def append_record(record: dict, destination: Path | str = DEFAULT_RESULTS) -> Pa
     destination = Path(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(record, allow_nan=False)
-    with open(destination, 'a') as handle:
+    with Path(destination).open('a') as handle:
         handle.write(line + '\n')
     return destination
 

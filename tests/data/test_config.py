@@ -3,7 +3,6 @@ import dataclasses
 import pandas as pd
 import pytest
 
-from fraud_benchmark.data.config import Config
 from fraud_benchmark.data.config import ConfigError
 from fraud_benchmark.data.config import load_config
 
@@ -229,23 +228,6 @@ def test_paysim_overrides_the_delay_to_one_day():
     assert delay.median_days == 1.0
     assert delay.sigma == config.delay.sigma
     assert delay.seed == config.delay.seed
-
-
-def test_saml_d_overrides_the_delay_to_the_aml_regime():
-    """AML reporting runs weeks behind the transaction, not days: detection lags,
-    and the SAR clock starts only at detection. sigma and seed still inherit."""
-    config = load_config()
-    delay = config.delay_for('saml_d')
-    assert delay.median_days == 30.0
-    assert delay.sigma == config.delay.sigma
-    assert delay.seed == config.delay.seed
-
-
-def test_amaretto_keeps_the_card_fraud_delay_despite_being_aml():
-    """Its 83-day span cannot carry a realistic 30-day AML median — that censors
-    53% of train frauds. The mismatch is documented, not repaired."""
-    config = load_config()
-    assert config.delay_for('amaretto').median_days == config.delay.median_days
 
 
 def test_saml_d_overrides_the_delay_to_the_aml_regime():

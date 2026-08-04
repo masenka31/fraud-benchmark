@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import pytest
 from sklearn.metrics import average_precision_score
 
 from fraud_benchmark.experiments.models import TRIVIAL_RULES
