@@ -6,6 +6,7 @@ A hand-written one survives locally and is gone on the next clone.
 
 import pytest
 
+from fraud_benchmark.experiments.features import DATASETS as WITH_A_MODULE
 from fraud_benchmark.experiments.grid import CELLS
 from fraud_benchmark.experiments.slurm import (
     DATASETS,
@@ -18,7 +19,9 @@ from fraud_benchmark.experiments.slurm import (
 
 
 def test_there_is_one_job_per_experimental_dataset():
-    assert set(DATASETS) == {"ibm_ccf", "saml_d", "sparkov"}
+    """The job table and the feature package must name the same datasets: a job for a
+    dataset with no module fails at submission, and a module with no job never runs."""
+    assert set(DATASETS) == set(WITH_A_MODULE)
 
 
 def test_sparkov_slow_has_no_job_of_its_own():

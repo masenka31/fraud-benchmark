@@ -1,4 +1,15 @@
-"""Command-line interface."""
+"""The `fraud-benchmark` console script: the data pipeline, and nothing after it.
+
+Four commands over `data/`, for someone who wants prepared datasets rather than the
+study built on them: `list`, `download`, `prepare`, `info`. Every one of them needs
+only the base dependencies.
+
+The experiment side has no command here on purpose. It needs the `dev` extras
+(scikit-learn, xgboost, torch), so a subcommand for it would make `fraud-benchmark
+list` fail on a base install -- and `scripts/` is its surface. Stages 1 to 3 are
+reachable from both this script and `scripts/`, which is deliberate: the two doors call
+the same functions, and `data/selection.py` answers what `--all` means for both.
+"""
 
 from __future__ import annotations
 
@@ -8,13 +19,18 @@ import sys
 
 import fraud_benchmark.data.adapters  # noqa: F401  (registers all adapters)
 from fraud_benchmark.data.config import load_config
-from fraud_benchmark.data.adapters.base import UnknownDatasetError, get_adapter, list_datasets
-from fraud_benchmark.data.pipeline import prepare
-from fraud_benchmark.data.sources import FetchError
+from fraud_benchmark.data.adapters.base import get_adapter, list_datasets
+from fraud_benchmark.data.pipeline import download, prepare
+from fraud_benchmark.data.selection import (
+    add_selection_arguments,
+    dataset_names,
+    require_one_selection,
+    run_over,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """The `fraud-benchmark` parser: `list`, `prepare` and `info` subcommands."""
+    """The `fraud-benchmark` parser: `list`, `download`, `prepare` and `info`."""
     parser = argparse.ArgumentParser(
         prog="fraud-benchmark",
         description="Prepare fraud and AML benchmark datasets.",
@@ -23,17 +39,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("list", help="list available datasets")
 
+    download_parser = subparsers.add_parser(
+        "download", help="fetch a dataset's raw files and stop"
+    )
+    add_selection_arguments(download_parser, "download", positional=True)
+
     prepare_parser = subparsers.add_parser("prepare", help="download and process a dataset")
-    prepare_parser.add_argument("dataset", nargs="?", help="dataset name")
-    prepare_parser.add_argument("--all", action="store_true", help="prepare every dataset")
-    prepare_parser.add_argument("--config", help="path to a config file")
-    prepare_parser.add_argument(
-        "--force", action="store_true", help="re-download even if raw files exist"
-    )
-    prepare_parser.add_argument(
-        "--exclude-noncommercial", action="store_true",
-        help="skip datasets whose licence forbids commercial use",
-    )
+    add_selection_arguments(prepare_parser, "prepare", positional=True)
 
     info_parser = subparsers.add_parser("info", help="print a prepared dataset's card")
     info_parser.add_argument("dataset")
@@ -49,12 +61,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "list":
         return _cmd_list()
-    if args.command == "prepare":
-        # Validated here rather than with a mutually exclusive group: argparse
-        # handles an optional positional inside such a group unreliably.
-        if bool(args.dataset) == bool(args.all):
-            parser.error("give exactly one of: a dataset name, or --all")
-        return _cmd_prepare(args)
+    if args.command in ("download", "prepare"):
+        require_one_selection(parser, args)
+        return _cmd_download(args) if args.command == "download" else _cmd_prepare(args)
     return _cmd_info(args)
 
 
@@ -68,40 +77,25 @@ def _cmd_list() -> int:
     return 0
 
 
+def _cmd_download(args) -> int:
+    """Fetch one dataset's raw files or every dataset's. Returns 1 if any failed."""
+    config = load_config(args.config)
+    return run_over(
+        dataset_names(args.dataset, args.all),
+        lambda name: download(name, config, force=args.force),
+        verb="fetched",
+        exclude_noncommercial=args.exclude_noncommercial,
+    )
+
+
 def _cmd_prepare(args) -> int:
     """Prepare one dataset or all of them. Returns 1 if any dataset failed."""
     config = load_config(args.config)
-    names = list_datasets() if args.all else [args.dataset]
-
-    failures: list[str] = []
-    for name in names:
-        try:
-            adapter = get_adapter(name)
-        except UnknownDatasetError as exc:
-            # UnknownDatasetError subclasses KeyError, whose __str__ adds repr
-            # quotes. Print the raw message instead.
-            print(exc.args[0], file=sys.stderr)
-            return 1
-
-        if args.exclude_noncommercial and not adapter.commercial_use:
-            print(f"{name}: skipped, licence forbids commercial use "
-                  f"({adapter.data_license})")
-            continue
-
-        try:
-            out = prepare(name, config, force=args.force)
-        except (FetchError, ValueError, FileNotFoundError) as exc:
-            # Keep going: one unavailable dataset must not block the rest.
-            print(f"{name}: FAILED {exc}", file=sys.stderr)
-            failures.append(name)
-            continue
-        print(f"{name}: wrote {out}")
-
-    if failures:
-        print(f"\n{len(failures)} of {len(names)} failed: {', '.join(failures)}",
-              file=sys.stderr)
-        return 1
-    return 0
+    return run_over(
+        dataset_names(args.dataset, args.all),
+        lambda name: prepare(name, config, force=args.force),
+        exclude_noncommercial=args.exclude_noncommercial,
+    )
 
 
 def _cmd_info(args) -> int:

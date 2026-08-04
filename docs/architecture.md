@@ -10,8 +10,9 @@ split → campaign → delay → write**, orchestrated by `pipeline.py`.
 
 | module | does |
 |---|---|
-| `cli.py` | `list`, `prepare`, `info` |
-| `pipeline.py` | stage orchestration, and the atomic directory swap on write |
+| `cli.py` | the `fraud-benchmark` console script: `list`, `download`, `prepare`, `info` |
+| `pipeline.py` | stage orchestration — `download` alone, or `prepare` end to end — and the atomic directory swap on write |
+| `selection.py` | what `--all` and `--exclude-noncommercial` mean, and that one failed dataset never stops the rest. Shared by both front doors so they cannot drift |
 | `sources.py` | fetching from Kaggle or git, with errors a human can act on |
 | `adapters/` | one adapter per dataset; `base.py` holds the interface and registry |
 | `adapters/files.py` | locating a named file, or reassembling a multi-part zip |
@@ -113,14 +114,28 @@ attributable to the model, because nothing else could have differed.
 in the installed package, so nothing importable lives outside `src/` and a test never
 has to reach into `scripts/` to get at a decision.
 
+The four stages of the study are the first four rows, in order. Each takes `--dataset`
+or `--all`.
+
 | script | over | does |
 |---|---|---|
-| `run_experiment.py` | `experiments.experiment` | one experiment: a dataset, a model, and the four axes → one JSONL record |
+| `download.py` | `data.pipeline.download` | **1.** raw files → `data/raw/<name>/`, and stops |
+| `prepare.py` | `data.pipeline.prepare` | **2.** raw files → `data/processed/<name>/` on the shared schema |
+| `features.py` | `experiments.features` | **3.** a prepared dataset → `data/features/<name>.parquet` |
+| `run_experiment.py` | `experiments.experiment` | **4.** one experiment: a dataset, a model, and the four axes → one JSONL record |
 | `summarize.py` | `experiments.summary` | `results/experiments/` → terminal table, `results/experiments.md`, or JSON |
 | `slurm/generate.py` | `experiments.slurm` | every sbatch file → `scripts/slurm/jobs/`, plus `submit_all.sh` |
 | `figures/plot_experiments.py` | `experiments.summary` | the study's results, both themes |
 | `figures/plot_monthly_fraud.py` | — | IBM CCF's regime shift, from its feature parquet |
 | `figures/plot_dataset_caveats.py` | — | the three dataset caveats that are a shape rather than a number |
+
+**Stages 1 and 2 are reachable two ways**, and that is deliberate: `fraud-benchmark
+download|prepare` serves someone who wants prepared datasets, these scripts serve
+someone working on the study. Neither owns the behaviour — both call the same function
+in `data/pipeline.py` and take their `--all` semantics from `data/selection.py`, and
+`tests/test_scripts.py` asserts the identity of what each door calls rather than trusting
+the two to stay similar. Stage 4 has no console command on purpose: it needs the `dev`
+extras, so a subcommand for it would make `fraud-benchmark list` fail on a base install.
 
 The three figure scripts share one palette, `fraud_benchmark.figures`, so the figures
 read as one system and a colour is defined once. All six outputs land in

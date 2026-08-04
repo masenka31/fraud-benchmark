@@ -102,7 +102,19 @@ repository**: RNN 0.335, CAST fine-tuned 0.565. Verify before citing.
 Nothing above runs any more. What exists in its place is three feature parquets and a
 25-cell grid over them.
 
+The two stages before this one — downloading and preparing a dataset — are
+`scripts/download.py` and `scripts/prepare.py`, or the equivalent `fraud-benchmark`
+commands; see the README. Everything below assumes `data/processed/<name>/` exists.
+
 ### Building the parquets
+
+```bash
+python scripts/features.py --all                          # all three, largest first
+python scripts/features.py --dataset ibm_ccf              # 24.4M rows, 82 features
+```
+
+Equivalently, one module at a time — which is what the sbatch jobs call, and the form
+that makes clear where a dataset's features are defined:
 
 ```bash
 python -m fraud_benchmark.experiments.features.ibm_ccf    # 24.4M rows, 82 features

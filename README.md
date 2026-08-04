@@ -24,12 +24,20 @@ additionally needs its competition rules accepted once in a browser —
 
 ```bash
 fraud-benchmark list                # registered datasets and their licences
-fraud-benchmark prepare paysim      # download, normalize, split, delay, write
+fraud-benchmark download paysim     # fetch the raw files and stop
+fraud-benchmark prepare paysim      # normalize, split, delay, write (downloads if needed)
 fraud-benchmark info paysim         # print the prepared dataset's card
 ```
 
 Output lands in `data/processed/<name>/` as `data.parquet` plus a `dataset_card.json`
 recording provenance, counts, split strategy, delay parameters and caveats.
+
+`download` exists so a slow fetch can be done once and separately; `prepare` finds the
+raw files already there and skips it. Both take `--all`, and one unavailable dataset
+fails on its own without stopping the rest.
+
+Every stage is also a script under `scripts/`, which is the surface the study uses —
+see **[Running the four stages](#running-the-four-stages)** below.
 
 ## Datasets
 
@@ -109,11 +117,27 @@ Three of the eight datasets are run experimentally — **IBM CCF**, **SAML-D** a
 to what its model sees. The encoding, model and metric stack sits alongside, and is where
 a split is chosen and anything is fitted.
 
+## Running the four stages
+
+Four stages, one script each. The first two are the same code the `fraud-benchmark`
+commands run — that CLI is for someone who wants prepared datasets, these scripts are
+for someone working on the study, and neither owns the behaviour.
+
 ```bash
-python -m fraud_benchmark.experiments.features.sparkov       # -> data/features/sparkov.parquet
+python scripts/download.py --dataset sparkov     # 1. raw files    -> data/raw/
+python scripts/prepare.py  --dataset sparkov     # 2. shared schema, splits, reported_at
+python scripts/features.py --dataset sparkov     # 3. features     -> data/features/
 python scripts/run_experiment.py --dataset sparkov \
-    --model xgboost --history 10 --label-delay slow          # -> results/experiments/
-python scripts/summarize.py --write                          # -> results/experiments.md
+    --model xgboost --history 10 --label-delay slow    # 4. one cell -> results/experiments/
+```
+
+Stages 1 and 2 take `--all` over all eight datasets; stage 3 takes `--all` over the
+three that have a feature module. Stage 4 is the additional one: it needs the `dev`
+extras, has no `fraud-benchmark` command, and is the only stage that fits a model.
+
+```bash
+python scripts/summarize.py --write                  # -> results/experiments.md
+python scripts/figures/plot_experiments.py           # -> results/figures/
 ```
 
 An experiment picks a dataset, a model (`xgboost`, `mlp`, `logistic`), how many previous

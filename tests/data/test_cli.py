@@ -40,6 +40,43 @@ def test_list_prints_registered_datasets(capsys):
     assert "paysim" in capsys.readouterr().out
 
 
+def test_download_fetches_without_preparing(tmp_path, config_file, monkeypatch, capsys):
+    """Stage 1 on its own: the raw files land, nothing is canonicalized."""
+    fetched = []
+
+    def fake_fetch(source, dest, *, force=False):
+        fetched.append(dest.name)
+        dest.mkdir(parents=True, exist_ok=True)
+        return dest
+
+    monkeypatch.setattr("fraud_benchmark.data.pipeline.fetch", fake_fetch)
+
+    assert main(["download", "paysim", "--config", str(config_file)]) == 0
+    assert fetched == ["paysim"]
+    assert not (tmp_path / "processed").exists()
+    assert "fetched" in capsys.readouterr().out
+
+
+def test_prepare_reuses_what_download_already_fetched(tmp_path, config_file, monkeypatch):
+    """The two stages compose: fetch is asked once per dataset, not once per stage.
+
+    `fetch` itself is what skips a populated directory, so this asserts the seam rather
+    than re-testing that behaviour: download and prepare both route through it.
+    """
+    calls = []
+
+    def counting_fetch(source, dest, *, force=False):
+        calls.append(dest.name)
+        return FIXTURES / dest.name
+
+    monkeypatch.setattr("fraud_benchmark.data.pipeline.fetch", counting_fetch)
+
+    assert main(["download", "paysim", "--config", str(config_file)]) == 0
+    assert main(["prepare", "paysim", "--config", str(config_file)]) == 0
+    assert calls == ["paysim", "paysim"]
+    assert (tmp_path / "processed" / "paysim" / "data.parquet").exists()
+
+
 def test_prepare_creates_output(tmp_path, config_file, no_download):
     assert main(["prepare", "paysim", "--config", str(config_file)]) == 0
     assert (tmp_path / "processed" / "paysim" / "data.parquet").exists()
@@ -114,12 +151,12 @@ def test_prepare_all_continues_past_a_failure(tmp_path, config_file, monkeypatch
 
     monkeypatch.setattr("fraud_benchmark.data.cli.prepare", flaky)
     monkeypatch.setattr(
-        "fraud_benchmark.data.cli.list_datasets", lambda: ["always_fails", "paysim"]
+        "fraud_benchmark.data.selection.list_datasets", lambda: ["always_fails", "paysim"]
     )
-    # _cmd_prepare resolves the adapter before preparing, so this must be stubbed
-    # too — otherwise "always_fails" raises UnknownDatasetError and the loop exits
-    # before either dataset is attempted.
-    monkeypatch.setattr("fraud_benchmark.data.cli.get_adapter", _Fake)
+    # The shared loop in data/selection.py resolves the adapter before preparing, so
+    # this must be stubbed too — otherwise "always_fails" raises UnknownDatasetError
+    # and the loop exits before either dataset is attempted.
+    monkeypatch.setattr("fraud_benchmark.data.selection.get_adapter", _Fake)
 
     assert main(["prepare", "--all", "--config", str(config_file)]) == 1
     # Both were attempted, not just the first.
@@ -144,9 +181,9 @@ def test_exclude_noncommercial_skips_those_datasets(tmp_path, config_file, monke
             self.source = None
 
     monkeypatch.setattr("fraud_benchmark.data.cli.prepare", record)
-    monkeypatch.setattr("fraud_benchmark.data.cli.list_datasets", lambda: ["open_one", "nc_one"])
+    monkeypatch.setattr("fraud_benchmark.data.selection.list_datasets", lambda: ["open_one", "nc_one"])
     monkeypatch.setattr(
-        "fraud_benchmark.data.cli.get_adapter",
+        "fraud_benchmark.data.selection.get_adapter",
         lambda n: _Fake(n, commercial=(n == "open_one")),
     )
 

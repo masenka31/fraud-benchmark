@@ -21,6 +21,18 @@ from fraud_benchmark.data.splitting import assign_splits, split_boundaries
 from fraud_benchmark.data.sources import fetch
 
 
+def download(name: str, config: Config, *, force: bool = False) -> Path:
+    """Fetch one dataset's raw files and stop. Returns the directory they landed in.
+
+    Stage 1 on its own, so a slow download can be done once and separately from the
+    preparation that reads it. `prepare` calls this rather than duplicating it, and
+    `fetch` skips a directory that already has files -- so downloading first and
+    preparing after costs nothing, and neither does the reverse.
+    """
+    adapter = get_adapter(name)
+    return fetch(adapter.source, config.raw_dir / adapter.raw_name, force=force)
+
+
 def _drop_source_label(df: pd.DataFrame, adapter) -> str | None:
     """The adapter's raw label column, or None if it must stay in the frame.
 
@@ -52,7 +64,7 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
     adapter = get_adapter(name)
     options = config.for_dataset(name)
 
-    raw_dir = fetch(adapter.source, config.raw_dir / adapter.raw_name, force=force)
+    raw_dir = download(name, config, force=force)
 
     df = adapter.to_canonical(raw_dir, options)
     dropped_label = _drop_source_label(df, adapter)

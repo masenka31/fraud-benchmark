@@ -67,6 +67,9 @@ column). The three label regimes an experiment can run are therefore: no delay
 input file. ibm_ccf and saml_d carry only `reported_at`.
 """
 
+from importlib import import_module
+from pathlib import Path
+
 from fraud_benchmark.experiments.features.util import (
     FEATURE_DIR,
     KEY_COLUMNS,
@@ -76,11 +79,34 @@ from fraud_benchmark.experiments.features.util import (
     write_features,
 )
 
+#: The datasets with a module here, in descending build cost. `scripts/features.py
+#: --all` walks this, and `experiments.slurm` sizes one job per entry -- so a fourth
+#: dataset becomes buildable by adding its module and its name, in one place each.
+DATASETS = ("ibm_ccf", "saml_d", "sparkov")
+
+
+def build(dataset: str, argv: list[str] | None = None) -> Path:
+    """Run one dataset's feature module, as `python -m ...features.<dataset>` would.
+
+    Imported on demand rather than at package import: the three modules are heavy, and
+    `experiments.columns` imports this package to read the key columns.
+    """
+    if dataset not in DATASETS:
+        raise ValueError(
+            f"{dataset!r} has no feature module; the experimental datasets are: "
+            f"{', '.join(DATASETS)}"
+        )
+    module = import_module(f"fraud_benchmark.experiments.features.{dataset}")
+    return module.main(argv)
+
+
 __all__ = [
+    "DATASETS",
     "FEATURE_DIR",
     "KEY_COLUMNS",
     "ARTIFACT_PREFIX",
     "artifact_columns",
+    "build",
     "feature_columns",
     "write_features",
 ]

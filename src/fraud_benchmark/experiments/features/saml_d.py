@@ -259,11 +259,11 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     return df[list(KEY_COLUMNS)], f
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> Path:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--processed-dir", type=Path, default=DEFAULT_PROCESSED)
     parser.add_argument("--features-dir", type=Path, default=FEATURE_DIR)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     df = pd.read_parquet(args.processed_dir / DATASET / "data.parquet")
     keys, features = build(df)
@@ -272,6 +272,8 @@ def main() -> None:
     )
     print(f"{DATASET}: {len(features.columns)} features over {len(df):,} rows "
           f"-> {destination}")
+
+    return destination
 
 
 if __name__ == "__main__":
