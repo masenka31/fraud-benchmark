@@ -6,12 +6,10 @@ silently add a feature that is really a label.
 
 import pytest
 
-from fraud_benchmark.experiments.columns import (
-    ABSOLUTE_TIME_COLUMNS,
-    ALWAYS_EXCLUDED,
-    ExcludedColumnError,
-    assert_no_excluded,
-)
+from fraud_benchmark.experiments.columns import ABSOLUTE_TIME_COLUMNS
+from fraud_benchmark.experiments.columns import ALWAYS_EXCLUDED
+from fraud_benchmark.experiments.columns import ExcludedColumnError
+from fraud_benchmark.experiments.columns import assert_no_excluded
 
 
 def test_the_pipeline_produced_columns_are_excluded():
@@ -21,7 +19,8 @@ def test_the_pipeline_produced_columns_are_excluded():
 
 def test_every_adapters_label_descriptive_columns_are_excluded():
     """Derived from the registry, so a new dataset cannot be forgotten."""
-    from fraud_benchmark.data.adapters.base import get_adapter, list_datasets
+    from fraud_benchmark.data.adapters.base import get_adapter
+    from fraud_benchmark.data.adapters.base import list_datasets
 
     for name in list_datasets():
         for column in get_adapter(name).label_descriptive_columns:

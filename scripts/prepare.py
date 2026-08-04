@@ -25,12 +25,10 @@ import argparse
 
 from fraud_benchmark.data.config import load_config
 from fraud_benchmark.data.pipeline import prepare
-from fraud_benchmark.data.selection import (
-    add_selection_arguments,
-    dataset_names,
-    require_one_selection,
-    run_over,
-)
+from fraud_benchmark.data.selection import add_selection_arguments
+from fraud_benchmark.data.selection import dataset_names
+from fraud_benchmark.data.selection import require_one_selection
+from fraud_benchmark.data.selection import run_over
 
 
 def main(argv: list[str] | None = None) -> int:

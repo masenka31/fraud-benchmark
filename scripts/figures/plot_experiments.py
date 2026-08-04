@@ -43,15 +43,13 @@ import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-from fraud_benchmark.experiments.summary import (
-    NOISE_SIGMA,
-    RESULTS_DIR,
-    baseline_index,
-    flatten,
-    is_measured,
-    load,
-    sigma_of_difference,
-)
+from fraud_benchmark.experiments.summary import NOISE_SIGMA
+from fraud_benchmark.experiments.summary import RESULTS_DIR
+from fraud_benchmark.experiments.summary import baseline_index
+from fraud_benchmark.experiments.summary import flatten
+from fraud_benchmark.experiments.summary import is_measured
+from fraud_benchmark.experiments.summary import load
+from fraud_benchmark.experiments.summary import sigma_of_difference
 from fraud_benchmark.figures import THEMES
 
 MODELS = ("xgboost", "mlp", "logistic")

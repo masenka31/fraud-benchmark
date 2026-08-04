@@ -14,14 +14,13 @@ needs competition rules accepted in a browser, would otherwise be all-or-nothing
 from __future__ import annotations
 
 import sys
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
+from collections.abc import Iterable
 from pathlib import Path
 
-from fraud_benchmark.data.adapters.base import (
-    UnknownDatasetError,
-    get_adapter,
-    list_datasets,
-)
+from fraud_benchmark.data.adapters.base import UnknownDatasetError
+from fraud_benchmark.data.adapters.base import get_adapter
+from fraud_benchmark.data.adapters.base import list_datasets
 from fraud_benchmark.data.sources import FetchError
 
 #: What a stage is allowed to fail with per dataset: the source is unreachable, the

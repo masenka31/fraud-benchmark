@@ -6,7 +6,8 @@ It knows nothing about splitting, label delay, or output formats.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 from pathlib import Path
 from typing import Any
 

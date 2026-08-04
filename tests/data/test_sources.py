@@ -1,15 +1,14 @@
 from pathlib import Path
 
-import requests
 import pytest
-from kagglehub.exceptions import CredentialError, KaggleApiHTTPError
+import requests
+from kagglehub.exceptions import CredentialError
+from kagglehub.exceptions import KaggleApiHTTPError
 
-from fraud_benchmark.data.sources import (
-    FetchError,
-    KaggleCompetition,
-    KaggleDataset,
-    fetch,
-)
+from fraud_benchmark.data.sources import FetchError
+from fraud_benchmark.data.sources import KaggleCompetition
+from fraud_benchmark.data.sources import KaggleDataset
+from fraud_benchmark.data.sources import fetch
 
 
 def test_kaggle_dataset_download_is_called_with_output_dir(tmp_path, monkeypatch):

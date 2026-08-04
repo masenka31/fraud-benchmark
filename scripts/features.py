@@ -25,7 +25,8 @@ import sys
 from pathlib import Path
 
 from fraud_benchmark.data.selection import STAGE_ERRORS
-from fraud_benchmark.experiments.features import DATASETS, build
+from fraud_benchmark.experiments.features import DATASETS
+from fraud_benchmark.experiments.features import build
 
 
 def main(argv: list[str] | None = None) -> int:

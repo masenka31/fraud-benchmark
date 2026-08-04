@@ -8,14 +8,12 @@ import pytest
 
 from fraud_benchmark.experiments.features import DATASETS as WITH_A_MODULE
 from fraud_benchmark.experiments.grid import CELLS
-from fraud_benchmark.experiments.slurm import (
-    DATASETS,
-    FEATURE_JOBS,
-    cell_arguments,
-    render_experiment_job,
-    render_feature_job,
-    write_all,
-)
+from fraud_benchmark.experiments.slurm import DATASETS
+from fraud_benchmark.experiments.slurm import FEATURE_JOBS
+from fraud_benchmark.experiments.slurm import cell_arguments
+from fraud_benchmark.experiments.slurm import render_experiment_job
+from fraud_benchmark.experiments.slurm import render_feature_job
+from fraud_benchmark.experiments.slurm import write_all
 
 
 def test_there_is_one_job_per_experimental_dataset():

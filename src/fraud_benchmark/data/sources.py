@@ -8,12 +8,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import kagglehub
-from kagglehub.exceptions import (
-    CredentialError,
-    KaggleApiHTTPError,
-    NotFoundError,
-    UnauthenticatedError,
-)
+from kagglehub.exceptions import CredentialError
+from kagglehub.exceptions import KaggleApiHTTPError
+from kagglehub.exceptions import NotFoundError
+from kagglehub.exceptions import UnauthenticatedError
 
 SETUP_HINT = (
     "Kaggle credentials are missing or invalid. "

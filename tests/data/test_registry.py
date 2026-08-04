@@ -2,13 +2,11 @@ import pandas as pd
 import pytest
 
 from fraud_benchmark.data.adapters import base
-from fraud_benchmark.data.adapters.base import (
-    DatasetAdapter,
-    UnknownDatasetError,
-    get_adapter,
-    list_datasets,
-    register,
-)
+from fraud_benchmark.data.adapters.base import DatasetAdapter
+from fraud_benchmark.data.adapters.base import UnknownDatasetError
+from fraud_benchmark.data.adapters.base import get_adapter
+from fraud_benchmark.data.adapters.base import list_datasets
+from fraud_benchmark.data.adapters.base import register
 from fraud_benchmark.data.sources import KaggleDataset
 
 
@@ -141,7 +139,8 @@ def test_an_empty_start_date_is_rejected_like_a_missing_one():
 
 def test_every_adapter_declares_its_source_label_column():
     """A new adapter that forgets this would pass its raw label to models."""
-    from fraud_benchmark.data.adapters.base import list_datasets, get_adapter
+    from fraud_benchmark.data.adapters.base import get_adapter
+    from fraud_benchmark.data.adapters.base import list_datasets
 
     for name in list_datasets():
         adapter = get_adapter(name)

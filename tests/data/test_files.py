@@ -3,7 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from fraud_benchmark.data.adapters.files import find_single_csv, require_file
+from fraud_benchmark.data.adapters.files import find_single_csv
+from fraud_benchmark.data.adapters.files import require_file
 
 
 def test_require_file_finds_a_named_file(tmp_path):

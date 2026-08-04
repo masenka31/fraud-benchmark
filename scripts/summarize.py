@@ -17,14 +17,12 @@ import argparse
 import json
 from pathlib import Path
 
-from fraud_benchmark.experiments.summary import (
-    RESULTS_DIR,
-    SUMMARY,
-    flatten,
-    load,
-    print_table,
-    render,
-)
+from fraud_benchmark.experiments.summary import RESULTS_DIR
+from fraud_benchmark.experiments.summary import SUMMARY
+from fraud_benchmark.experiments.summary import flatten
+from fraud_benchmark.experiments.summary import load
+from fraud_benchmark.experiments.summary import print_table
+from fraud_benchmark.experiments.summary import render
 
 
 def main(argv: list[str] | None = None) -> int:

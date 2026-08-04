@@ -1,7 +1,8 @@
 import pandas as pd
 import pytest
 
-from fraud_benchmark.data.splitting import assign_splits, split_boundaries
+from fraud_benchmark.data.splitting import assign_splits
+from fraud_benchmark.data.splitting import split_boundaries
 
 
 def frame_with_times(times):

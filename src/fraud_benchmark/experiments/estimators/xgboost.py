@@ -24,7 +24,8 @@ import time
 import numpy as np
 
 from fraud_benchmark.experiments.experiment import Prepared
-from fraud_benchmark.experiments.metrics import best_f1_threshold, score
+from fraud_benchmark.experiments.metrics import best_f1_threshold
+from fraud_benchmark.experiments.metrics import score
 from fraud_benchmark.experiments.models import fit_xgboost
 
 #: Feature-importance entries kept in the record. The full list is one entry per

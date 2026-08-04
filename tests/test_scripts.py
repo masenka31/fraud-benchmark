@@ -17,7 +17,9 @@ from pathlib import Path
 
 import pytest
 
-from fraud_benchmark.data import cli, pipeline, selection
+from fraud_benchmark.data import cli
+from fraud_benchmark.data import pipeline
+from fraud_benchmark.data import selection
 from fraud_benchmark.experiments import features
 
 SCRIPTS = Path(__file__).parent.parent / "scripts"

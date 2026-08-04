@@ -5,20 +5,26 @@ from __future__ import annotations
 import json
 import os
 import shutil
-from dataclasses import asdict, is_dataclass
-from datetime import datetime, timezone
+from dataclasses import asdict
+from dataclasses import is_dataclass
+from datetime import datetime
+from datetime import timezone
 from pathlib import Path
 
 import pandas as pd
 
 import fraud_benchmark.data.adapters  # noqa: F401  (registers all adapters)
-from fraud_benchmark.data.campaigns import assign_campaigns, campaign_sizes
-from fraud_benchmark.data.config import Config
 from fraud_benchmark.data.adapters.base import get_adapter
-from fraud_benchmark.data.delay import DelayParams, assign_reported_at
-from fraud_benchmark.data.schema import order_columns, validate_canonical
-from fraud_benchmark.data.splitting import assign_splits, split_boundaries
+from fraud_benchmark.data.campaigns import assign_campaigns
+from fraud_benchmark.data.campaigns import campaign_sizes
+from fraud_benchmark.data.config import Config
+from fraud_benchmark.data.delay import DelayParams
+from fraud_benchmark.data.delay import assign_reported_at
+from fraud_benchmark.data.schema import order_columns
+from fraud_benchmark.data.schema import validate_canonical
 from fraud_benchmark.data.sources import fetch
+from fraud_benchmark.data.splitting import assign_splits
+from fraud_benchmark.data.splitting import split_boundaries
 
 
 def download(name: str, config: Config, *, force: bool = False) -> Path:

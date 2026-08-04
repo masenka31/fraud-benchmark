@@ -7,12 +7,10 @@ the score and raises no error.
 import pandas as pd
 import pytest
 
-from fraud_benchmark.experiments.splits import (
-    FIRST_ITALY_FRAUD,
-    LAST_LABELLED_FRAUD,
-    italy_holdout_split,
-    standard_split,
-)
+from fraud_benchmark.experiments.splits import FIRST_ITALY_FRAUD
+from fraud_benchmark.experiments.splits import LAST_LABELLED_FRAUD
+from fraud_benchmark.experiments.splits import italy_holdout_split
+from fraud_benchmark.experiments.splits import standard_split
 
 
 def _frame(n: int = 100) -> pd.DataFrame:

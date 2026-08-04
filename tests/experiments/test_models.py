@@ -3,12 +3,10 @@ import pandas as pd
 import pytest
 from sklearn.metrics import average_precision_score
 
-from fraud_benchmark.experiments.models import (
-    TRIVIAL_RULES,
-    fit_logistic,
-    fit_xgboost,
-    trivial_rule_scores,
-)
+from fraud_benchmark.experiments.models import TRIVIAL_RULES
+from fraud_benchmark.experiments.models import fit_logistic
+from fraud_benchmark.experiments.models import fit_xgboost
+from fraud_benchmark.experiments.models import trivial_rule_scores
 
 
 def xy(n=400, seed=0):

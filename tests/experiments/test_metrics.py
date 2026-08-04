@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from fraud_benchmark.experiments.metrics import best_f1_threshold, score
+from fraud_benchmark.experiments.metrics import best_f1_threshold
+from fraud_benchmark.experiments.metrics import score
 
 
 def test_a_perfect_ranking_gets_average_precision_one():

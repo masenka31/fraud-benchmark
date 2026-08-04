@@ -9,7 +9,8 @@ this study exists to measure.
 from __future__ import annotations
 
 import numpy as np
-from sklearn.metrics import average_precision_score, precision_recall_curve
+from sklearn.metrics import average_precision_score
+from sklearn.metrics import precision_recall_curve
 
 
 def score(y_true: np.ndarray, y_score: np.ndarray, threshold: float) -> dict:

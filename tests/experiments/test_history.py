@@ -9,12 +9,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from fraud_benchmark.experiments.history import (
-    MISSING,
-    lag_columns,
-    lag_matrix,
-    previous_positions,
-)
+from fraud_benchmark.experiments.history import MISSING
+from fraud_benchmark.experiments.history import lag_columns
+from fraud_benchmark.experiments.history import lag_matrix
+from fraud_benchmark.experiments.history import previous_positions
 
 BASE = pd.Timestamp("2020-05-01 08:00:00")
 

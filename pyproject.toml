@@ -140,7 +140,8 @@ mypy-init-return = true
 [tool.ruff.lint.isort]
 # The src/ layout lets ruff detect fraud_benchmark as first-party on its own, so
 # there is no known-first-party list to keep in sync.
-force-single-line = false
+# One import per line: a new symbol is a one-line diff, never a reflowed block.
+force-single-line = true
 
 [tool.ruff.format]
 # Double, not single: the code is ~5000 double quotes to ~340 single.

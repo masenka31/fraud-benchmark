@@ -7,7 +7,8 @@ import pytest
 
 from fraud_benchmark.data.config import Config
 from fraud_benchmark.data.delay import DelayParams
-from fraud_benchmark.data.pipeline import _drop_source_label, prepare
+from fraud_benchmark.data.pipeline import _drop_source_label
+from fraud_benchmark.data.pipeline import prepare
 
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 FIXTURE = FIXTURES / "paysim"
@@ -236,6 +237,7 @@ def test_card_records_the_shared_split_strategy(config, no_download):
 
 def test_auxiliary_frames_are_written_alongside(config, no_download, monkeypatch):
     import pandas as pd
+
     from fraud_benchmark.data.adapters.base import get_adapter
 
     adapter = get_adapter("paysim")
@@ -251,6 +253,7 @@ def test_auxiliary_frames_are_written_alongside(config, no_download, monkeypatch
 
 def test_auxiliary_frames_are_recorded_in_the_card(config, no_download, monkeypatch):
     import pandas as pd
+
     from fraud_benchmark.data.adapters.base import get_adapter
 
     adapter = get_adapter("paysim")
@@ -276,6 +279,7 @@ def test_auxiliary_keys_that_are_not_plain_filenames_are_rejected(
     config, no_download, monkeypatch, bad_key
 ):
     import pandas as pd
+
     from fraud_benchmark.data.adapters.base import get_adapter
 
     monkeypatch.setattr(

@@ -30,8 +30,8 @@ import numpy as np
 import torch
 from torch import nn
 
-from fraud_benchmark.experiments.metrics import best_f1_threshold, score
-
+from fraud_benchmark.experiments.metrics import best_f1_threshold
+from fraud_benchmark.experiments.metrics import score
 
 BATCH = 8192
 EVAL_BATCH = 65536

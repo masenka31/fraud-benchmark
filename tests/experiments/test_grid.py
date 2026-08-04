@@ -11,15 +11,12 @@ import json
 import pytest
 
 from fraud_benchmark.experiments import summary as summarize
-from fraud_benchmark.experiments.grid import (
-    CELLS,
-    GROUPS,
-    HISTORY_LAGS,
-    build_cells,
-    cells_by_group,
-    estimate_cost,
-)
-
+from fraud_benchmark.experiments.grid import CELLS
+from fraud_benchmark.experiments.grid import GROUPS
+from fraud_benchmark.experiments.grid import HISTORY_LAGS
+from fraud_benchmark.experiments.grid import build_cells
+from fraud_benchmark.experiments.grid import cells_by_group
+from fraud_benchmark.experiments.grid import estimate_cost
 
 # --- the grid ------------------------------------------------------------
 

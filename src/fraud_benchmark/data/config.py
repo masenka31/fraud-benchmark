@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field, fields, replace
+from dataclasses import dataclass
+from dataclasses import field
+from dataclasses import fields
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 

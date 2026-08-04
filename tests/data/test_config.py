@@ -3,7 +3,9 @@ import dataclasses
 import pandas as pd
 import pytest
 
-from fraud_benchmark.data.config import Config, ConfigError, load_config
+from fraud_benchmark.data.config import Config
+from fraud_benchmark.data.config import ConfigError
+from fraud_benchmark.data.config import load_config
 
 
 def test_load_default_config():

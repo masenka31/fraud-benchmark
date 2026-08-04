@@ -19,7 +19,8 @@ import argparse
 from pathlib import Path
 
 from fraud_benchmark.experiments.grid import CELLS
-from fraud_benchmark.experiments.slurm import FEATURE_JOBS, write_all
+from fraud_benchmark.experiments.slurm import FEATURE_JOBS
+from fraud_benchmark.experiments.slurm import write_all
 
 #: This runner's own checkout, which is the one the generated jobs should cd into --
 #: `scripts/slurm/generate.py`, so two parents up.

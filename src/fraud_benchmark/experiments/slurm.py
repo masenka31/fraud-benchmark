@@ -28,7 +28,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fraud_benchmark.experiments.grid import CELLS, estimate_cost
+from fraud_benchmark.experiments.grid import CELLS
+from fraud_benchmark.experiments.grid import estimate_cost
 
 #: The checkout to run from. A job cds here, calls `.venv/bin/python` under it, and
 #: writes its logs and results beneath it -- so this is the one thing in this module

@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from fraud_benchmark.experiments.encoding import UNSEEN, Encoder
+from fraud_benchmark.experiments.encoding import UNSEEN
+from fraud_benchmark.experiments.encoding import Encoder
 
 
 def frame(cats, nums):

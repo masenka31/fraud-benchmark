@@ -17,7 +17,8 @@ them.
 from __future__ import annotations
 
 import fraud_benchmark.data.adapters  # noqa: F401  (registers all adapters)
-from fraud_benchmark.data.adapters.base import get_adapter, list_datasets
+from fraud_benchmark.data.adapters.base import get_adapter
+from fraud_benchmark.data.adapters.base import list_datasets
 
 # Produced by the pipeline: the label, its availability time, the campaign it was
 # discovered with, and which split the row landed in.

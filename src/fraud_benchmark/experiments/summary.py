@@ -23,7 +23,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from fraud_benchmark.experiments.grid import CELLS, cells_by_group
+from fraud_benchmark.experiments.grid import CELLS
+from fraud_benchmark.experiments.grid import cells_by_group
 
 RESULTS_DIR = Path("results/experiments")
 SUMMARY = Path("results/experiments.md")

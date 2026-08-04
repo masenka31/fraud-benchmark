@@ -6,12 +6,10 @@ exception: a dataset whose upstream split must be preserved supplies its own thr
 `custom_splits`, as sparkov does. See `base.DatasetAdapter`.
 """
 
-from fraud_benchmark.data.adapters import (  # noqa: F401
-    amaretto,
-    banksim,
-    ibm_ccf,
-    ieee_cis,
-    paysim,
-    saml_d,
-    sparkov,
-)
+from fraud_benchmark.data.adapters import amaretto  # noqa: F401
+from fraud_benchmark.data.adapters import banksim  # noqa: F401
+from fraud_benchmark.data.adapters import ibm_ccf  # noqa: F401
+from fraud_benchmark.data.adapters import ieee_cis  # noqa: F401
+from fraud_benchmark.data.adapters import paysim  # noqa: F401
+from fraud_benchmark.data.adapters import saml_d  # noqa: F401
+from fraud_benchmark.data.adapters import sparkov  # noqa: F401
