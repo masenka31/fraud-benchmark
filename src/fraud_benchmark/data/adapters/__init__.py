@@ -15,4 +15,3 @@ from fraud_benchmark.data.adapters import (  # noqa: F401
     saml_d,
     sparkov,
 )
-

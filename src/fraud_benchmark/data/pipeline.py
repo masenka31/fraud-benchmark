@@ -74,9 +74,7 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
 
     df = df.sort_values("event_time", kind="stable").reset_index(drop=True)
     supplied = adapter.custom_splits(df, options)
-    df["split"] = (
-        assign_splits(df, config.split_ratios) if supplied is None else supplied
-    )
+    df["split"] = assign_splits(df, config.split_ratios) if supplied is None else supplied
 
     gap = config.campaign_gap_for(name)
     delay = config.delay_for(name)
@@ -233,9 +231,7 @@ def _write_atomically(
         df.to_parquet(staging / "data.parquet", index=False)
         for key, frame in (aux or {}).items():
             frame.to_parquet(staging / f"{key}.parquet", index=False)
-        (staging / "dataset_card.json").write_text(
-            json.dumps(card, indent=2, default=str) + "\n"
-        )
+        (staging / "dataset_card.json").write_text(json.dumps(card, indent=2, default=str) + "\n")
 
         try:
             os.rename(dest, previous)

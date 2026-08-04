@@ -80,8 +80,7 @@ def _top_features(model, names: list[str]) -> list[dict]:
         index = int(key[1:]) if key.startswith("f") and key[1:].isdigit() else None
         out.append(
             {
-                "feature": names[index] if index is not None and index < len(names)
-                else key,
+                "feature": names[index] if index is not None and index < len(names) else key,
                 "gain_share": round(float(gain) / total, 5),
             }
         )
@@ -92,6 +91,4 @@ def lagged_gain_share(top_features: list[dict]) -> float:
     """Share of reported gain earned by lagged columns. 0.0 with no history."""
     if not top_features:
         return 0.0
-    return float(
-        np.sum([f["gain_share"] for f in top_features if "_lag" in f["feature"]])
-    )
+    return float(np.sum([f["gain_share"] for f in top_features if "_lag" in f["feature"]]))

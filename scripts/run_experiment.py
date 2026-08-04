@@ -56,43 +56,61 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--dataset", required=True, choices=DATASETS)
     parser.add_argument(
-        "--model", default="xgboost", choices=MODELS,
+        "--model",
+        default="xgboost",
+        choices=MODELS,
         help="default: xgboost -- indifferent to the ordinal codes, handles NaN "
-             "natively, needs no standardisation",
+        "natively, needs no standardisation",
     )
     parser.add_argument(
-        "--history", type=int, default=0, metavar="N",
+        "--history",
+        type=int,
+        default=0,
+        metavar="N",
         help="lags of the dataset's HISTORY_COLUMNS concatenated onto each row "
-             "(default: 0, no history)",
+        "(default: 0, no history)",
     )
     parser.add_argument(
-        "--label-delay", default="off", choices=LABEL_DELAYS,
+        "--label-delay",
+        default="off",
+        choices=LABEL_DELAYS,
         help="off: true labels. on: train labels known at the train cutoff. "
-             "slow: the same against reported_at_slow (sparkov only). "
-             "Val and test always use true labels",
+        "slow: the same against reported_at_slow (sparkov only). "
+        "Val and test always use true labels",
     )
     parser.add_argument(
-        "--artifacts", default="drop", choices=ARTIFACT_MODES,
+        "--artifacts",
+        default="drop",
+        choices=ARTIFACT_MODES,
         help="drop (default) excludes the artifact_ columns. On IBM CCF, keeping "
-             "them is what produces a score measuring the generator's geography",
+        "them is what produces a score measuring the generator's geography",
     )
     parser.add_argument("--split", default="standard", choices=SPLITS)
     parser.add_argument(
-        "--seeds", type=int, nargs="+", default=[0, 1, 2], metavar="N",
+        "--seeds",
+        type=int,
+        nargs="+",
+        default=[0, 1, 2],
+        metavar="N",
         help="default: 0 1 2. Reported as mean +/- population sd",
     )
     parser.add_argument(
-        "--history-columns", default="default", choices=("default", "all"),
+        "--history-columns",
+        default="default",
+        choices=("default", "all"),
         help="default: the dataset module's HISTORY_COLUMNS. 'all' lags every "
-             "feature, which on IBM CCF at 10 lags is ~88 GB",
+        "feature, which on IBM CCF at 10 lags is ~88 GB",
     )
     parser.add_argument("--features-dir", type=Path, default=FEATURE_DIR)
     parser.add_argument(
-        "--out", type=Path, default=DEFAULT_RESULTS,
+        "--out",
+        type=Path,
+        default=DEFAULT_RESULTS,
         help=f"JSONL to append one record to (default: {DEFAULT_RESULTS})",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="prepare the matrix and report its shape, then stop without fitting",
     )
     return parser

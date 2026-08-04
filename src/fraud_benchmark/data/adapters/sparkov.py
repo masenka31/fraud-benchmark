@@ -65,9 +65,7 @@ class SparkovAdapter(DatasetAdapter):
         df.insert(2, "amount", df["amt"].astype("float64"))
         return df.sort_values("event_time", kind="stable").reset_index(drop=True)
 
-    def custom_splits(
-        self, df: pd.DataFrame, options: dict[str, Any]
-    ) -> pd.Series:
+    def custom_splits(self, df: pd.DataFrame, options: dict[str, Any]) -> pd.Series:
         """Split labels keeping the upstream test file as test.
 
         Validation is the last `val_fraction` of the upstream train file. The two

@@ -181,13 +181,14 @@ def test_exclude_noncommercial_skips_those_datasets(tmp_path, config_file, monke
             self.source = None
 
     monkeypatch.setattr("fraud_benchmark.data.cli.prepare", record)
-    monkeypatch.setattr("fraud_benchmark.data.selection.list_datasets", lambda: ["open_one", "nc_one"])
+    monkeypatch.setattr(
+        "fraud_benchmark.data.selection.list_datasets", lambda: ["open_one", "nc_one"]
+    )
     monkeypatch.setattr(
         "fraud_benchmark.data.selection.get_adapter",
         lambda n: _Fake(n, commercial=(n == "open_one")),
     )
 
-    assert main(["prepare", "--all", "--exclude-noncommercial",
-                 "--config", str(config_file)]) == 0
+    assert main(["prepare", "--all", "--exclude-noncommercial", "--config", str(config_file)]) == 0
     assert prepared == ["open_one"]
     assert "nc_one" in capsys.readouterr().out

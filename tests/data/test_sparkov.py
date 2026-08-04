@@ -113,6 +113,7 @@ def test_missing_file_is_an_error(tmp_path):
 
 def test_sparkov_is_registered():
     from fraud_benchmark.data.adapters.base import list_datasets
+
     assert "sparkov" in list_datasets()
 
 

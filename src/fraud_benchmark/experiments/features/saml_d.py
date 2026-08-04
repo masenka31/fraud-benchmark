@@ -139,9 +139,7 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     sender = EntityHistory(df["entity_id"], df["event_time"])
     # The second key. Laundering is a two-sided phenomenon, and a receiver's
     # inbound history is not derivable from any sender's outbound one.
-    receiver_side = EntityHistory(
-        df["Receiver_account"].astype("string"), df["event_time"]
-    )
+    receiver_side = EntityHistory(df["Receiver_account"].astype("string"), df["event_time"])
 
     amount = pd.to_numeric(df["Amount"], errors="coerce")
     magnitude = amount.abs()
@@ -155,18 +153,25 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     got_currency = df["Received_currency"].astype("string")
 
     # --- when: cyclical clock parts only, never the absolute Date
-    f[["hour", "minute", "weekday", "day", "month", "is_weekend", "hour_sin",
-       "hour_cos"]] = clock_features(df["event_time"])
+    f[["hour", "minute", "weekday", "day", "month", "is_weekend", "hour_sin", "hour_cos"]] = (
+        clock_features(df["event_time"])
+    )
 
     # --- how much. Cross-row comparison is not meaningful; see the docstring.
-    f[["amount", "amount_log1p", "amount_is_refund", "amount_cents",
-       "amount_is_round_10", "amount_is_round_100",
-       "amount_is_micro"]] = amount_shape(amount)
+    f[
+        [
+            "amount",
+            "amount_log1p",
+            "amount_is_refund",
+            "amount_cents",
+            "amount_is_round_10",
+            "amount_is_round_100",
+            "amount_is_micro",
+        ]
+    ] = amount_shape(amount)
     lower = REPORTING_THRESHOLD * (1 - JUST_UNDER_BAND)
     f["amount_just_under_10k"] = (
-        magnitude.between(lower, REPORTING_THRESHOLD, inclusive="left")
-        .to_numpy()
-        .astype("float64")
+        magnitude.between(lower, REPORTING_THRESHOLD, inclusive="left").to_numpy().astype("float64")
     )
 
     # --- how fast this account sends, every window excluding this row
@@ -194,14 +199,10 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     f["distinct_receivers_24h"] = sender.rolling_distinct(receiver, "24h")
     f["distinct_receivers_7d"] = sender.rolling_distinct(receiver, "7d")
     f["prior_distinct_receivers"] = sender.prior_distinct(receiver)
-    f["distinct_receiver_countries_7d"] = sender.rolling_distinct(
-        receiver_country, "7d"
-    )
+    f["distinct_receiver_countries_7d"] = sender.rolling_distinct(receiver_country, "7d")
     # New counterparty share: a burst of *new* accounts is the pattern, where a
     # burst to the same account is a standing arrangement.
-    f["new_receiver_rate_7d"] = safe_ratio(
-        f["distinct_receivers_7d"], f["txn_count_7d"]
-    )
+    f["new_receiver_rate_7d"] = safe_ratio(f["distinct_receivers_7d"], f["txn_count_7d"])
 
     # --- fan-in: the same picture from the receiving account's side
     f["receiver_in_count_24h"] = receiver_side.rolling_count("24h")
@@ -210,9 +211,7 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     f["receiver_distinct_senders_7d"] = receiver_side.rolling_distinct(sender_id, "7d")
     f["receiver_prior_distinct_senders"] = receiver_side.prior_distinct(sender_id)
     f["receiver_txn_ordinal"] = receiver_side.ordinal()
-    f["receiver_amount_over_mean"] = safe_ratio(
-        magnitude, receiver_side.prior_mean(magnitude)
-    )
+    f["receiver_amount_over_mean"] = safe_ratio(magnitude, receiver_side.prior_mean(magnitude))
     # A concentration ratio: many senders relative to volume is collection, one
     # sender relative to volume is a salary.
     f["receiver_sender_concentration_7d"] = safe_ratio(
@@ -236,15 +235,9 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     f["secs_since_receiver_last_paid"] = receiver_side.gap_seconds()
 
     # --- where the money crosses, stated relatively
-    f["is_cross_border"] = (
-        (sender_country != receiver_country).to_numpy().astype("float64")
-    )
-    f["is_currency_conversion"] = (
-        (paid_currency != got_currency).to_numpy().astype("float64")
-    )
-    f["same_currency"] = (
-        (paid_currency == got_currency).to_numpy().astype("float64")
-    )
+    f["is_cross_border"] = (sender_country != receiver_country).to_numpy().astype("float64")
+    f["is_currency_conversion"] = (paid_currency != got_currency).to_numpy().astype("float64")
+    f["same_currency"] = (paid_currency == got_currency).to_numpy().astype("float64")
 
     # --- how the money moves, as generalisable types
     f["payment_type"] = payment_type
@@ -267,11 +260,8 @@ def main(argv: list[str] | None = None) -> Path:
 
     df = pd.read_parquet(args.processed_dir / DATASET / "data.parquet")
     keys, features = build(df)
-    destination = write_features(
-        DATASET, keys, features, features_dir=args.features_dir
-    )
-    print(f"{DATASET}: {len(features.columns)} features over {len(df):,} rows "
-          f"-> {destination}")
+    destination = write_features(DATASET, keys, features, features_dir=args.features_dir)
+    print(f"{DATASET}: {len(features.columns)} features over {len(df):,} rows -> {destination}")
 
     return destination
 

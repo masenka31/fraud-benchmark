@@ -38,9 +38,7 @@ def build_always_excluded() -> frozenset[str]:
     below is its value at import time, which is what every caller uses.
     """
     label_descriptive = frozenset(
-        column
-        for name in list_datasets()
-        for column in get_adapter(name).label_descriptive_columns
+        column for name in list_datasets() for column in get_adapter(name).label_descriptive_columns
     )
     return _PIPELINE_COLUMNS | _NOT_MODEL_INPUTS | label_descriptive
 
@@ -65,9 +63,9 @@ ALWAYS_EXCLUDED = build_always_excluded()
 ABSOLUTE_TIME_COLUMNS = frozenset(
     {
         "trans_date_trans_time",  # sparkov: event_time as a string
-        "unix_time",              # sparkov: event_time as an int
-        "Date",                   # saml_d: the absolute date
-        "Year",                   # ibm_ccf: with Month and Day, reconstructs it
+        "unix_time",  # sparkov: event_time as an int
+        "Date",  # saml_d: the absolute date
+        "Year",  # ibm_ccf: with Month and Day, reconstructs it
     }
 )
 
@@ -87,6 +85,4 @@ def assert_no_excluded(columns: list[str]) -> None:
     """
     leaked = sorted(set(ALWAYS_EXCLUDED) & set(columns))
     if leaked:
-        raise ExcludedColumnError(
-            f"columns that must never reach a model are present: {leaked}"
-        )
+        raise ExcludedColumnError(f"columns that must never reach a model are present: {leaked}")

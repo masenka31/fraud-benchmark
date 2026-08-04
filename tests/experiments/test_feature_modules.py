@@ -39,12 +39,8 @@ def core(entities, n=N):
         "entity_id": pd.Series(cycle(entities, n), dtype="string"),
         "amount": pd.Series([10.0 + 7 * i for i in range(n)], dtype="float64"),
         "is_fraud": [i % 11 == 0 for i in range(n)],
-        "split": pd.Series(
-            ["train"] * (n - 6) + ["val"] * 3 + ["test"] * 3, dtype="string"
-        ),
-        "reported_at": [
-            BASE + pd.Timedelta(days=9) if i % 11 == 0 else pd.NaT for i in range(n)
-        ],
+        "split": pd.Series(["train"] * (n - 6) + ["val"] * 3 + ["test"] * 3, dtype="string"),
+        "reported_at": [BASE + pd.Timedelta(days=9) if i % 11 == 0 else pd.NaT for i in range(n)],
     }
 
 
@@ -121,7 +117,7 @@ def sparkov_frame(n=N):
     df["street"] = cycle(["561 Perry Cove", "43039 Riley Greens Suite 393"], n)
     df["cc_num"] = df["entity_id"].astype("int64")
     df["trans_date_trans_time"] = df["event_time"].astype("string")
-    df["unix_time"] = (df["event_time"].astype("int64") // 10**9)
+    df["unix_time"] = df["event_time"].astype("int64") // 10**9
     df["source_file"] = ["fraudTrain.csv"] * (n - 3) + ["fraudTest.csv"] * 3
     df["campaign_id"] = cycle([-1, 3], n)
     df["reported_at_slow"] = [
@@ -151,21 +147,39 @@ def saml_frame(n=N):
 #: What each module's docstring says it drops outright. The fixtures above carry
 #: every one of these, so a column that started being passed through fails here.
 IBM_DROPPED = (
-    "Card Number", "CVV", "Person", "Address", "Apartment", "Latitude", "Longitude",
-    "Zipcode", "Birth Year", "Birth Month", "Year", "Month", "Day", "Time", "User",
+    "Card Number",
+    "CVV",
+    "Person",
+    "Address",
+    "Apartment",
+    "Latitude",
+    "Longitude",
+    "Zipcode",
+    "Birth Year",
+    "Birth Month",
+    "Year",
+    "Month",
+    "Day",
+    "Time",
+    "User",
     "campaign_id",
 )
 SPARKOV_DROPPED = (
-    "first", "last", "street", "cc_num", "trans_num", "trans_date_trans_time",
-    "unix_time", "source_file", "campaign_id",
+    "first",
+    "last",
+    "street",
+    "cc_num",
+    "trans_num",
+    "trans_date_trans_time",
+    "unix_time",
+    "source_file",
+    "campaign_id",
 )
 SAML_DROPPED = ("Sender_account", "Date", "Time", "Laundering_type", "campaign_id")
 
 MODULES = [
     pytest.param(ibm_ccf, ibm_frame, (), IBM_DROPPED, id="ibm_ccf"),
-    pytest.param(
-        sparkov, sparkov_frame, ("reported_at_slow",), SPARKOV_DROPPED, id="sparkov"
-    ),
+    pytest.param(sparkov, sparkov_frame, ("reported_at_slow",), SPARKOV_DROPPED, id="sparkov"),
     pytest.param(saml_d, saml_frame, (), SAML_DROPPED, id="saml_d"),
 ]
 
@@ -210,9 +224,7 @@ def test_features_are_writable_and_round_trip(module, make, extra, dropped, tmp_
     df = make()
     keys, features = module.build(df)
     written = pd.read_parquet(
-        write_features(
-            module.DATASET, keys, features, features_dir=tmp_path, extra_keys=extra
-        )
+        write_features(module.DATASET, keys, features, features_dir=tmp_path, extra_keys=extra)
     )
     assert list(written.columns) == [*KEY_COLUMNS, *extra, *features.columns]
     assert len(feature_columns(written)) == len(features.columns)
@@ -233,9 +245,7 @@ def test_no_feature_is_entirely_null(module, make, extra, dropped):
 
 
 @pytest.mark.parametrize("module,make,extra,dropped", MODULES)
-def test_tampering_with_the_last_row_cannot_change_an_earlier_one(
-    module, make, extra, dropped
-):
+def test_tampering_with_the_last_row_cannot_change_an_earlier_one(module, make, extra, dropped):
     """A feature that can see its own row, or a later one, fails here and nowhere else."""
     df = make()
     _, before = module.build(df)
@@ -243,8 +253,7 @@ def test_tampering_with_the_last_row_cannot_change_an_earlier_one(
     tampered = df.copy()
     last = tampered.index[-1]
     for column in tampered.columns:
-        if column in ("event_time", "entity_id", "split", "reported_at",
-                      "reported_at_slow"):
+        if column in ("event_time", "entity_id", "split", "reported_at", "reported_at_slow"):
             continue
         values = tampered[column]
         if pd.api.types.is_bool_dtype(values):
@@ -255,11 +264,7 @@ def test_tampering_with_the_last_row_cannot_change_an_earlier_one(
             tampered.loc[last, column] = "tampered"
 
     _, after = module.build(tampered)
-    changed = [
-        c
-        for c in before.columns
-        if not before[c].iloc[:-1].equals(after[c].iloc[:-1])
-    ]
+    changed = [c for c in before.columns if not before[c].iloc[:-1].equals(after[c].iloc[:-1])]
     assert not changed, f"{module.DATASET}: later data leaked into {changed}"
 
 
@@ -269,8 +274,16 @@ def test_a_lone_first_transaction_has_no_history(module, make, extra, dropped):
     df = make().iloc[:1].reset_index(drop=True)
     _, features = module.build(df)
     for column in features.columns:
-        if column.startswith(("txn_count", "amount_sum", "errors_",
-                              "distinct_", "prior_distinct", "receiver_in_count")):
+        if column.startswith(
+            (
+                "txn_count",
+                "amount_sum",
+                "errors_",
+                "distinct_",
+                "prior_distinct",
+                "receiver_in_count",
+            )
+        ):
             assert features.loc[0, column] == 0.0, column
 
 
@@ -309,10 +322,10 @@ def test_ibm_mcc_group_generalises_where_the_raw_code_does_not():
 @pytest.mark.parametrize(
     "mcc,group",
     [
-        (5499, 54),     # a two-digit range
-        (5816, 5815),   # the 5815-5818 merge
-        (3010, 3000),   # an airline block
-        (0, 0),         # unusable
+        (5499, 54),  # a two-digit range
+        (5816, 5815),  # the 5815-5818 merge
+        (3010, 3000),  # an airline block
+        (0, 0),  # unusable
     ],
 )
 def test_ibm_mcc_group_collapses_to_the_iso_hierarchy(mcc, group):
@@ -344,8 +357,7 @@ def test_sparkov_attaches_the_slow_regime_by_transaction_id():
         {
             "trans_num": df["trans_num"][::-1].to_numpy(),
             "reported_at": [
-                BASE + pd.Timedelta(days=40) if i % 11 == 0 else pd.NaT
-                for i in range(len(df))
+                BASE + pd.Timedelta(days=40) if i % 11 == 0 else pd.NaT for i in range(len(df))
             ][::-1],
         }
     )
@@ -356,9 +368,7 @@ def test_sparkov_attaches_the_slow_regime_by_transaction_id():
 
 def test_sparkov_rejects_a_slow_frame_that_cannot_align():
     df = sparkov_frame().drop(columns=["reported_at_slow"])
-    duplicated = pd.DataFrame(
-        {"trans_num": ["hash0000"] * 2, "reported_at": [pd.NaT, pd.NaT]}
-    )
+    duplicated = pd.DataFrame({"trans_num": ["hash0000"] * 2, "reported_at": [pd.NaT, pd.NaT]})
     with pytest.raises(FeatureContractError, match="not unique"):
         sparkov.attach_slow_delay(df, duplicated)
 
@@ -374,9 +384,7 @@ def test_sparkov_notices_an_unmatched_non_fraud_row():
     """`reported_at` is NaT on every non-fraud row, so a failed join there leaves no
     trace in the nulls. Only membership catches it."""
     df = sparkov_frame().drop(columns=["reported_at_slow"])
-    slow = pd.DataFrame(
-        {"trans_num": df["trans_num"], "reported_at": df["reported_at"]}
-    )
+    slow = pd.DataFrame({"trans_num": df["trans_num"], "reported_at": df["reported_at"]})
     # Row 1 is not a fraud, so both timestamps would be NaT either way.
     assert not df.loc[1, "is_fraud"]
     slow.loc[1, "trans_num"] = "no-such-hash"

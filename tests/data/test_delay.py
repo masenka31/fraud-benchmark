@@ -39,30 +39,36 @@ def test_reported_at_is_never_before_the_transaction():
 
 
 def test_one_campaign_shares_a_single_reported_at():
-    df = frame([
-        ("a", "2023-01-01", True, 0),
-        ("a", "2023-01-02", True, 0),
-        ("a", "2023-01-03", True, 0),
-    ])
+    df = frame(
+        [
+            ("a", "2023-01-01", True, 0),
+            ("a", "2023-01-02", True, 0),
+            ("a", "2023-01-03", True, 0),
+        ]
+    )
     out = assign_reported_at(df, PARAMS)
     assert out.nunique() == 1
 
 
 def test_the_shared_timestamp_follows_the_last_transaction_in_the_campaign():
     """A campaign cannot be reported before its final fraud has happened."""
-    df = frame([
-        ("a", "2023-01-01", True, 0),
-        ("a", "2023-06-01", True, 0),
-    ])
+    df = frame(
+        [
+            ("a", "2023-01-01", True, 0),
+            ("a", "2023-06-01", True, 0),
+        ]
+    )
     out = assign_reported_at(df, PARAMS)
     assert (out >= pd.Timestamp("2023-06-01")).all()
 
 
 def test_separate_campaigns_get_independent_timestamps():
-    df = frame([
-        ("a", "2023-01-01", True, 0),
-        ("b", "2023-01-01", True, 1),
-    ])
+    df = frame(
+        [
+            ("a", "2023-01-01", True, 0),
+            ("b", "2023-01-01", True, 1),
+        ]
+    )
     out = assign_reported_at(df, PARAMS)
     assert out.iloc[0] != out.iloc[1]
 

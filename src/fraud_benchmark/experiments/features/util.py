@@ -107,9 +107,7 @@ class EntityHistory:
 
     def _rolled(self, values: np.ndarray, window: str):
         frame = self._indexed.assign(_v=values)
-        return frame.groupby("entity", observed=True)["_v"].rolling(
-            _offset(window), closed="left"
-        )
+        return frame.groupby("entity", observed=True)["_v"].rolling(_offset(window), closed="left")
 
     # --- counts and sums over a trailing window -------------------------------
 
@@ -132,9 +130,7 @@ class EntityHistory:
         """Mean of `values` over the trailing `window`. NaN with no history."""
         return self._scatter(self._rolled(self._sorted(values), window).mean().to_numpy())
 
-    def rolling_zscore(
-        self, values: pd.Series | np.ndarray, window: str
-    ) -> np.ndarray:
+    def rolling_zscore(self, values: pd.Series | np.ndarray, window: str) -> np.ndarray:
         """`values` against the mean and sd of this entity's trailing `window`.
 
         Zero rather than NaN when the history is empty or flat: "no evidence of
@@ -157,9 +153,7 @@ class EntityHistory:
     def prior_mean(self, values: pd.Series | np.ndarray) -> np.ndarray:
         """Mean of `values` over this entity's entire past. 0.0 on the first row."""
         ordered = self._sorted(values)
-        grouped = pd.Series(ordered).groupby(
-            self._group_key.to_numpy(), observed=True
-        )
+        grouped = pd.Series(ordered).groupby(self._group_key.to_numpy(), observed=True)
         prior_sum = grouped.cumsum().to_numpy() - ordered
         prior_count = self._work.groupby("entity", observed=True).cumcount().to_numpy()
         with np.errstate(invalid="ignore", divide="ignore"):
@@ -169,12 +163,10 @@ class EntityHistory:
 
     def prior_max(self, values: pd.Series | np.ndarray) -> np.ndarray:
         """Maximum of `values` over this entity's entire past. NaN on the first row."""
-        grouped = pd.Series(self._sorted(values)).groupby(
-            self._group_key.to_numpy(), observed=True
+        grouped = pd.Series(self._sorted(values)).groupby(self._group_key.to_numpy(), observed=True)
+        return self._scatter(
+            grouped.cummax().groupby(self._group_key.to_numpy(), observed=True).shift(1).to_numpy()
         )
-        return self._scatter(grouped.cummax().groupby(
-            self._group_key.to_numpy(), observed=True
-        ).shift(1).to_numpy())
 
     def prior_distinct(self, values: pd.Series) -> np.ndarray:
         """Distinct values of `values` this entity saw before this row.
@@ -183,9 +175,9 @@ class EntityHistory:
         this account has ever paid" costs one groupby rather than a nunique.
         """
         firsts = self._first_flags(values)
-        cumulative = pd.Series(firsts).groupby(
-            self._group_key.to_numpy(), observed=True
-        ).cumsum().to_numpy()
+        cumulative = (
+            pd.Series(firsts).groupby(self._group_key.to_numpy(), observed=True).cumsum().to_numpy()
+        )
         return self._scatter(cumulative - firsts)
 
     # --- context: has this entity seen this value before, and when -------------
@@ -269,11 +261,7 @@ class EntityHistory:
                 start = block
 
             end = block + 1
-            while (
-                end < self._n
-                and groups[end] == groups[block]
-                and times[end] == times[block]
-            ):
+            while end < self._n and groups[end] == groups[block] and times[end] == times[block]:
                 end += 1
 
             # Rows in [start, block) are this entity's strict past. Retire the ones
@@ -321,8 +309,9 @@ def signed_log1p(values) -> np.ndarray:
 def haversine_km(lat1, lon1, lat2, lon2) -> np.ndarray:
     """Great-circle distance in kilometres between two coordinate pairs."""
     radius = 6371.0088
-    p1, p2 = np.radians(np.asarray(lat1, dtype="float64")), np.radians(
-        np.asarray(lat2, dtype="float64")
+    p1, p2 = (
+        np.radians(np.asarray(lat1, dtype="float64")),
+        np.radians(np.asarray(lat2, dtype="float64")),
     )
     dlat = p2 - p1
     dlon = np.radians(np.asarray(lon2, dtype="float64")) - np.radians(
@@ -388,9 +377,7 @@ def amount_shape(amount: pd.Series) -> pd.DataFrame:
             "amount_is_round_100": ((absolute % 100 == 0) & (absolute > 0))
             .to_numpy()
             .astype("float64"),
-            "amount_is_micro": ((absolute > 0) & (absolute < 0.10))
-            .to_numpy()
-            .astype("float64"),
+            "amount_is_micro": ((absolute > 0) & (absolute < 0.10)).to_numpy().astype("float64"),
         },
         index=raw.index,
     )
@@ -474,9 +461,7 @@ def write_features(
         if pd.api.types.is_numeric_dtype(values) or pd.api.types.is_bool_dtype(values):
             numeric = pd.to_numeric(values, errors="coerce").to_numpy(dtype="float64")
             if np.isinf(numeric).any():
-                raise FeatureContractError(
-                    f"{dataset}: feature {column!r} contains infinities"
-                )
+                raise FeatureContractError(f"{dataset}: feature {column!r} contains infinities")
             out[column] = numeric.astype("float32")
         else:
             # Unfitted on purpose: the levels are named, not coded or capped.

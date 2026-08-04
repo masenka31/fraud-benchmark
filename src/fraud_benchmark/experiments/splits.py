@@ -47,7 +47,5 @@ def italy_holdout_split(df: pd.DataFrame) -> pd.DataFrame:
     val, test = tail.iloc[:half], tail.iloc[half:]
 
     out = pd.concat([train, val, test], ignore_index=True)
-    out["split"] = (
-        ["train"] * len(train) + ["val"] * len(val) + ["test"] * len(test)
-    )
+    out["split"] = ["train"] * len(train) + ["val"] * len(val) + ["test"] * len(test)
     return out

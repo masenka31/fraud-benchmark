@@ -25,11 +25,7 @@ def test_for_dataset_returns_empty_dict_for_unknown_dataset():
 def test_user_config_overrides_defaults(tmp_path):
     path = tmp_path / "custom.yaml"
     path.write_text(
-        "split:\n"
-        "  ratios: [0.6, 0.2, 0.2]\n"
-        "datasets:\n"
-        "  paysim:\n"
-        "    start_date: '2020-05-01'\n"
+        "split:\n  ratios: [0.6, 0.2, 0.2]\ndatasets:\n  paysim:\n    start_date: '2020-05-01'\n"
     )
     config = load_config(path)
     assert config.split_ratios == (0.6, 0.2, 0.2)
@@ -123,13 +119,7 @@ def test_delay_settings_can_be_overridden(tmp_path):
 
 def test_a_per_dataset_gap_override_wins(tmp_path):
     path = tmp_path / "custom.yaml"
-    path.write_text(
-        "campaign:\n"
-        "  gap: 2D\n"
-        "datasets:\n"
-        "  banksim:\n"
-        "    campaign_gap: 30min\n"
-    )
+    path.write_text("campaign:\n  gap: 2D\ndatasets:\n  banksim:\n    campaign_gap: 30min\n")
     config = load_config(path)
     assert config.campaign_gap_for("banksim") == pd.Timedelta(minutes=30)
     assert config.campaign_gap_for("paysim") == pd.Timedelta(days=2)
@@ -183,12 +173,7 @@ def test_a_delay_override_merges_over_the_global_block(tmp_path):
 
 def test_a_delay_override_does_not_leak_to_other_datasets(tmp_path):
     path = tmp_path / "custom.yaml"
-    path.write_text(
-        "datasets:\n"
-        "  banksim:\n"
-        "    delay:\n"
-        "      median_days: 2.0\n"
-    )
+    path.write_text("datasets:\n  banksim:\n    delay:\n      median_days: 2.0\n")
     config = load_config(path)
     assert config.delay_for("banksim").median_days == 2.0
     assert config.delay_for("sparkov").median_days == config.delay.median_days
@@ -196,47 +181,28 @@ def test_a_delay_override_does_not_leak_to_other_datasets(tmp_path):
 
 def test_a_delay_override_can_set_max_delay_days(tmp_path):
     path = tmp_path / "custom.yaml"
-    path.write_text(
-        "datasets:\n"
-        "  banksim:\n"
-        "    delay:\n"
-        "      max_delay_days: 365\n"
-    )
+    path.write_text("datasets:\n  banksim:\n    delay:\n      max_delay_days: 365\n")
     assert load_config(path).delay_for("banksim").max_delay_days == 365.0
 
 
 def test_an_unknown_delay_key_is_rejected(tmp_path):
     """A typo must fail loudly, not silently inherit the global value."""
     path = tmp_path / "custom.yaml"
-    path.write_text(
-        "datasets:\n"
-        "  banksim:\n"
-        "    delay:\n"
-        "      median_day: 2.0\n"
-    )
+    path.write_text("datasets:\n  banksim:\n    delay:\n      median_day: 2.0\n")
     with pytest.raises(ConfigError, match="median_day"):
         load_config(path)
 
 
 def test_an_invalid_delay_override_is_rejected(tmp_path):
     path = tmp_path / "custom.yaml"
-    path.write_text(
-        "datasets:\n"
-        "  banksim:\n"
-        "    delay:\n"
-        "      median_days: -1.0\n"
-    )
+    path.write_text("datasets:\n  banksim:\n    delay:\n      median_days: -1.0\n")
     with pytest.raises(ConfigError, match="median_days"):
         load_config(path)
 
 
 def test_a_non_mapping_delay_override_is_rejected(tmp_path):
     path = tmp_path / "custom.yaml"
-    path.write_text(
-        "datasets:\n"
-        "  banksim:\n"
-        "    delay: 7\n"
-    )
+    path.write_text("datasets:\n  banksim:\n    delay: 7\n")
     with pytest.raises(ConfigError, match="mapping"):
         load_config(path)
 
@@ -248,12 +214,7 @@ def test_delay_overrides_are_validated_at_load_time(tmp_path):
     `prepare --all` fail halfway through, after writing other datasets.
     """
     path = tmp_path / "custom.yaml"
-    path.write_text(
-        "datasets:\n"
-        "  banksim:\n"
-        "    delay:\n"
-        "      sigma: 0\n"
-    )
+    path.write_text("datasets:\n  banksim:\n    delay:\n      sigma: 0\n")
     with pytest.raises(ConfigError, match="sigma"):
         load_config(path)
 
@@ -302,10 +263,6 @@ def test_amaretto_keeps_the_card_fraud_delay_despite_being_aml():
     assert config.delay_for("amaretto").median_days == config.delay.median_days
 
 
-
-
-
-
 def test_sparkov_slow_overrides_the_delay_to_a_harsher_regime():
     """At the card-fraud default Sparkov's 487-day train window censors only
     2.1% of train labels, so the delay barely registers. sigma and seed inherit."""
@@ -330,11 +287,7 @@ def test_an_unknown_dataset_option_is_rejected(tmp_path):
     """Same argument as the delay block, one level up: a typo must not leave the
     dataset silently on its default while the config claims otherwise."""
     path = tmp_path / "custom.yaml"
-    path.write_text(
-        "datasets:\n"
-        "  sparkov:\n"
-        "    val_fractio: 0.2\n"
-    )
+    path.write_text("datasets:\n  sparkov:\n    val_fractio: 0.2\n")
     with pytest.raises(ConfigError, match="val_fractio"):
         load_config(path)
 

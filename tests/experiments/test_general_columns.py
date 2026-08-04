@@ -3,6 +3,7 @@
 The point of deriving it from the adapter registry is that adding a dataset cannot
 silently add a feature that is really a label.
 """
+
 import pytest
 
 from fraud_benchmark.experiments.columns import (

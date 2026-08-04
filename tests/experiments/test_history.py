@@ -29,8 +29,8 @@ def frame(entities, hours):
 def test_previous_positions_walks_back_within_one_entity():
     entity, time = frame(["a", "a", "a"], [0, 1, 2])
     previous = previous_positions(entity, time, 2)
-    assert previous[0].tolist() == [-1, -1]   # no history at all
-    assert previous[1].tolist() == [0, -1]    # one prior transaction
+    assert previous[0].tolist() == [-1, -1]  # no history at all
+    assert previous[1].tolist() == [0, -1]  # one prior transaction
     assert previous[2].tolist() == [1, 0]
 
 
@@ -95,8 +95,8 @@ def test_lag_matrix_marks_absent_history_rather_than_zeroing_it():
     """0.0 would read as a real measurement of zero. MISSING is learnable."""
     entity, time = frame(["a"], [0])
     out = lag_matrix(np.array([[0.0]], dtype="float32"), entity, time, 1)
-    assert out[0, 0] == 0.0        # a genuine zero survives
-    assert out[0, 1] == MISSING    # and is distinguishable from no history
+    assert out[0, 0] == 0.0  # a genuine zero survives
+    assert out[0, 1] == MISSING  # and is distinguishable from no history
 
 
 def test_lag_matrix_is_a_no_op_at_zero_lags():

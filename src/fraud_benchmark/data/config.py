@@ -81,9 +81,7 @@ def _parse_gap(value) -> pd.Timedelta:
     try:
         gap = pd.Timedelta(value)
     except (TypeError, ValueError) as exc:
-        raise ConfigError(
-            f"campaign gap {value!r} is not a valid duration: {exc}"
-        ) from exc
+        raise ConfigError(f"campaign gap {value!r} is not a valid duration: {exc}") from exc
     if gap is pd.NaT:
         raise ConfigError(f"campaign gap {value!r} is not a valid duration")
     if gap < pd.Timedelta(0):
@@ -100,9 +98,7 @@ def _build_delay(data: dict) -> DelayParams:
             sigma=float(delay.get("sigma", 1.0)),
             seed=int(delay.get("seed", 0)),
             max_delay_days=(
-                float(delay["max_delay_days"])
-                if delay.get("max_delay_days") is not None
-                else None
+                float(delay["max_delay_days"]) if delay.get("max_delay_days") is not None else None
             ),
         )
     except (TypeError, ValueError) as exc:
@@ -116,11 +112,11 @@ _DELAY_FIELDS = {f.name for f in fields(DelayParams)}
 # leaving the dataset silently on its default while the config claims otherwise.
 DATASET_OPTIONS = frozenset(
     {
-        "start_date",     # paysim, banksim, ieee_cis: anchors a relative offset
-        "val_fraction",   # sparkov: size of the validation tail
-        "entity_key",     # ibm_ccf: 'user' or 'card'
-        "delay",          # any: partial DelayParams override
-        "campaign_gap",   # any: overrides campaign.gap
+        "start_date",  # paysim, banksim, ieee_cis: anchors a relative offset
+        "val_fraction",  # sparkov: size of the validation tail
+        "entity_key",  # ibm_ccf: 'user' or 'card'
+        "delay",  # any: partial DelayParams override
+        "campaign_gap",  # any: overrides campaign.gap
     }
 )
 
@@ -131,9 +127,7 @@ def _validate_dataset_options(datasets: Any) -> dict[str, dict[str, Any]]:
         raise ConfigError(f"'datasets' must be a mapping, got {datasets!r}")
     for name, options in datasets.items():
         if not isinstance(options, dict):
-            raise ConfigError(
-                f"datasets.{name} must be a mapping of options, got {options!r}"
-            )
+            raise ConfigError(f"datasets.{name} must be a mapping of options, got {options!r}")
         unknown = sorted(set(options) - DATASET_OPTIONS)
         if unknown:
             raise ConfigError(
@@ -157,13 +151,7 @@ def _merge_delay(base: DelayParams, override: Any, name: str) -> DelayParams:
         )
     try:
         coerced = {
-            key: (
-                int(value)
-                if key == "seed"
-                else None
-                if value is None
-                else float(value)
-            )
+            key: (int(value) if key == "seed" else None if value is None else float(value))
             for key, value in override.items()
         }
         # replace() re-runs DelayParams.__post_init__, so an override gets exactly

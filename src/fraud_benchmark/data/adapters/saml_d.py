@@ -25,9 +25,7 @@ TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
 @register
 class SamlDAdapter(DatasetAdapter):
     name = "saml_d"
-    source = KaggleDataset(
-        "berkanoztas/synthetic-transaction-monitoring-dataset-aml"
-    )
+    source = KaggleDataset("berkanoztas/synthetic-transaction-monitoring-dataset-aml")
     source_label_column = "Is_laundering"
     # Kept: the typology for laundering rows, which is_fraud reduces to a bool.
     label_descriptive_columns = ("Laundering_type",)

@@ -19,9 +19,7 @@ class UnknownDatasetError(KeyError):
     """Raised when a dataset name has no registered adapter."""
 
 
-def require_start_date(
-    options: dict[str, Any], dataset: str, column: str
-) -> pd.Timestamp:
+def require_start_date(options: dict[str, Any], dataset: str, column: str) -> pd.Timestamp:
     """The timestamp `column`'s zero point, from `datasets.<dataset>.start_date`.
 
     Required rather than defaulted: a dataset shipping an offset instead of a date
@@ -79,9 +77,7 @@ class DatasetAdapter(ABC):
     def column_mapping(self, options: dict[str, Any]) -> dict[str, str]:
         """Canonical column name -> the source column(s) or expression behind it."""
 
-    def custom_splits(
-        self, df: pd.DataFrame, options: dict[str, Any]
-    ) -> pd.Series | None:
+    def custom_splits(self, df: pd.DataFrame, options: dict[str, Any]) -> pd.Series | None:
         """This dataset's own split labels, or None to accept the temporal split.
 
         Override only when the source dictates the split, e.g. an upstream test set
@@ -89,9 +85,7 @@ class DatasetAdapter(ABC):
         """
         return None
 
-    def auxiliary_frames(
-        self, raw_dir: Path, options: dict[str, Any]
-    ) -> dict[str, pd.DataFrame]:
+    def auxiliary_frames(self, raw_dir: Path, options: dict[str, Any]) -> dict[str, pd.DataFrame]:
         """Extra frames to write beside the canonical one, keyed by output file stem.
 
         Override for data that belongs with the dataset but cannot be validated or

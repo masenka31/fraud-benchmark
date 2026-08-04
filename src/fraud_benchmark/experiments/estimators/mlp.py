@@ -48,15 +48,26 @@ class OneHotMLP(nn.Module):
     45 MiB. Mathematically identical to feeding a one-hot matrix.
     """
 
-    def __init__(self, n_continuous: int, cardinalities: list[int],
-                 hidden: tuple[int, int] = (256, 128), dropout: float = 0.2) -> None:
+    def __init__(
+        self,
+        n_continuous: int,
+        cardinalities: list[int],
+        hidden: tuple[int, int] = (256, 128),
+        dropout: float = 0.2,
+    ) -> None:
         super().__init__()
         self.cardinalities = cardinalities
         width = n_continuous + sum(cardinalities)
         h1, h2 = hidden
         self.net = nn.Sequential(
-            nn.Linear(width, h1), nn.BatchNorm1d(h1), nn.ReLU(), nn.Dropout(dropout),
-            nn.Linear(h1, h2), nn.BatchNorm1d(h2), nn.ReLU(), nn.Dropout(dropout),
+            nn.Linear(width, h1),
+            nn.BatchNorm1d(h1),
+            nn.ReLU(),
+            nn.Dropout(dropout),
+            nn.Linear(h1, h2),
+            nn.BatchNorm1d(h2),
+            nn.ReLU(),
+            nn.Dropout(dropout),
             nn.Linear(h2, 1),
         )
 
@@ -64,8 +75,9 @@ class OneHotMLP(nn.Module):
         parts = [continuous]
         for i, n_levels in enumerate(self.cardinalities):
             parts.append(
-                nn.functional.one_hot(codes[:, i].long().clamp(0, n_levels - 1),
-                                      num_classes=n_levels).float()
+                nn.functional.one_hot(
+                    codes[:, i].long().clamp(0, n_levels - 1), num_classes=n_levels
+                ).float()
             )
         return self.net(torch.cat(parts, dim=1)).squeeze(-1)
 
@@ -73,8 +85,9 @@ class OneHotMLP(nn.Module):
 class MLP(nn.Module):
     """161 -> 256 -> 128 -> 1. Three Linear layers."""
 
-    def __init__(self, n_features: int, hidden: tuple[int, int] = (256, 128),
-                 dropout: float = 0.2) -> None:
+    def __init__(
+        self, n_features: int, hidden: tuple[int, int] = (256, 128), dropout: float = 0.2
+    ) -> None:
         super().__init__()
         h1, h2 = hidden
         self.net = nn.Sequential(
@@ -93,8 +106,9 @@ class MLP(nn.Module):
         return self.net(x).squeeze(-1)
 
 
-def train_statistics(x: np.ndarray, rows: np.ndarray,
-                     cols: np.ndarray | None = None) -> tuple[np.ndarray, np.ndarray]:
+def train_statistics(
+    x: np.ndarray, rows: np.ndarray, cols: np.ndarray | None = None
+) -> tuple[np.ndarray, np.ndarray]:
     """Per-column mean and std over `rows` only, accumulated in chunks.
 
     Fitting on anything but train would leak; materialising x[rows] would copy
@@ -106,19 +120,25 @@ def train_statistics(x: np.ndarray, rows: np.ndarray,
     for start in range(0, len(rows), CHUNK):
         block = x[np.ix_(rows[start : start + CHUNK], cols)].astype("float64")
         total += block.sum(axis=0)
-        total_sq += (block ** 2).sum(axis=0)
+        total_sq += (block**2).sum(axis=0)
     n = len(rows)
     mean = total / n
-    var = np.maximum(total_sq / n - mean ** 2, 0.0)
+    var = np.maximum(total_sq / n - mean**2, 0.0)
     std = np.sqrt(var)
-    std[std < 1e-6] = 1.0          # a constant column contributes nothing
+    std[std < 1e-6] = 1.0  # a constant column contributes nothing
     return mean.astype("float32"), std.astype("float32")
 
 
 @torch.no_grad()
-def predict(model: nn.Module, x: np.ndarray, rows: np.ndarray, mean: np.ndarray,
-            std: np.ndarray, cont_cols: np.ndarray,
-            cat_cols: np.ndarray | None) -> np.ndarray:
+def predict(
+    model: nn.Module,
+    x: np.ndarray,
+    rows: np.ndarray,
+    mean: np.ndarray,
+    std: np.ndarray,
+    cont_cols: np.ndarray,
+    cat_cols: np.ndarray | None,
+) -> np.ndarray:
     model.eval()
     out = np.empty(len(rows), dtype="float32")
     for start in range(0, len(rows), EVAL_BATCH):
@@ -127,14 +147,24 @@ def predict(model: nn.Module, x: np.ndarray, rows: np.ndarray, mean: np.ndarray,
         if cat_cols is None:
             logits = model(torch.from_numpy(cont))
         else:
-            logits = model(torch.from_numpy(cont),
-                           torch.from_numpy(x[np.ix_(idx, cat_cols)]))
+            logits = model(torch.from_numpy(cont), torch.from_numpy(x[np.ix_(idx, cat_cols)]))
         out[start : start + len(idx)] = torch.sigmoid(logits).numpy()
     return out
 
 
-def run_seed(x, y, tr_rows, va_rows, te_rows, mean, std, seed: int,
-             cont_cols=None, cat_cols=None, cardinalities=None) -> dict:
+def run_seed(
+    x,
+    y,
+    tr_rows,
+    va_rows,
+    te_rows,
+    mean,
+    std,
+    seed: int,
+    cont_cols=None,
+    cat_cols=None,
+    cardinalities=None,
+) -> dict:
     torch.manual_seed(seed)
     np.random.seed(seed)
     rng = np.random.default_rng(seed)
@@ -159,7 +189,7 @@ def run_seed(x, y, tr_rows, va_rows, te_rows, mean, std, seed: int,
         running, batches = 0.0, 0
         for start in range(0, len(order), BATCH):
             idx = tr_rows[order[start : start + BATCH]]
-            if len(idx) < 2:                     # BatchNorm needs >1 row
+            if len(idx) < 2:  # BatchNorm needs >1 row
                 continue
             cont = (x[np.ix_(idx, cont_cols)] - mean) / std
             target = torch.from_numpy(y[idx].astype("float32"))
@@ -167,8 +197,7 @@ def run_seed(x, y, tr_rows, va_rows, te_rows, mean, std, seed: int,
             if cat_cols is None:
                 logits = model(torch.from_numpy(cont))
             else:
-                logits = model(torch.from_numpy(cont),
-                               torch.from_numpy(x[np.ix_(idx, cat_cols)]))
+                logits = model(torch.from_numpy(cont), torch.from_numpy(x[np.ix_(idx, cat_cols)]))
             loss = loss_fn(logits, target)
             loss.backward()
             opt.step()
@@ -176,12 +205,19 @@ def run_seed(x, y, tr_rows, va_rows, te_rows, mean, std, seed: int,
             batches += 1
         val_scores = predict(model, x, va_rows, mean, std, cont_cols, cat_cols)
         from sklearn.metrics import average_precision_score
+
         val_ap = float(average_precision_score(y[va_rows], val_scores))
-        print(f"  seed={seed} epoch={epoch:02d} loss={running/max(batches,1):.4f} "
-              f"val_AP={val_ap:.4f}", flush=True)
+        print(
+            f"  seed={seed} epoch={epoch:02d} loss={running / max(batches, 1):.4f} "
+            f"val_AP={val_ap:.4f}",
+            flush=True,
+        )
         if val_ap > best["val_ap"]:
-            best = {"val_ap": val_ap, "epoch": epoch,
-                    "state": {k: v.clone() for k, v in model.state_dict().items()}}
+            best = {
+                "val_ap": val_ap,
+                "epoch": epoch,
+                "state": {k: v.clone() for k, v in model.state_dict().items()},
+            }
         elif epoch - best["epoch"] >= PATIENCE:
             print(f"  seed={seed} early stop (no val gain in {PATIENCE} epochs)", flush=True)
             break
@@ -238,8 +274,14 @@ def fit_and_score(prepared, seed: int, ordinal: bool = False) -> dict:
     if one_hot:
         mean, std = train_statistics(prepared.x, prepared.train_rows, prepared.continuous)
         record = run_seed(
-            prepared.x, prepared.y, prepared.train_rows, prepared.val_rows,
-            prepared.test_rows, mean, std, seed,
+            prepared.x,
+            prepared.y,
+            prepared.train_rows,
+            prepared.val_rows,
+            prepared.test_rows,
+            mean,
+            std,
+            seed,
             cont_cols=prepared.continuous,
             cat_cols=prepared.categorical,
             cardinalities=prepared.cardinalities,
@@ -247,13 +289,20 @@ def fit_and_score(prepared, seed: int, ordinal: bool = False) -> dict:
     else:
         # Everything standardised together: the codes, where there are any, ride along
         # as numbers, false ordering included.
-        columns = np.sort(
-            np.concatenate([prepared.continuous, prepared.categorical])
-        ).astype("int64")
+        columns = np.sort(np.concatenate([prepared.continuous, prepared.categorical])).astype(
+            "int64"
+        )
         mean, std = train_statistics(prepared.x, prepared.train_rows, columns)
         record = run_seed(
-            prepared.x, prepared.y, prepared.train_rows, prepared.val_rows,
-            prepared.test_rows, mean, std, seed, cont_cols=columns,
+            prepared.x,
+            prepared.y,
+            prepared.train_rows,
+            prepared.val_rows,
+            prepared.test_rows,
+            mean,
+            std,
+            seed,
+            cont_cols=columns,
         )
 
     record["encoding"] = "onehot" if one_hot else "ordinal"

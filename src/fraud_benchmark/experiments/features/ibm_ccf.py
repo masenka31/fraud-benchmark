@@ -159,13 +159,22 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     magnitude = amount.abs()
 
     # --- when: cyclical clock parts only, never the absolute date
-    f[["hour", "minute", "weekday", "day", "month", "is_weekend", "hour_sin",
-       "hour_cos"]] = clock_features(df["event_time"])
+    f[["hour", "minute", "weekday", "day", "month", "is_weekend", "hour_sin", "hour_cos"]] = (
+        clock_features(df["event_time"])
+    )
 
     # --- how much, and the shape of the number
-    f[["amount", "amount_log1p", "amount_is_refund", "amount_cents",
-       "amount_is_round_10", "amount_is_round_100",
-       "amount_is_micro"]] = amount_shape(amount)
+    f[
+        [
+            "amount",
+            "amount_log1p",
+            "amount_is_refund",
+            "amount_cents",
+            "amount_is_round_10",
+            "amount_is_round_100",
+            "amount_is_micro",
+        ]
+    ] = amount_shape(amount)
 
     # --- how fast: the user's own recent volume, every window excluding this row
     f["txn_count_1h"] = history.rolling_count("1h")
@@ -208,9 +217,9 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     f["first_card_for_entity"] = history.first_occurrence(card)
     # Only the first foreign row counts: first_occurrence also fires on the first
     # domestic one, and multiplying by the flag keeps just the half that is meant.
-    f["first_foreign_for_entity"] = history.first_occurrence(
-        pd.Series(is_foreign, index=df.index)
-    ) * is_foreign
+    f["first_foreign_for_entity"] = (
+        history.first_occurrence(pd.Series(is_foreign, index=df.index)) * is_foreign
+    )
 
     # --- how long since this user was last in this context
     f["secs_since_same_merchant"] = history.gap_since_same(merchant)
@@ -256,8 +265,7 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     )
     f["cards_issued"] = pd.to_numeric(df["Cards Issued"], errors="coerce")
     f["days_since_acct_open"] = days_between(
-        df["event_time"], pd.to_datetime(df["Acct Open Date"], format=_MONTH_YEAR,
-                                        errors="coerce")
+        df["event_time"], pd.to_datetime(df["Acct Open Date"], format=_MONTH_YEAR, errors="coerce")
     )
     f["days_to_expiry"] = days_between(
         pd.to_datetime(df["Expires"], format=_MONTH_YEAR, errors="coerce"),
@@ -266,8 +274,7 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     # The source records only the year of the last PIN change, so this is accurate
     # to a year and no better.
     f["days_since_pin_change"] = (
-        df["event_time"].dt.year - pd.to_numeric(df["Year PIN last Changed"],
-                                                 errors="coerce")
+        df["event_time"].dt.year - pd.to_numeric(df["Year PIN last Changed"], errors="coerce")
     ) * 365.25
 
     # --- the cardholder
@@ -304,11 +311,8 @@ def main(argv: list[str] | None = None) -> Path:
 
     df = pd.read_parquet(args.processed_dir / DATASET / "data.parquet")
     keys, features = build(df)
-    destination = write_features(
-        DATASET, keys, features, features_dir=args.features_dir
-    )
-    print(f"{DATASET}: {len(features.columns)} features over {len(df):,} rows "
-          f"-> {destination}")
+    destination = write_features(DATASET, keys, features, features_dir=args.features_dir)
+    print(f"{DATASET}: {len(features.columns)} features over {len(df):,} rows -> {destination}")
 
     return destination
 

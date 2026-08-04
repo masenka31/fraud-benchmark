@@ -38,9 +38,7 @@ class CappedOrdinalEncoder:
     indistinguishable here.
     """
 
-    def __init__(
-        self, coverage: float = RARE_COVERAGE, max_levels: int = MAX_LEVELS
-    ) -> None:
+    def __init__(self, coverage: float = RARE_COVERAGE, max_levels: int = MAX_LEVELS) -> None:
         self.coverage = coverage
         self.max_levels = max_levels
         self.vocabularies_: dict[str, list[str]] = {}

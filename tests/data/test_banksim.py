@@ -32,8 +32,15 @@ def test_single_quotes_are_stripped_from_entity_id(frame):
 
 
 def test_single_quotes_are_stripped_from_every_string_column(frame):
-    for column in ("customer", "age", "gender", "merchant", "category",
-                   "zipcodeOri", "zipMerchant"):
+    for column in (
+        "customer",
+        "age",
+        "gender",
+        "merchant",
+        "category",
+        "zipcodeOri",
+        "zipMerchant",
+    ):
         values = frame[column].astype(str)
         assert not values.str.startswith("'").any(), f"{column} still quoted"
         assert not values.str.endswith("'").any(), f"{column} still quoted"
@@ -86,4 +93,5 @@ def test_missing_start_date_is_an_error():
 
 def test_banksim_is_registered():
     from fraud_benchmark.data.adapters.base import list_datasets
+
     assert "banksim" in list_datasets()

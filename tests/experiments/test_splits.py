@@ -3,6 +3,7 @@
 A split that lets a later row train against an earlier one is lookahead: it raises
 the score and raises no error.
 """
+
 import pandas as pd
 import pytest
 

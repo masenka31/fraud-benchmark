@@ -31,9 +31,7 @@ from fraud_benchmark.experiments.features import DATASETS, build
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dataset", choices=DATASETS, help="dataset name")
-    parser.add_argument(
-        "--all", action="store_true", help="build every experimental dataset"
-    )
+    parser.add_argument("--all", action="store_true", help="build every experimental dataset")
     parser.add_argument("--processed-dir", type=Path, default=None)
     parser.add_argument("--features-dir", type=Path, default=None)
     args = parser.parse_args(argv)
@@ -61,8 +59,7 @@ def main(argv: list[str] | None = None) -> int:
             failures.append(name)
 
     if failures:
-        print(f"\n{len(failures)} of {len(names)} failed: {', '.join(failures)}",
-              file=sys.stderr)
+        print(f"\n{len(failures)} of {len(names)} failed: {', '.join(failures)}", file=sys.stderr)
         return 1
     return 0
 

@@ -29,9 +29,7 @@ REPO = Path(__file__).resolve().parents[2]
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--repo", type=Path, default=REPO, help="checkout jobs run in")
-    parser.add_argument(
-        "--out", type=Path, default=None, help="default: <repo>/scripts/slurm/jobs"
-    )
+    parser.add_argument("--out", type=Path, default=None, help="default: <repo>/scripts/slurm/jobs")
     args = parser.parse_args(argv)
 
     target = args.out or args.repo / "scripts" / "slurm" / "jobs"

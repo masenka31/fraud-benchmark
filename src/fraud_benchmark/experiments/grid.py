@@ -85,9 +85,7 @@ def build_cells() -> tuple[Cell, ...]:
     # --- history: the same thing with the previous 10 transactions concatenated
     for dataset in DATASETS:
         for model in MODELS:
-            cells.append(
-                Cell("history", _config(dataset, model, history=HISTORY_LAGS))
-            )
+            cells.append(Cell("history", _config(dataset, model, history=HISTORY_LAGS)))
 
     # --- delay: what training on the labels a detector would have had costs.
     # Trees only: the question is about labels, and adding two more models triples
@@ -99,14 +97,13 @@ def build_cells() -> tuple[Cell, ...]:
     # --- artifacts: what the generator's geography supplies, two ways
     for model in ("xgboost", "mlp"):
         cells.append(Cell("artifacts", _config("ibm_ccf", model, artifacts="keep")))
-    cells.append(
-        Cell("artifacts", _config("ibm_ccf", "xgboost", split="italy_holdout"))
-    )
+    cells.append(Cell("artifacts", _config("ibm_ccf", "xgboost", split="italy_holdout")))
 
     return tuple(cells)
 
 
 CELLS = build_cells()
+
 
 #: Cells whose matrix or fit is large enough to need the long partition. Measured
 #: from the feature builds: ibm_ccf is 24.4M rows and saml_d 9.5M, and the MLP is
@@ -119,9 +116,7 @@ def estimate_cost(cell: Cell) -> tuple[str, str, str]:
     big datasets are where a bad guess is expensive.
     """
     config = cell.config
-    rows = {"ibm_ccf": 24_400_000, "saml_d": 9_500_000, "sparkov": 1_900_000}[
-        config.dataset
-    ]
+    rows = {"ibm_ccf": 24_400_000, "saml_d": 9_500_000, "sparkov": 1_900_000}[config.dataset]
 
     # Feature count drives the matrix; history multiplies the lagged subset only.
     features = 90 + (config.history * 14)

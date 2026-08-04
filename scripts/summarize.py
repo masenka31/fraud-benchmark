@@ -31,12 +31,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
     parser.add_argument("--out", type=Path, default=SUMMARY)
-    parser.add_argument(
-        "--write", action="store_true", help="write the markdown summary as well"
-    )
-    parser.add_argument(
-        "--json", action="store_true", help="print the flat table as JSON and stop"
-    )
+    parser.add_argument("--write", action="store_true", help="write the markdown summary as well")
+    parser.add_argument("--json", action="store_true", help="print the flat table as JSON and stop")
     args = parser.parse_args(argv)
 
     rows = flatten(load(args.results_dir))

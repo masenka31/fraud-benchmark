@@ -89,8 +89,5 @@ def test_every_registered_adapter_declares_a_data_license():
     # which would silently omit the dataset's terms from its card.
     from fraud_benchmark.data.adapters.base import list_datasets
 
-    undeclared = [
-        name for name in list_datasets()
-        if get_adapter(name).data_license == "unknown"
-    ]
+    undeclared = [name for name in list_datasets() if get_adapter(name).data_license == "unknown"]
     assert undeclared == [], f"adapters missing a data_license: {undeclared}"

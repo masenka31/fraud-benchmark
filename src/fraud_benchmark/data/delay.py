@@ -43,9 +43,7 @@ class DelayParams:
         if self.sigma <= 0:
             raise ValueError(f"sigma must be positive, got {self.sigma}")
         if self.max_delay_days is not None and self.max_delay_days <= 0:
-            raise ValueError(
-                f"max_delay_days must be positive, got {self.max_delay_days}"
-            )
+            raise ValueError(f"max_delay_days must be positive, got {self.max_delay_days}")
 
 
 def assign_reported_at(df: pd.DataFrame, params: DelayParams) -> pd.Series:
@@ -58,18 +56,14 @@ def assign_reported_at(df: pd.DataFrame, params: DelayParams) -> pd.Series:
 
     Raises ValueError if a draw is too large to represent as a microsecond offset.
     """
-    reported = pd.Series(
-        pd.NaT, index=df.index, dtype="datetime64[us]", name=REPORTED_AT_COLUMN
-    )
+    reported = pd.Series(pd.NaT, index=df.index, dtype="datetime64[us]", name=REPORTED_AT_COLUMN)
     labelled = df["campaign_id"].notna()
     if not labelled.any():
         return reported
 
     # groupby sorts by key, so the draws line up with campaign ids regardless of
     # row order — which is what makes a given seed reproducible.
-    campaign_end = (
-        df.loc[labelled].groupby("campaign_id", observed=True)["event_time"].max()
-    )
+    campaign_end = df.loc[labelled].groupby("campaign_id", observed=True)["event_time"].max()
 
     rng = np.random.default_rng(params.seed)
     days = rng.lognormal(
@@ -82,10 +76,7 @@ def assign_reported_at(df: pd.DataFrame, params: DelayParams) -> pd.Series:
     # throughout: pd.to_timedelta(..., unit="D") promotes to [ns], whose range is
     # only ~1677-2262 and overflows on heavy-tailed draws.
     offset_micros = days * 86_400_000_000.0
-    if (
-        not np.isfinite(offset_micros).all()
-        or offset_micros.max() >= float(np.iinfo("int64").max)
-    ):
+    if not np.isfinite(offset_micros).all() or offset_micros.max() >= float(np.iinfo("int64").max):
         raise ValueError(
             "sampled reporting delay exceeds the representable range; set "
             f"max_delay_days to bound it (largest draw was {days.max():,.0f} days)"

@@ -64,9 +64,7 @@ class IbmCcfAdapter(DatasetAdapter):
     def to_canonical(self, raw_dir: Path, options: dict[str, Any]) -> pd.DataFrame:
         entity_key = options.get("entity_key", "user")
         if entity_key not in ("user", "card"):
-            raise ValueError(
-                f"ibm_ccf entity_key must be 'user' or 'card', got {entity_key!r}"
-            )
+            raise ValueError(f"ibm_ccf entity_key must be 'user' or 'card', got {entity_key!r}")
 
         df = pd.read_csv(require_file(raw_dir, TRANSACTIONS_FILE))
         cards = pd.read_csv(require_file(raw_dir, CARDS_FILE))
@@ -99,9 +97,7 @@ class IbmCcfAdapter(DatasetAdapter):
         if entity_key == "user":
             entity = df["User"].astype("string")
         else:
-            entity = (df["User"].astype(str) + "-" + df["Card"].astype(str)).astype(
-                "string"
-            )
+            entity = (df["User"].astype(str) + "-" + df["Card"].astype(str)).astype("string")
 
         amount = df["Amount"]
         is_fraud = df["Is Fraud?"].astype(str).str.strip().eq("Yes")

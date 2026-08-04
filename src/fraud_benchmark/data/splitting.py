@@ -100,9 +100,7 @@ def boundary_at(df: pd.DataFrame, fraction: float) -> pd.Timestamp:
     return _cut_at(_cumulative_fraction(df), fraction)
 
 
-def assign_splits(
-    df: pd.DataFrame, ratios: tuple[float, float, float]
-) -> pd.Series:
+def assign_splits(df: pd.DataFrame, ratios: tuple[float, float, float]) -> pd.Series:
     """Split label per row as a SPLIT_NAMES categorical, aligned to `df`'s index.
 
     Warns if tied timestamps made any split empty.
@@ -115,8 +113,6 @@ def assign_splits(
         "train",
         np.where(times <= bounds["val_end"], "val", "test"),
     )
-    result = pd.Series(
-        pd.Categorical(labels, categories=SPLIT_NAMES), index=df.index, name="split"
-    )
+    result = pd.Series(pd.Categorical(labels, categories=SPLIT_NAMES), index=df.index, name="split")
     _warn_if_any_split_is_empty(result, ratios, df["event_time"].nunique())
     return result

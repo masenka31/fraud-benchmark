@@ -71,18 +71,16 @@ def make_parquet(directory, dataset="sparkov", n=N, slow=True):
             "amount_over_entity_mean": rng.random(n) * 2,
             "txn_count_24h": rng.integers(0, 9, n).astype("float64"),
             "first_merchant_for_entity": rng.integers(0, 2, n).astype("float64"),
-            "category": pd.Series(
-                [f"cat{i % 4}" for i in range(n)], dtype="string"
-            ).astype("category"),
+            "category": pd.Series([f"cat{i % 4}" for i in range(n)], dtype="string").astype(
+                "category"
+            ),
             "an_extra_numeric": rng.random(n),
             "artifact_merchant": pd.Series(
                 [f"shop{i % 7}" for i in range(n)], dtype="string"
             ).astype("category"),
         }
     )
-    write_features(
-        dataset, keys, features, features_dir=directory, extra_keys=extra
-    )
+    write_features(dataset, keys, features, features_dir=directory, extra_keys=extra)
     return directory
 
 
@@ -303,16 +301,24 @@ def ibm_frame(directory, n=600, tail=120):
         }
     )
     names = (
-        "amount_log1p", "seconds_since_prev_txn", "hour", "same_state", "same_city",
-        "merchant_is_online", "merchant_is_foreign", "amount_over_credit_limit",
-        "amount_over_entity_mean", "txn_count_24h", "errors_24h",
+        "amount_log1p",
+        "seconds_since_prev_txn",
+        "hour",
+        "same_state",
+        "same_city",
+        "merchant_is_online",
+        "merchant_is_foreign",
+        "amount_over_credit_limit",
+        "amount_over_entity_mean",
+        "txn_count_24h",
+        "errors_24h",
         "first_merchant_for_entity",
     )
     features = pd.DataFrame({name: rng.random(n) for name in names})
     for name in ("mcc_group", "use_chip"):
-        features[name] = pd.Series(
-            [f"{name}{i % 3}" for i in range(n)], dtype="string"
-        ).astype("category")
+        features[name] = pd.Series([f"{name}{i % 3}" for i in range(n)], dtype="string").astype(
+            "category"
+        )
     features["artifact_merchant_state"] = pd.Series(
         ["Italy" if i % 9 == 0 else "CA" for i in range(n)], dtype="string"
     ).astype("category")
@@ -323,9 +329,7 @@ def ibm_frame(directory, n=600, tail=120):
 def test_the_unlabelled_tail_is_dropped_from_ibm_ccf(tmp_path):
     """IBM CCF stops generating fraud four months before the data ends."""
     directory = ibm_frame(tmp_path)
-    prepared = prepare(
-        ExperimentConfig(dataset="ibm_ccf", model="xgboost", seeds=(0,)), directory
-    )
+    prepared = prepare(ExperimentConfig(dataset="ibm_ccf", model="xgboost", seeds=(0,)), directory)
     # The cut lands on the last fraud, which is somewhere in the labelled 480 -- so
     # at least the 120-row tail goes, and the surviving frame ends *on* a fraud.
     assert len(prepared.y) <= 480
@@ -336,9 +340,7 @@ def test_the_unlabelled_tail_is_dropped_from_ibm_ccf(tmp_path):
 def test_dropping_the_tail_leaves_frauds_in_every_split(tmp_path):
     """The point of the cut: an unlabelled tail in test cannot be scored at all."""
     directory = ibm_frame(tmp_path)
-    prepared = prepare(
-        ExperimentConfig(dataset="ibm_ccf", model="xgboost", seeds=(0,)), directory
-    )
+    prepared = prepare(ExperimentConfig(dataset="ibm_ccf", model="xgboost", seeds=(0,)), directory)
     for rows in (prepared.train_rows, prepared.val_rows, prepared.test_rows):
         assert int(prepared.y_true[rows].sum()) > 0
 
@@ -367,8 +369,7 @@ def test_a_split_with_no_frauds_is_rejected(tmp_path):
             "entity_id": pd.Series([f"card{i % 5}" for i in range(n)], dtype="string"),
             "event_time": time,
             "reported_at": [
-                (t + pd.Timedelta(days=1)) if f else pd.NaT
-                for t, f in zip(time, fraud)
+                (t + pd.Timedelta(days=1)) if f else pd.NaT for t, f in zip(time, fraud)
             ],
             "is_fraud": fraud,
             "split": pd.Series(["train"] * n, dtype="string"),
@@ -378,19 +379,19 @@ def test_a_split_with_no_frauds_is_rejected(tmp_path):
         {
             name: rng.random(n)
             for name in (
-                "amount_log1p", "seconds_since_prev_txn", "hour",
-                "distance_from_home_km", "distance_over_entity_mean",
-                "amount_over_entity_mean", "txn_count_24h",
+                "amount_log1p",
+                "seconds_since_prev_txn",
+                "hour",
+                "distance_from_home_km",
+                "distance_over_entity_mean",
+                "amount_over_entity_mean",
+                "txn_count_24h",
                 "first_merchant_for_entity",
             )
         }
     )
-    features["category"] = pd.Series(["a", "b"] * (n // 2), dtype="string").astype(
-        "category"
-    )
-    features["artifact_merchant"] = pd.Series(["m"] * n, dtype="string").astype(
-        "category"
-    )
+    features["category"] = pd.Series(["a", "b"] * (n // 2), dtype="string").astype("category")
+    features["artifact_merchant"] = pd.Series(["m"] * n, dtype="string").astype("category")
     write_features("sparkov", keys, features, features_dir=tmp_path)
 
     with pytest.raises(ExperimentError, match="contains no frauds"):

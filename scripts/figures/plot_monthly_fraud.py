@@ -17,6 +17,7 @@ import argparse
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -28,6 +29,7 @@ from fraud_benchmark.figures import THEMES
 
 ITALY_REGIME_START = pd.Timestamp("2017-11-19")
 MIN_GAP_MONTHS = 3
+
 
 def monthly(df: pd.DataFrame) -> pd.DataFrame:
     m = df.groupby(df["event_time"].dt.to_period("M")).agg(
@@ -61,7 +63,10 @@ def draw(m: pd.DataFrame, theme: str, out: Path) -> None:
     gaps = zero_fraud_runs(m)
 
     fig, (ax_rate, ax_count) = plt.subplots(
-        2, 1, figsize=(12, 7), sharex=True,
+        2,
+        1,
+        figsize=(12, 7),
+        sharex=True,
         gridspec_kw=dict(height_ratios=[1.6, 1.0], hspace=0.12),
     )
     fig.patch.set_facecolor(c["surface"])
@@ -70,8 +75,14 @@ def draw(m: pd.DataFrame, theme: str, out: Path) -> None:
         ax.set_facecolor(c["surface"])
         for gap_start, gap_end in gaps:
             ax.axvspan(gap_start, gap_end, color=c["muted"], alpha=0.18, lw=0, zorder=1)
-        ax.axvspan(ITALY_REGIME_START, m.index[-1] + pd.Timedelta(days=31),
-                   color=c["accent"], alpha=0.14, lw=0, zorder=1)
+        ax.axvspan(
+            ITALY_REGIME_START,
+            m.index[-1] + pd.Timedelta(days=31),
+            color=c["accent"],
+            alpha=0.14,
+            lw=0,
+            zorder=1,
+        )
         ax.grid(True, axis="y", color=c["grid"], lw=0.8, zorder=0)
         ax.set_axisbelow(True)
         for side in ("top", "right"):
@@ -85,7 +96,10 @@ def draw(m: pd.DataFrame, theme: str, out: Path) -> None:
     ax_rate.set_ylabel("fraud rate, % of transactions", color=c["secondary"], fontsize=10)
     ax_rate.set_title(
         "IBM CCF: the fraud rate is not stationary, and the generator stops emitting fraud for months at a time",
-        color=c["ink"], fontsize=12.5, loc="left", pad=26,
+        color=c["ink"],
+        fontsize=12.5,
+        loc="left",
+        pad=26,
     )
     # Facts that would otherwise need arrows across the data.
     n_gaps = len(gaps)
@@ -95,8 +109,12 @@ def draw(m: pd.DataFrame, theme: str, out: Path) -> None:
         f"Monthly rate spans {lo:.3f}%–{hi:.2f}% ({hi / lo:.0f}x) while volume only rises. "
         f"{n_gaps} fraud-free gaps of {MIN_GAP_MONTHS}+ months; the last runs 332 days "
         "and ends as the Italy regime begins.",
-        xy=(0, 1.035), xycoords="axes fraction", color=c["secondary"], fontsize=9.5,
-        va="bottom", ha="left",
+        xy=(0, 1.035),
+        xycoords="axes fraction",
+        color=c["secondary"],
+        fontsize=9.5,
+        va="bottom",
+        ha="left",
     )
 
     ax_count.plot(m.index, m["frauds"], color=c["series"][0], lw=2.0, zorder=3)
@@ -109,8 +127,11 @@ def draw(m: pd.DataFrame, theme: str, out: Path) -> None:
     peak = m["rate_pct"].idxmax()
     ax_rate.annotate(
         f"{m.loc[peak, 'rate_pct']:.2f}%  {peak:%b %Y}",
-        xy=(peak, m.loc[peak, "rate_pct"]), xytext=(-58, 0),
-        textcoords="offset points", color=c["secondary"], fontsize=9,
+        xy=(peak, m.loc[peak, "rate_pct"]),
+        xytext=(-58, 0),
+        textcoords="offset points",
+        color=c["secondary"],
+        fontsize=9,
     )
 
     handles = [
@@ -118,15 +139,20 @@ def draw(m: pd.DataFrame, theme: str, out: Path) -> None:
         Patch(facecolor=c["muted"], alpha=0.18, label=f"zero-fraud gap ({MIN_GAP_MONTHS}+ months)"),
         Patch(facecolor=c["accent"], alpha=0.14, label="Italy regime (from 2017-11-19)"),
     ]
-    leg = ax_rate.legend(handles=handles, loc="upper left", frameon=False,
-                         fontsize=9, labelcolor=c["secondary"])
+    leg = ax_rate.legend(
+        handles=handles, loc="upper left", frameon=False, fontsize=9, labelcolor=c["secondary"]
+    )
     for text in leg.get_texts():
         text.set_color(c["secondary"])
 
-    fig.text(0.005, 0.005,
-             f"{int(m['rows'].sum()):,} transactions, {int(m['frauds'].sum()):,} labelled frauds, "
-             f"{m.index[0]:%Y-%m}..{m.index[-1]:%Y-%m}. Labelling stops 2019-10-27.",
-             color=c["muted"], fontsize=8)
+    fig.text(
+        0.005,
+        0.005,
+        f"{int(m['rows'].sum()):,} transactions, {int(m['frauds'].sum()):,} labelled frauds, "
+        f"{m.index[0]:%Y-%m}..{m.index[-1]:%Y-%m}. Labelling stops 2019-10-27.",
+        color=c["muted"],
+        fontsize=8,
+    )
 
     # subplots_adjust rather than tight_layout: the axes carry annotations
     # outside their bounds, which tight_layout cannot account for.
@@ -154,7 +180,7 @@ def main() -> None:
 
     gaps = zero_fraud_runs(m)
     print(f"\n{len(gaps)} zero-fraud gaps of {MIN_GAP_MONTHS}+ months")
-    print(f"fraud rate range: {m[m.frauds>0].rate_pct.min():.4f}% .. {m.rate_pct.max():.4f}%")
+    print(f"fraud rate range: {m[m.frauds > 0].rate_pct.min():.4f}% .. {m.rate_pct.max():.4f}%")
 
 
 if __name__ == "__main__":

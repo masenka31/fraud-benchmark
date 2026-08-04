@@ -209,9 +209,7 @@ def test_rolling_distinct_agrees_with_rolling_count_when_values_are_unique():
         [f"v{i}" for i in range(n)],
     )
     history = history_of(df)
-    assert list(history.rolling_distinct(df["value"], "24h")) == list(
-        history.rolling_count("24h")
-    )
+    assert list(history.rolling_distinct(df["value"], "24h")) == list(history.rolling_count("24h"))
 
 
 def test_rolling_distinct_forgets_values_outside_the_window():
@@ -324,9 +322,7 @@ def keys_frame(n=3):
 
 def test_write_features_writes_float32_and_category(tmp_path):
     features = pd.DataFrame({"count_24h": [1, 2, 3], "artifact_city": ["x", "y", None]})
-    written = pd.read_parquet(
-        write_features("demo", keys_frame(), features, features_dir=tmp_path)
-    )
+    written = pd.read_parquet(write_features("demo", keys_frame(), features, features_dir=tmp_path))
 
     assert written["count_24h"].dtype == "float32"
     assert isinstance(written["artifact_city"].dtype, pd.CategoricalDtype)
@@ -336,9 +332,7 @@ def test_write_features_writes_float32_and_category(tmp_path):
 
 def test_write_features_puts_the_keys_first(tmp_path):
     features = pd.DataFrame({"z_feature": [1.0, 2.0, 3.0]})
-    written = pd.read_parquet(
-        write_features("demo", keys_frame(), features, features_dir=tmp_path)
-    )
+    written = pd.read_parquet(write_features("demo", keys_frame(), features, features_dir=tmp_path))
     assert list(written.columns) == [*KEY_COLUMNS, "z_feature"]
 
 
@@ -399,9 +393,7 @@ def test_feature_and_artifact_columns_partition_the_features(tmp_path):
     features = pd.DataFrame(
         {"count_24h": [1.0] * 3, "artifact_city": list("xyz"), "same_state": [1.0] * 3}
     )
-    written = pd.read_parquet(
-        write_features("demo", keys_frame(), features, features_dir=tmp_path)
-    )
+    written = pd.read_parquet(write_features("demo", keys_frame(), features, features_dir=tmp_path))
     assert artifact_columns(written) == ["artifact_city"]
     assert set(feature_columns(written)) == set(features.columns)
     assert not any(c.startswith(ARTIFACT_PREFIX) for c in KEY_COLUMNS)
@@ -433,7 +425,9 @@ def test_a_failed_write_leaves_neither_a_temporary_nor_a_truncated_parquet(tmp_p
     try:
         with pytest.raises(KeyboardInterrupt):
             write_features(
-                "demo", keys_frame(), pd.DataFrame({"a": [2.0] * 3}),
+                "demo",
+                keys_frame(),
+                pd.DataFrame({"a": [2.0] * 3}),
                 features_dir=tmp_path,
             )
     finally:

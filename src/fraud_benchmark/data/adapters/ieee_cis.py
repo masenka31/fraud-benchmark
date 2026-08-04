@@ -41,13 +41,7 @@ def build_uid(df: pd.DataFrame) -> pd.Series:
     """
     day = df["TransactionDT"] / SECONDS_PER_DAY
     account_start = (day - df["D1"]).round()
-    uid = (
-        df["card1"].astype(str)
-        + "_"
-        + df["addr1"].astype(str)
-        + "_"
-        + account_start.astype(str)
-    )
+    uid = df["card1"].astype(str) + "_" + df["addr1"].astype(str) + "_" + account_start.astype(str)
     # Falling back per row, rather than letting the components be stringified: a
     # shared "nan" key would fabricate campaigns out of unrelated transactions, and
     # under pandas 3 the propagated <NA> would fail schema validation anyway.
@@ -74,8 +68,7 @@ class IeeeCisAdapter(DatasetAdapter):
         "The competition test set has no labels and is therefore excluded from the "
         "benchmark; it is written separately as unlabelled_test.parquet.",
         "Identity data covers only about a quarter of transactions; the rest are null.",
-        "Use is governed by the Kaggle competition rules, which must be accepted "
-        "before download.",
+        "Use is governed by the Kaggle competition rules, which must be accepted before download.",
     )
 
     def to_canonical(self, raw_dir: Path, options: dict[str, Any]) -> pd.DataFrame:
@@ -89,15 +82,11 @@ class IeeeCisAdapter(DatasetAdapter):
         df.insert(3, "is_fraud", df["isFraud"].astype(bool))
         return df
 
-    def auxiliary_frames(
-        self, raw_dir: Path, options: dict[str, Any]
-    ) -> dict[str, pd.DataFrame]:
+    def auxiliary_frames(self, raw_dir: Path, options: dict[str, Any]) -> dict[str, pd.DataFrame]:
         """The unlabelled competition test set, timestamped and keyed like train."""
         anchor = require_start_date(options, "ieee_cis", "TransactionDT")
         test = _load_with_identity(raw_dir, TEST_TRANSACTION, TEST_IDENTITY)
-        test.insert(
-            0, "event_time", anchor + pd.to_timedelta(test["TransactionDT"], unit="s")
-        )
+        test.insert(0, "event_time", anchor + pd.to_timedelta(test["TransactionDT"], unit="s"))
         test.insert(1, "entity_id", build_uid(test).astype("string"))
         return {"unlabelled_test": test}
 

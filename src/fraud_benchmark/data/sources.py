@@ -85,9 +85,7 @@ def fetch(source: Source, dest: Path, *, force: bool = False) -> Path:
 
     try:
         if isinstance(source, KaggleDataset):
-            kagglehub.dataset_download(
-                source.handle, force_download=force, output_dir=str(dest)
-            )
+            kagglehub.dataset_download(source.handle, force_download=force, output_dir=str(dest))
         elif isinstance(source, KaggleCompetition):
             kagglehub.competition_download(
                 source.handle, force_download=force, output_dir=str(dest)

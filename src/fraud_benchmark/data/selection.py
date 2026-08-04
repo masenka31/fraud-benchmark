@@ -35,9 +35,7 @@ def dataset_names(dataset: str | None, every: bool) -> list[str]:
     return list_datasets() if every else [dataset]
 
 
-def add_selection_arguments(
-    parser, verb: str, *, positional: bool = False
-) -> None:
+def add_selection_arguments(parser, verb: str, *, positional: bool = False) -> None:
     """The flags every per-dataset stage takes, on either surface.
 
     The console script names its dataset positionally (`fraud-benchmark prepare
@@ -52,11 +50,10 @@ def add_selection_arguments(
         parser.add_argument("--dataset", help="dataset name")
     parser.add_argument("--all", action="store_true", help=f"{verb} every dataset")
     parser.add_argument("--config", help="path to a config file")
+    parser.add_argument("--force", action="store_true", help="re-download even if raw files exist")
     parser.add_argument(
-        "--force", action="store_true", help="re-download even if raw files exist"
-    )
-    parser.add_argument(
-        "--exclude-noncommercial", action="store_true",
+        "--exclude-noncommercial",
+        action="store_true",
         help="skip datasets whose licence forbids commercial use",
     )
 
@@ -96,8 +93,7 @@ def run_over(
             return 1
 
         if exclude_noncommercial and not adapter.commercial_use:
-            print(f"{name}: skipped, licence forbids commercial use "
-                  f"({adapter.data_license})")
+            print(f"{name}: skipped, licence forbids commercial use ({adapter.data_license})")
             continue
 
         try:
@@ -110,7 +106,6 @@ def run_over(
         print(f"{name}: {verb} {produced}")
 
     if failures:
-        print(f"\n{len(failures)} of {len(names)} failed: {', '.join(failures)}",
-              file=sys.stderr)
+        print(f"\n{len(failures)} of {len(names)} failed: {', '.join(failures)}", file=sys.stderr)
         return 1
     return 0

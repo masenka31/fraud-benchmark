@@ -116,9 +116,7 @@ class ExperimentConfig:
     def validate(self) -> None:
         """Reject a combination that cannot mean what it says."""
         if self.dataset not in DATASETS:
-            raise ExperimentError(
-                f"unknown dataset {self.dataset!r}; known: {', '.join(DATASETS)}"
-            )
+            raise ExperimentError(f"unknown dataset {self.dataset!r}; known: {', '.join(DATASETS)}")
         if self.label_delay not in LABEL_DELAYS:
             raise ExperimentError(
                 f"label_delay must be one of {LABEL_DELAYS}, got {self.label_delay!r}"
@@ -147,24 +145,22 @@ class ExperimentConfig:
 class Prepared:
     """Everything an estimator needs, and nothing about how to fit it."""
 
-    x: np.ndarray                 #: float32, (rows, features). Codes for categoricals.
-    y: np.ndarray                 #: int, train rows possibly censored; val/test true.
-    y_true: np.ndarray            #: int, always the true label. For reporting only.
+    x: np.ndarray  #: float32, (rows, features). Codes for categoricals.
+    y: np.ndarray  #: int, train rows possibly censored; val/test true.
+    y_true: np.ndarray  #: int, always the true label. For reporting only.
     train_rows: np.ndarray
     val_rows: np.ndarray
     test_rows: np.ndarray
-    continuous: np.ndarray        #: column indices of the continuous features
-    categorical: np.ndarray       #: column indices of the coded categoricals
-    cardinalities: list[int]      #: distinct codes per categorical, in that order
-    names: list[str]              #: column names, in matrix order
-    censored_train_labels: int    #: train frauds hidden by the delay regime
+    continuous: np.ndarray  #: column indices of the continuous features
+    categorical: np.ndarray  #: column indices of the coded categoricals
+    cardinalities: list[int]  #: distinct codes per categorical, in that order
+    names: list[str]  #: column names, in matrix order
+    censored_train_labels: int  #: train frauds hidden by the delay regime
     rule_scores: np.ndarray | None = None  #: the trivial rule, where one exists
     notes: list[str] = field(default_factory=list)
 
     def split_rows(self, name: str) -> np.ndarray:
-        return {"train": self.train_rows, "val": self.val_rows, "test": self.test_rows}[
-            name
-        ]
+        return {"train": self.train_rows, "val": self.val_rows, "test": self.test_rows}[name]
 
 
 def _apply_split(df: pd.DataFrame, split: str) -> pd.DataFrame:
@@ -174,9 +170,7 @@ def _apply_split(df: pd.DataFrame, split: str) -> pd.DataFrame:
     return italy_holdout_split(df)
 
 
-def _resolve_history_columns(
-    dataset: str, mode: str, available: list[str]
-) -> list[str]:
+def _resolve_history_columns(dataset: str, mode: str, available: list[str]) -> list[str]:
     """Which columns get lagged copies."""
     if mode == "all":
         return list(available)
@@ -259,13 +253,9 @@ def prepare(config: ExperimentConfig, features_dir: Path | str = FEATURE_DIR) ->
         columns = [c for c in columns if c not in dropped]
         notes.append(f"dropped {len(dropped)} artifact_ column(s)")
 
-    history_columns = _resolve_history_columns(
-        config.dataset, config.history_columns, columns
-    )
+    history_columns = _resolve_history_columns(config.dataset, config.history_columns, columns)
 
-    categorical_names = [
-        c for c in columns if isinstance(df[c].dtype, pd.CategoricalDtype)
-    ]
+    categorical_names = [c for c in columns if isinstance(df[c].dtype, pd.CategoricalDtype)]
     train_mask = (df["split"] == "train").to_numpy()
     encoder = CappedOrdinalEncoder().fit(df.loc[train_mask], categorical_names)
 
@@ -275,9 +265,7 @@ def prepare(config: ExperimentConfig, features_dir: Path | str = FEATURE_DIR) ->
         if column in categorical_names:
             base[:, index] = encoder.transform_column(df[column], column)
         else:
-            base[:, index] = pd.to_numeric(df[column], errors="coerce").to_numpy(
-                dtype="float32"
-            )
+            base[:, index] = pd.to_numeric(df[column], errors="coerce").to_numpy(dtype="float32")
 
     if config.history == 0:
         x, names = base, list(columns)
@@ -290,16 +278,14 @@ def prepare(config: ExperimentConfig, features_dir: Path | str = FEATURE_DIR) ->
         x = np.hstack([base, lagged[:, width:]])
         names = list(columns) + lag_columns(history_columns, config.history)[width:]
         notes.append(
-            f"history {config.history} lag(s) of {width} column(s) "
-            f"-> {len(names)} features"
+            f"history {config.history} lag(s) of {width} column(s) -> {len(names)} features"
         )
 
-    categorical_indices = [i for i, name in enumerate(names)
-                           if name.split("_lag")[0] in categorical_names]
-    continuous_indices = [i for i in range(len(names)) if i not in set(categorical_indices)]
-    cardinalities = [
-        encoder.cardinality(names[i].split("_lag")[0]) for i in categorical_indices
+    categorical_indices = [
+        i for i, name in enumerate(names) if name.split("_lag")[0] in categorical_names
     ]
+    continuous_indices = [i for i in range(len(names)) if i not in set(categorical_indices)]
+    cardinalities = [encoder.cardinality(names[i].split("_lag")[0]) for i in categorical_indices]
 
     y_true = df["is_fraud"].to_numpy().astype(int)
     y, censored = _labels(df, config, train_mask, y_true)
@@ -307,8 +293,7 @@ def prepare(config: ExperimentConfig, features_dir: Path | str = FEATURE_DIR) ->
         notes.append(f"{censored:,} train fraud label(s) unknown at the cutoff")
 
     rows = {
-        name: np.flatnonzero((df["split"] == name).to_numpy())
-        for name in ("train", "val", "test")
+        name: np.flatnonzero((df["split"] == name).to_numpy()) for name in ("train", "val", "test")
     }
     for name, index in rows.items():
         if len(index) == 0:
@@ -501,9 +486,7 @@ def describe(record: dict) -> str:
         f"   features: {record['n_features']}",
     ]
     if record["censored_train_labels"]:
-        lines.append(
-            f"  train labels hidden by the delay: {record['censored_train_labels']:,}"
-        )
+        lines.append(f"  train labels hidden by the delay: {record['censored_train_labels']:,}")
     for split in ("val", "test"):
         ap = aggregate[split]["average_precision"]
         f1 = aggregate[split]["f1"]

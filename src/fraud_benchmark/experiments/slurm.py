@@ -153,15 +153,12 @@ def write_all(directory: Path, repo: Path = DEFAULT_REPO) -> None:
 
     group = None
     for cell in CELLS:
-        (directory / f"exp_{cell.name}.sbatch").write_text(
-            render_experiment_job(cell, repo)
-        )
+        (directory / f"exp_{cell.name}.sbatch").write_text(render_experiment_job(cell, repo))
         if cell.group != group:
             group = cell.group
             lines.append(f"# {group}")
         lines.append(
-            f"sbatch --dependency=afterok:$feat_{cell.config.dataset} "
-            f"exp_{cell.name}.sbatch"
+            f"sbatch --dependency=afterok:$feat_{cell.config.dataset} exp_{cell.name}.sbatch"
         )
     lines.append("")
 

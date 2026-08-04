@@ -25,9 +25,7 @@ def require_file(raw_dir: Path, name: str) -> Path:
         if path.name == name:
             return path
     present = ", ".join(p.name for p in _all_files(raw_dir)) or "(directory is empty)"
-    raise FileNotFoundError(
-        f"expected a file named {name!r} under {raw_dir}; found: {present}"
-    )
+    raise FileNotFoundError(f"expected a file named {name!r} under {raw_dir}; found: {present}")
 
 
 def find_single_csv(raw_dir: Path) -> Path:
@@ -40,15 +38,11 @@ def find_single_csv(raw_dir: Path) -> Path:
         raise FileNotFoundError(f"no CSV file found under {raw_dir}")
     if len(matches) > 1:
         names = ", ".join(p.name for p in matches)
-        raise FileNotFoundError(
-            f"expected exactly one CSV under {raw_dir}, found: {names}"
-        )
+        raise FileNotFoundError(f"expected exactly one CSV under {raw_dir}, found: {names}")
     return matches[0]
 
 
-def require_split_zip_member(
-    raw_dir: Path, part_glob: str, member: str, cache_dir: Path
-) -> Path:
+def require_split_zip_member(raw_dir: Path, part_glob: str, member: str, cache_dir: Path) -> Path:
     """Extract `member` from the fragments matching `part_glob`, cached in `cache_dir`.
 
     Fragments are numbered (`x.zip.001`, `x.zip.002`, ...) and concatenating them in
@@ -62,9 +56,7 @@ def require_split_zip_member(
 
     parts = sorted(raw_dir.rglob(part_glob))
     if not parts:
-        raise FileNotFoundError(
-            f"no archive parts matching {part_glob!r} under {raw_dir}"
-        )
+        raise FileNotFoundError(f"no archive parts matching {part_glob!r} under {raw_dir}")
 
     suffixes = [path.suffix.lstrip(".") for path in parts]
     if not all(s.isdigit() for s in suffixes):

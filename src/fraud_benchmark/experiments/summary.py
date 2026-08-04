@@ -91,9 +91,7 @@ def flatten(records: dict[str, dict]) -> list[dict]:
             row["seconds"] = record["total_seconds"]
             row["seeds"] = len(record["seeds"])
             rule = record.get("trivial_rule")
-            row["rule_test_ap"] = (
-                rule["test"]["average_precision"] if rule else None
-            )
+            row["rule_test_ap"] = rule["test"]["average_precision"] if rule else None
         rows.append(row)
     return rows
 
@@ -178,9 +176,9 @@ _VARIED = {
     "delay": ("delay", lambda row: row["label_delay"]),
     "artifacts": (
         "condition",
-        lambda row: "artifacts kept"
-        if row["artifacts"] == "keep"
-        else row["split"].replace("_", " "),
+        lambda row: (
+            "artifacts kept" if row["artifacts"] == "keep" else row["split"].replace("_", " ")
+        ),
     ),
 }
 
@@ -239,7 +237,7 @@ def render(rows: list[dict]) -> str:
     if rules:
         parts.append("\n## The trivial rule\n")
         parts.append(
-            "A **ceiling, not a floor.** `artifact_merchant_state == \"Italy\"` needs no "
+            'A **ceiling, not a floor.** `artifact_merchant_state == "Italy"` needs no '
             "fitting, and IBM CCF's train half holds zero Italy frauds — so the rule "
             "imports knowledge no train-only model could have. It bounds what the "
             "evaluation labels encode. A model scoring far below it has not "

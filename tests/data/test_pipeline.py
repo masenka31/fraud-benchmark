@@ -287,9 +287,7 @@ def test_auxiliary_keys_that_are_not_plain_filenames_are_rejected(
         prepare("paysim", config)
 
 
-def test_a_failing_auxiliary_write_preserves_previous_output(
-    config, no_download, monkeypatch
-):
+def test_a_failing_auxiliary_write_preserves_previous_output(config, no_download, monkeypatch):
     """The highest-value case: an aux write that dies must not cost the good run."""
     out = prepare("paysim", config)
     marker = out / "marker.txt"
@@ -442,6 +440,7 @@ def test_a_stale_source_label_declaration_fails_loudly():
     keep passing its raw label through under a name nobody is watching -- the
     silent version of exactly the bug the drop exists to prevent.
     """
+
     class _Stale:
         name = "stale_probe"
         source_label_column = "NotAColumn"

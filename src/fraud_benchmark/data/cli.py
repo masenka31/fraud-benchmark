@@ -39,9 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("list", help="list available datasets")
 
-    download_parser = subparsers.add_parser(
-        "download", help="fetch a dataset's raw files and stop"
-    )
+    download_parser = subparsers.add_parser("download", help="fetch a dataset's raw files and stop")
     add_selection_arguments(download_parser, "download", positional=True)
 
     prepare_parser = subparsers.add_parser("prepare", help="download and process a dataset")
@@ -104,8 +102,7 @@ def _cmd_info(args) -> int:
     card = config.processed_dir / args.dataset / "dataset_card.json"
     if not card.exists():
         print(
-            f"{args.dataset} has not been prepared; run: "
-            f"fraud-benchmark prepare {args.dataset}",
+            f"{args.dataset} has not been prepared; run: fraud-benchmark prepare {args.dataset}",
             file=sys.stderr,
         )
         return 1

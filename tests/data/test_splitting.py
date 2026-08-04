@@ -40,9 +40,7 @@ def test_split_is_monotonic_in_time():
 
 
 def test_unsorted_input_is_handled():
-    df = frame_with_times(
-        ["2023-01-05", "2023-01-01", "2023-01-03", "2023-01-02", "2023-01-04"]
-    )
+    df = frame_with_times(["2023-01-05", "2023-01-01", "2023-01-03", "2023-01-02", "2023-01-04"])
     splits = assign_splits(df, (0.6, 0.2, 0.2))
     # The earliest date must be train, the latest must be test.
     assert splits.iloc[1] == "train"
@@ -116,22 +114,20 @@ def test_no_timestamp_appears_in_two_splits():
 
     # All three splits must be non-empty for the boundary checks to mean anything.
     assert set(df["split"]) == {"train", "val", "test"}
-    assert df[df.split == "train"]["event_time"].max() < (
-        df[df.split == "val"]["event_time"].min()
-    )
-    assert df[df.split == "val"]["event_time"].max() < (
-        df[df.split == "test"]["event_time"].min()
-    )
+    assert df[df.split == "train"]["event_time"].max() < (df[df.split == "val"]["event_time"].min())
+    assert df[df.split == "val"]["event_time"].max() < (df[df.split == "test"]["event_time"].min())
 
 
 def test_boundary_at_cuts_on_a_timestamp_value():
     df = frame_with_times([f"2023-01-{d:02d}" for d in range(1, 11)])
     from fraud_benchmark.data.splitting import boundary_at
+
     assert boundary_at(df, 0.9) == pd.Timestamp("2023-01-09")
 
 
 def test_boundary_at_rejects_out_of_range_fractions():
     from fraud_benchmark.data.splitting import boundary_at
+
     df = frame_with_times(["2023-01-01", "2023-01-02"])
     for bad in (0.0, 1.0, -0.5, 2.0):
         with pytest.raises(ValueError, match="between 0 and 1"):

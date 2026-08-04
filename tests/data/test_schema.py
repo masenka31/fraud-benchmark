@@ -94,9 +94,7 @@ def test_validate_rejects_reported_at_on_a_non_fraud_row():
 
 def test_validate_accepts_a_correct_reported_at():
     df = make_valid_frame()
-    df["reported_at"] = pd.Series(
-        [pd.Timestamp("2023-01-05"), pd.NaT], dtype="datetime64[us]"
-    )
+    df["reported_at"] = pd.Series([pd.Timestamp("2023-01-05"), pd.NaT], dtype="datetime64[us]")
     validate_canonical(df)
 
 

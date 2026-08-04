@@ -57,6 +57,7 @@ from fraud_benchmark.figures import THEMES
 MODELS = ("xgboost", "mlp", "logistic")
 DATASETS = ("ibm_ccf", "saml_d", "sparkov")
 
+
 #: A short label per non-baseline cell, for the delta panel's y-axis.
 def _delta_label(row: dict) -> str:
     if row["group"] == "history":
@@ -95,8 +96,14 @@ def draw_baselines(ax, rows: list[dict], colours: dict) -> None:
                 # No bar at all. A zero-height bar is indistinguishable from a
                 # measured average precision of 0.0, which is a real possible result.
                 ax.text(
-                    offset, 0.012, "not run", rotation=90, ha="center", va="bottom",
-                    color=colours["muted"], fontsize=7.5,
+                    offset,
+                    0.012,
+                    "not run",
+                    rotation=90,
+                    ha="center",
+                    va="bottom",
+                    color=colours["muted"],
+                    fontsize=7.5,
                 )
                 continue
             offsets.append(offset)
@@ -117,9 +124,14 @@ def draw_baselines(ax, rows: list[dict], colours: dict) -> None:
         # bars are a few pixels tall next to SAML-D's. The number goes on the bar.
         for offset, value, error in zip(offsets, values, errors):
             ax.text(
-                offset, value + error + 0.015, f"{value:.3f}",
-                ha="center", va="bottom", rotation=90,
-                color=colours["secondary"], fontsize=7.5,
+                offset,
+                value + error + 0.015,
+                f"{value:.3f}",
+                ha="center",
+                va="bottom",
+                rotation=90,
+                color=colours["secondary"],
+                fontsize=7.5,
             )
 
     ax.set_xticks(positions)
@@ -130,10 +142,15 @@ def draw_baselines(ax, rows: list[dict], colours: dict) -> None:
     ax.set_axisbelow(True)
     ax.set_title(
         "Baseline: no history, true labels, artifacts dropped",
-        color=colours["ink"], fontsize=10.5, loc="left", pad=10,
+        color=colours["ink"],
+        fontsize=10.5,
+        loc="left",
+        pad=10,
     )
     legend = ax.legend(
-        frameon=False, fontsize=9, loc="upper left",
+        frameon=False,
+        fontsize=9,
+        loc="upper left",
         labelcolor=colours["secondary"],
     )
     legend.set_title("")
@@ -154,15 +171,18 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
         # The table's own rule, called rather than restated. Without it the figure
         # contradicts the table: saml_d's delay cell is the largest bar here and is
         # 1.5 sigma.
-        entries.append(
-            (_delta_label(row), difference, sigma, is_measured(difference, sigma))
-        )
+        entries.append((_delta_label(row), difference, sigma, is_measured(difference, sigma)))
 
     if not entries:
         ax.text(
-            0.5, 0.5, "no comparable cells yet",
-            transform=ax.transAxes, ha="center", va="center",
-            color=colours["muted"], fontsize=10,
+            0.5,
+            0.5,
+            "no comparable cells yet",
+            transform=ax.transAxes,
+            ha="center",
+            va="center",
+            color=colours["muted"],
+            fontsize=10,
         )
         _style(ax, colours)
         return
@@ -173,14 +193,17 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
     sigmas = [entry[2] for entry in entries]
     positions = np.arange(len(entries))
     colour = [
-        (colours["positive"] if value >= 0 else colours["negative"])
-        if real
-        else colours["noise"]
+        (colours["positive"] if value >= 0 else colours["negative"]) if real else colours["noise"]
         for _, value, _, real in entries
     ]
 
     ax.barh(
-        positions, values, 0.66, xerr=sigmas, color=colour, edgecolor="none",
+        positions,
+        values,
+        0.66,
+        xerr=sigmas,
+        color=colour,
+        edgecolor="none",
         error_kw={"ecolor": colours["muted"], "elinewidth": 1, "capsize": 2},
     )
     ax.axvline(0, color=colours["axis"], linewidth=1)
@@ -190,8 +213,11 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
     ax.xaxis.grid(True, color=colours["grid"], linewidth=0.8)
     ax.set_axisbelow(True)
     ax.set_title(
-        "What each axis changed", color=colours["ink"], fontsize=10.5,
-        loc="left", pad=10,
+        "What each axis changed",
+        color=colours["ink"],
+        fontsize=10.5,
+        loc="left",
+        pad=10,
     )
     ax.legend(
         handles=[
@@ -202,7 +228,9 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
                 label=f"within noise (<{NOISE_SIGMA:.0f}σ)",
             ),
         ],
-        frameon=False, fontsize=8.5, loc="lower right",
+        frameon=False,
+        fontsize=8.5,
+        loc="lower right",
         labelcolor=colours["secondary"],
     )
 
@@ -221,11 +249,13 @@ def figure(rows: list[dict], theme: str) -> plt.Figure:
 
     ran = sum(row["ran"] for row in rows)
     fig.text(
-        0.005, 0.015,
+        0.005,
+        0.015,
         f"{ran} of {len(rows)} cells. Left: error bars are population sd over seeds. "
         f"Right: error bars are σ of the difference; a bar shorter than {NOISE_SIGMA:.0f}σ "
         "is greyed as no measured effect. Average precision, never ROC AUC.",
-        color=colours["muted"], fontsize=8,
+        color=colours["muted"],
+        fontsize=8,
     )
     fig.tight_layout(rect=(0, 0.03, 1, 1))
     return fig

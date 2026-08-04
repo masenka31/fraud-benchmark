@@ -41,9 +41,7 @@ def lag_columns(names: list[str], n_lags: int) -> list[str]:
     return out
 
 
-def previous_positions(
-    entity_id: pd.Series, event_time: pd.Series, n_lags: int
-) -> np.ndarray:
+def previous_positions(entity_id: pd.Series, event_time: pd.Series, n_lags: int) -> np.ndarray:
     """Row positions of each row's previous transactions, `-1` where none exists.
 
     Shape `(len, n_lags)`; column *k* holds the position of the (k+1)th previous

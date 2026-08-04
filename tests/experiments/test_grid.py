@@ -57,10 +57,7 @@ def test_the_baseline_varies_nothing_but_dataset_and_model():
 
 def test_every_non_baseline_cell_has_a_baseline_to_compare_against():
     """A delta needs the same dataset and model with nothing varied."""
-    baselines = {
-        (cell.config.dataset, cell.config.model)
-        for cell in cells_by_group()["baseline"]
-    }
+    baselines = {(cell.config.dataset, cell.config.model) for cell in cells_by_group()["baseline"]}
     for cell in CELLS:
         if cell.group == "baseline":
             continue
@@ -191,9 +188,7 @@ def test_an_empty_results_directory_reports_every_cell_as_not_run(tmp_path):
 
 def test_a_present_record_is_reported_with_its_score(tmp_path):
     cell = CELLS[0]
-    (tmp_path / f"{cell.name}.jsonl").write_text(
-        json.dumps(fake_record(cell, test_ap=0.42)) + "\n"
-    )
+    (tmp_path / f"{cell.name}.jsonl").write_text(json.dumps(fake_record(cell, test_ap=0.42)) + "\n")
     rows = {row["cell"]: row for row in summarize.flatten(summarize.load(tmp_path))}
     assert rows[cell.name]["ran"]
     assert rows[cell.name]["test_ap"] == 0.42
@@ -229,9 +224,7 @@ def test_a_delta_is_reported_against_the_matching_baseline(tmp_path):
 def test_an_unrun_baseline_leaves_the_delta_unclaimed(tmp_path):
     """Better than inventing a comparison against a cell that has not run."""
     lagged = [c for c in CELLS if c.name == "sparkov_xgboost_h10"][0]
-    (tmp_path / f"{lagged.name}.jsonl").write_text(
-        json.dumps(fake_record(lagged)) + "\n"
-    )
+    (tmp_path / f"{lagged.name}.jsonl").write_text(json.dumps(fake_record(lagged)) + "\n")
     rendered = summarize.render(summarize.flatten(summarize.load(tmp_path)))
     assert "no baseline" in rendered
 

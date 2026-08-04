@@ -54,9 +54,7 @@ def validate_canonical(df: pd.DataFrame) -> None:
     for column, expected in REQUIRED_DTYPES.items():
         actual = str(df[column].dtype)
         if actual != expected:
-            raise SchemaError(
-                f"column {column!r} has dtype {actual!r}, expected {expected!r}"
-            )
+            raise SchemaError(f"column {column!r} has dtype {actual!r}, expected {expected!r}")
 
     for column in REQUIRED_COLUMNS:
         null_count = int(df[column].isna().sum())

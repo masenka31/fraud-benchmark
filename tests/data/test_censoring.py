@@ -4,6 +4,7 @@ The property that matters: an unreported fraud stays in the frame labelled 0. It
 not dropped. Dropping would model a system that knows which rows to distrust, which
 is exactly the knowledge label delay denies it.
 """
+
 import numpy as np
 import pandas as pd
 
@@ -13,13 +14,9 @@ from fraud_benchmark.data.censoring import censored_labels
 def _frame() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "event_time": pd.to_datetime(
-                ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04"]
-            ),
+            "event_time": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04"]),
             "is_fraud": [True, True, False, False],
-            "reported_at": pd.to_datetime(
-                ["2024-01-05", "2024-02-20", None, None]
-            ),
+            "reported_at": pd.to_datetime(["2024-01-05", "2024-02-20", None, None]),
         }
     )
 

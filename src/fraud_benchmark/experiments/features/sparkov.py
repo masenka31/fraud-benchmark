@@ -97,8 +97,7 @@ def attach_slow_delay(df: pd.DataFrame, slow: pd.DataFrame) -> pd.DataFrame:
     """Return `df` with the `sparkov_slow` report timestamp as `reported_at_slow`."""
     if not slow[JOIN_KEY].is_unique:
         raise FeatureContractError(
-            f"{SLOW_DATASET}: {JOIN_KEY} is not unique, so it cannot align the two "
-            "delay regimes"
+            f"{SLOW_DATASET}: {JOIN_KEY} is not unique, so it cannot align the two delay regimes"
         )
     lookup = slow.set_index(JOIN_KEY)["reported_at"]
 
@@ -126,13 +125,22 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     magnitude = amount.abs()
 
     # --- when: cyclical clock parts only, never the absolute date
-    f[["hour", "minute", "weekday", "day", "month", "is_weekend", "hour_sin",
-       "hour_cos"]] = clock_features(df["event_time"])
+    f[["hour", "minute", "weekday", "day", "month", "is_weekend", "hour_sin", "hour_cos"]] = (
+        clock_features(df["event_time"])
+    )
 
     # --- how much, and the shape of the number
-    f[["amount", "amount_log1p", "amount_is_refund", "amount_cents",
-       "amount_is_round_10", "amount_is_round_100",
-       "amount_is_micro"]] = amount_shape(amount)
+    f[
+        [
+            "amount",
+            "amount_log1p",
+            "amount_is_refund",
+            "amount_cents",
+            "amount_is_round_10",
+            "amount_is_round_100",
+            "amount_is_micro",
+        ]
+    ] = amount_shape(amount)
 
     # --- how fast: the card's own recent volume, every window excluding this row
     f["txn_count_1h"] = history.rolling_count("1h")
@@ -185,9 +193,9 @@ def build(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
     f["category"] = category
     f["job"] = df["job"].astype("string")
     f["gender"] = df["gender"].astype("string")
-    f["age_at_txn"] = days_between(
-        df["event_time"], pd.to_datetime(df["dob"], errors="coerce")
-    ) / 365.25
+    f["age_at_txn"] = (
+        days_between(df["event_time"], pd.to_datetime(df["dob"], errors="coerce")) / 365.25
+    )
     # Population is heavy-tailed across four orders of magnitude; the log is the
     # scale on which "small town" and "city" are a step apart rather than a ratio.
     f["city_pop_log"] = np.log1p(
@@ -226,8 +234,10 @@ def main(argv: list[str] | None = None) -> Path:
         features_dir=args.features_dir,
         extra_keys=("reported_at_slow",),
     )
-    print(f"{DATASET}: {len(features.columns)} features over {len(df):,} rows, "
-          f"both delay regimes -> {destination}")
+    print(
+        f"{DATASET}: {len(features.columns)} features over {len(df):,} rows, "
+        f"both delay regimes -> {destination}"
+    )
 
     return destination
 
