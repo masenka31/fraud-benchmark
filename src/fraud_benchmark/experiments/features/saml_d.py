@@ -34,6 +34,18 @@ narrative expects. But do not read a high fan-out here as evidence of laundering
 and do not carry that reading to another dataset: it is a property of this
 generator, not of laundering.
 
+## One feature does most of the work, and it is a generator property
+
+Measured: XGBoost on these 63 features reaches 0.9919 test average precision, against
+0.500 for the retired ablation's raw columns. `first_receiver_for_entity` earns **35% of
+the total gain** and `payment_type` 23%.
+
+The novelty flag is causally clean -- `EntityHistory.first_occurrence` counts only
+preceding rows, and the tests assert it -- but it is predictive here largely by
+construction: the laundering typologies create fresh sender->receiver pairs while normal
+traffic recurs against established ones. Keep it, because a real AML system would use it
+too, but do not read the score as evidence that the task is easy in general.
+
 ## Amounts are not comparable across rows
 
 The source spans 13 currencies (`Payment_currency`, `Received_currency`) and does

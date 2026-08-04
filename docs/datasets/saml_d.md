@@ -39,6 +39,21 @@ receiving side lives in `Receiver_account` and is passed through but not keyed o
 `experiments/features/saml_d.py` builds a second history keyed on it, so fan-in is
 available as a feature; campaign grouping — and therefore `reported_at` — is per sender.
 
+⚠ **The engineered counterparty features roughly double the achievable score, and
+the strongest one is a generator property.** XGBoost on the 63 features in
+`experiments/features/saml_d.py` reaches **0.9919 ± 0.0003** test average precision,
+against **0.500** for the retired ablation's raw columns on the same dataset. The gap is
+not leakage — every feature is past-only and tested as such — it is one feature:
+`first_receiver_for_entity`, "first time this sender has paid this receiver", earns
+**35% of the tree's total gain**, with `payment_type` next at 23%.
+
+That flag is predictive here mostly *by construction*. The laundering typologies create
+fresh sender→receiver pairs (fan-out to mules) while normal traffic recurs against
+established ones, so "new counterparty" separates the two almost by definition of how
+the data was generated. A real AML system would also find new counterparties
+informative, but nowhere near this cleanly. **Do not read 0.99 as evidence that
+laundering detection is solved**; read it as this generator being separable.
+
 ⚠ **Fan-out separates the opposite way from the textbook pattern.** Measured over all
 9.5M rows of the feature parquet, laundering rows average **2.90** distinct receivers in 7
 days against **6.96** for normal rows, and **1.45** distinct senders per receiver against
