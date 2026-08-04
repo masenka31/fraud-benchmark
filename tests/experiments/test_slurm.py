@@ -126,12 +126,21 @@ def test_a_cell_command_line_passes_only_what_differs_from_the_default():
     assert "--label-delay" in cell_arguments(slow)
 
 
-def test_a_cropped_cell_passes_its_row_limit():
-    cropped = [c for c in CELLS if c.config.max_rows is not None]
-    assert cropped, "the MLP cells on the big datasets are cropped"
-    for cell in cropped:
-        arguments = cell_arguments(cell)
-        assert arguments[arguments.index("--max-rows") + 1] == str(cell.config.max_rows)
+def test_no_generated_job_subsamples():
+    """Every cell runs on the full dataset, so no job may pass --max-rows."""
+    for cell in CELLS:
+        assert "--max-rows" not in cell_arguments(cell), cell.name
+
+
+def test_a_crop_would_still_be_passed_through_if_a_cell_asked_for_one():
+    """--max-rows stays available for a one-off that genuinely will not fit."""
+    from dataclasses import replace
+
+    from fraud_benchmark.experiments.grid import Cell
+
+    cell = Cell("baseline", replace(CELLS[0].config, max_rows=1_000_000))
+    arguments = cell_arguments(cell)
+    assert arguments[arguments.index("--max-rows") + 1] == "1000000"
 
 
 def test_every_experiment_job_declares_its_seeds():

@@ -106,19 +106,22 @@ def test_the_italy_holdout_cell_is_ibm_ccf_only():
     assert holdout and all(c.config.dataset == "ibm_ccf" for c in holdout)
 
 
-def test_the_mlp_is_cropped_on_the_big_datasets_and_trees_are_not():
+def test_no_cell_is_subsampled():
+    """A model trained on a crop is not comparable to one trained on the full data, and
+    the baseline group exists to compare models."""
+    assert MLP_MAX_ROWS == {}
     for cell in CELLS:
-        expected = (
-            MLP_MAX_ROWS.get(cell.config.dataset)
-            if cell.config.model == "mlp"
-            else None
-        )
-        assert cell.config.max_rows == expected, cell.name
+        assert cell.config.max_rows is None, cell.name
 
 
-def test_sparkov_is_never_cropped():
-    """1.85M rows fit whole; cropping would throw away data for nothing."""
-    assert "sparkov" not in MLP_MAX_ROWS
+def test_every_model_on_one_dataset_sees_the_same_rows():
+    """Otherwise a gap between two models measures training-set size."""
+    for group in cells_by_group().values():
+        by_dataset: dict[str, set] = {}
+        for cell in group:
+            by_dataset.setdefault(cell.config.dataset, set()).add(cell.config.max_rows)
+        for dataset, crops in by_dataset.items():
+            assert crops == {None}, f"{dataset} mixes crops within one group: {crops}"
 
 
 def test_every_cell_runs_three_seeds():

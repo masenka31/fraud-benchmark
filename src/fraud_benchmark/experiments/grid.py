@@ -41,10 +41,21 @@ from fraud_benchmark.experiments.experiment import ExperimentConfig
 #: so its 13%-of-gain finding is a direct comparison.
 HISTORY_LAGS = 10
 
-#: Rows the MLP is cropped to on the two datasets where the full matrix does not fit
-#: in a sane request. Trees run on everything. The crop is the temporal tail, so the
-#: split boundaries stay meaningful; it is recorded in every affected record.
-MLP_MAX_ROWS = {"ibm_ccf": 6_000_000, "saml_d": 6_000_000}
+#: **Every cell runs on the full dataset.** An earlier version cropped the MLP to 6M
+#: rows on ibm_ccf and saml_d, on the assumption that the matrix would not fit a sane
+#: request. Measured, it does: the widest MLP cell is ibm_ccf with 10 lags, a 22.4 GB
+#: float32 matrix on a 384 GB node, and roughly 74 minutes for three seeds.
+#:
+#: The crop had to go regardless of cost, because it confounded the question the
+#: baseline group exists to answer. Comparing an MLP trained on 6M rows against a tree
+#: trained on 24.4M measures training-set size as much as architecture, and the group is
+#: titled "what does each model score on each dataset". Nothing here is subsampled now,
+#: so a gap between two models on one dataset is attributable to the model.
+#:
+#: `--max-rows` remains on the CLI for one-off runs that genuinely will not fit. It is
+#: recorded in the result, and `scripts/summarize.py` prints it, so a cropped number
+#: cannot be mistaken for a full one.
+MLP_MAX_ROWS: dict[str, int] = {}
 
 DATASETS = ("ibm_ccf", "saml_d", "sparkov")
 MODELS = ("xgboost", "mlp", "logistic")
@@ -74,7 +85,7 @@ class Cell:
 
 
 def _config(dataset: str, model: str, **overrides) -> ExperimentConfig:
-    """A config with the grid's shared defaults, cropping the MLP where it must."""
+    """A config with the grid's shared defaults. Nothing is subsampled."""
     max_rows = MLP_MAX_ROWS.get(dataset) if model == "mlp" else None
     return ExperimentConfig(
         dataset=dataset, model=model, seeds=(0, 1, 2), max_rows=max_rows, **overrides
