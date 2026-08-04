@@ -13,9 +13,17 @@ That is the quantity the study is actually about -- whether history, a label del
 the generator's geography moved anything -- and it is signed, so a diverging layout is
 the correct form and a zero line the correct reference.
 
-Error bars are population sd over seeds, not a confidence interval. With three seeds
-there is no distribution to be confident about; the bar shows the spread of the runs
-actually made, which is what tells you whether a delta is worth reading.
+**A bar is greyed when it is smaller than its own noise.** Colouring by sign alone made
+the figure contradict the table: SAML-D's delay cell is the longest bar in the panel and
+is 1.5 sigma, its seed ranges overlapping the baseline's. The error bar is sigma of the
+*difference* (the two variances add, since seeds are independent between runs), so bar
+length against error-bar length is the comparison a reader should make, and the grey
+saves them making it.
+
+Left-panel error bars are population sd over seeds, not a confidence interval: with three
+seeds there is no distribution to be confident about, only the spread of the runs made.
+Values are printed on the bars because the datasets differ by an order of magnitude in
+difficulty -- IBM CCF's bars are a few pixels tall beside SAML-D's.
 
 Colours are the dataviz reference palette's categorical slots, unchanged, plus its
 chrome inks. Both light and dark are emitted, each stepped for its own surface rather
@@ -37,20 +45,27 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from summarize import RESULTS_DIR, _baseline_index, flatten, load  # noqa: E402
+from summarize import (  # noqa: E402
+    NOISE_SIGMA,
+    RESULTS_DIR,
+    _baseline_index,
+    _sigma,
+    flatten,
+    load,
+)
 
 THEMES = {
     "light": dict(
         surface="#fcfcfb", ink="#0b0b0b", secondary="#52514e", muted="#898781",
         grid="#e1e0d9", axis="#c3c2b7",
         series=("#2a78d6", "#eb6834", "#3d9970"), positive="#3d9970",
-        negative="#eb6834",
+        negative="#eb6834", noise="#c3c2b7",
     ),
     "dark": dict(
         surface="#1a1a19", ink="#ffffff", secondary="#c3c2b7", muted="#898781",
         grid="#2c2c2a", axis="#383835",
         series=("#3987e5", "#d95926", "#4fae82"), positive="#4fae82",
-        negative="#d95926",
+        negative="#d95926", noise="#4a4a47",
     ),
 }
 
@@ -113,6 +128,14 @@ def draw_baselines(ax, rows: list[dict], colours: dict) -> None:
             error_kw={"ecolor": colours["muted"], "elinewidth": 1},
             label=model,
         )
+        # The three datasets differ by an order of magnitude in difficulty, so IBM CCF's
+        # bars are a few pixels tall next to SAML-D's. The number goes on the bar.
+        for offset, value, error in zip(offsets, values, errors):
+            ax.text(
+                offset, value + error + 0.015, f"{value:.3f}",
+                ha="center", va="bottom", rotation=90,
+                color=colours["secondary"], fontsize=7.5,
+            )
 
     ax.set_xticks(positions)
     ax.set_xticklabels(DATASETS)
@@ -141,7 +164,12 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
         baseline = baselines.get((row["dataset"], row["model"]))
         if baseline is None:
             continue
-        entries.append((_delta_label(row), row["test_ap"] - baseline["test_ap"]))
+        difference = row["test_ap"] - baseline["test_ap"]
+        sigma = _sigma(row, baseline)
+        # Same rule the table uses. Without it the figure contradicts the table:
+        # saml_d's delay cell is the largest bar here and is 1.5 sigma.
+        real = sigma < 1e-12 or abs(difference) / sigma >= NOISE_SIGMA
+        entries.append((_delta_label(row), difference, sigma, real))
 
     if not entries:
         ax.text(
@@ -153,14 +181,21 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
         return
 
     entries.reverse()  # highest row at the top
-    labels = [label for label, _ in entries]
-    values = [value for _, value in entries]
+    labels = [entry[0] for entry in entries]
+    values = [entry[1] for entry in entries]
+    sigmas = [entry[2] for entry in entries]
     positions = np.arange(len(entries))
     colour = [
-        colours["positive"] if value >= 0 else colours["negative"] for value in values
+        (colours["positive"] if value >= 0 else colours["negative"])
+        if real
+        else colours["noise"]
+        for _, value, _, real in entries
     ]
 
-    ax.barh(positions, values, 0.66, color=colour, edgecolor="none")
+    ax.barh(
+        positions, values, 0.66, xerr=sigmas, color=colour, edgecolor="none",
+        error_kw={"ecolor": colours["muted"], "elinewidth": 1, "capsize": 2},
+    )
     ax.axvline(0, color=colours["axis"], linewidth=1)
     ax.set_yticks(positions)
     ax.set_yticklabels(labels, fontsize=8.5)
@@ -175,6 +210,10 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
         handles=[
             Patch(facecolor=colours["positive"], label="better than baseline"),
             Patch(facecolor=colours["negative"], label="worse"),
+            Patch(
+                facecolor=colours["noise"],
+                label=f"within noise (<{NOISE_SIGMA:.0f}σ)",
+            ),
         ],
         frameon=False, fontsize=8.5, loc="lower right",
         labelcolor=colours["secondary"],
@@ -196,8 +235,9 @@ def figure(rows: list[dict], theme: str) -> plt.Figure:
     ran = sum(row["ran"] for row in rows)
     fig.text(
         0.005, 0.015,
-        f"{ran} of {len(rows)} cells. Error bars are population sd over seeds. "
-        "Average precision, never ROC AUC.",
+        f"{ran} of {len(rows)} cells. Left: error bars are population sd over seeds. "
+        f"Right: error bars are σ of the difference; a bar shorter than {NOISE_SIGMA:.0f}σ "
+        "is greyed as no measured effect. Average precision, never ROC AUC.",
         color=colours["muted"], fontsize=8,
     )
     fig.tight_layout(rect=(0, 0.03, 1, 1))
