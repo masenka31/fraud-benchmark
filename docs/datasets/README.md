@@ -41,5 +41,8 @@ Sorted by how much the labels are recoverable from a single column, worst first.
    card records what was removed in `dropped_source_label`.
 2. **Every `reported_at` is synthetic.** No dataset here ships a real reporting timestamp.
 
-Figures in `figures/` are emitted for light and dark by
-`scripts/figures/plot_dataset_caveats.py`; the pages embed the light variant.
+The figures these pages embed live in `results/figures/`, alongside every other
+generated plot, and are emitted for light and dark — the pages embed the light variant.
+`scripts/figures/plot_dataset_caveats.py` draws the PaySim, BankSim and Sparkov ones;
+`scripts/figures/plot_monthly_fraud.py` draws IBM CCF's regime shift, which needs that
+dataset's feature parquet rather than its prepared table.

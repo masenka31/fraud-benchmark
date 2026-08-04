@@ -4,14 +4,10 @@
 A hand-written one survives locally and is gone on the next clone.
 """
 
-import sys
-from pathlib import Path
-
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "slurm"))
-
-from generate import (
+from fraud_benchmark.experiments.grid import CELLS
+from fraud_benchmark.experiments.slurm import (
     DATASETS,
     FEATURE_JOBS,
     cell_arguments,
@@ -19,8 +15,6 @@ from generate import (
     render_feature_job,
     write_all,
 )
-
-from fraud_benchmark.experiments.grid import CELLS
 
 
 def test_there_is_one_job_per_experimental_dataset():

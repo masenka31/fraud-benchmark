@@ -10,6 +10,7 @@ import json
 
 import pytest
 
+from fraud_benchmark.experiments import summary as summarize
 from fraud_benchmark.experiments.grid import (
     CELLS,
     GROUPS,
@@ -161,16 +162,6 @@ def test_the_bigger_dataset_asks_for_more(monkeypatch):
 # --- the summary ---------------------------------------------------------
 
 
-def summarize_module():
-    import sys
-    from pathlib import Path
-
-    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
-    import summarize
-
-    return summarize
-
-
 def fake_record(cell, test_ap=0.5, sd=0.01):
     return {
         "config": {**cell.config.__dict__, "seeds": list(cell.config.seeds)},
@@ -192,7 +183,6 @@ def fake_record(cell, test_ap=0.5, sd=0.01):
 
 
 def test_an_empty_results_directory_reports_every_cell_as_not_run(tmp_path):
-    summarize = summarize_module()
     rows = summarize.flatten(summarize.load(tmp_path))
     assert len(rows) == len(CELLS)
     assert not any(row["ran"] for row in rows)
@@ -200,7 +190,6 @@ def test_an_empty_results_directory_reports_every_cell_as_not_run(tmp_path):
 
 
 def test_a_present_record_is_reported_with_its_score(tmp_path):
-    summarize = summarize_module()
     cell = CELLS[0]
     (tmp_path / f"{cell.name}.jsonl").write_text(
         json.dumps(fake_record(cell, test_ap=0.42)) + "\n"
@@ -211,7 +200,6 @@ def test_a_present_record_is_reported_with_its_score(tmp_path):
 
 
 def test_the_newest_line_of_a_rerun_cell_wins(tmp_path):
-    summarize = summarize_module()
     cell = CELLS[0]
     (tmp_path / f"{cell.name}.jsonl").write_text(
         json.dumps(fake_record(cell, test_ap=0.1))
@@ -224,7 +212,6 @@ def test_the_newest_line_of_a_rerun_cell_wins(tmp_path):
 
 
 def test_a_delta_is_reported_against_the_matching_baseline(tmp_path):
-    summarize = summarize_module()
     baseline = [c for c in CELLS if c.name == "sparkov_xgboost"][0]
     lagged = [c for c in CELLS if c.name == "sparkov_xgboost_h10"][0]
     (tmp_path / f"{baseline.name}.jsonl").write_text(
@@ -241,7 +228,6 @@ def test_a_delta_is_reported_against_the_matching_baseline(tmp_path):
 
 def test_an_unrun_baseline_leaves_the_delta_unclaimed(tmp_path):
     """Better than inventing a comparison against a cell that has not run."""
-    summarize = summarize_module()
     lagged = [c for c in CELLS if c.name == "sparkov_xgboost_h10"][0]
     (tmp_path / f"{lagged.name}.jsonl").write_text(
         json.dumps(fake_record(lagged)) + "\n"
@@ -251,7 +237,6 @@ def test_an_unrun_baseline_leaves_the_delta_unclaimed(tmp_path):
 
 
 def test_the_summary_never_names_roc_auc(tmp_path):
-    summarize = summarize_module()
     rendered = summarize.render(summarize.flatten(summarize.load(tmp_path)))
     assert "ROC AUC" in rendered  # named only to say it is deliberately absent
     assert "average precision" in rendered.lower()
@@ -263,7 +248,6 @@ def test_the_summary_never_names_roc_auc(tmp_path):
 def delta_of(baseline_ap, baseline_sd, cell_ap, cell_sd) -> str:
     """`_delta` for one comparison. Asserted directly rather than through `render`,
     whose header explains the notation and so contains the phrases being looked for."""
-    summarize = summarize_module()
     row = {"ran": True, "group": "history", "test_ap": cell_ap, "test_ap_sd": cell_sd}
     baseline = {"test_ap": baseline_ap, "test_ap_sd": baseline_sd}
     return summarize._delta(row, baseline)
@@ -292,7 +276,6 @@ def test_a_deterministic_pair_is_not_reported_in_sigmas():
 
 
 def test_a_baseline_cell_has_no_delta_of_its_own():
-    summarize = summarize_module()
     row = {"ran": True, "group": "baseline", "test_ap": 0.5, "test_ap_sd": 0.01}
     assert summarize._delta(row, row) == "—"
 
@@ -300,15 +283,13 @@ def test_a_baseline_cell_has_no_delta_of_its_own():
 def test_the_noise_scale_combines_both_cells_spreads():
     """Seeds are independent between runs, so the variances add. Using one cell's sd
     alone would understate the spread of the comparison."""
-    summarize = summarize_module()
     row = {"test_ap": 0.5, "test_ap_sd": 0.03}
     baseline = {"test_ap": 0.4, "test_ap_sd": 0.04}
-    assert summarize._sigma(row, baseline) == pytest.approx(0.05)
+    assert summarize.sigma_of_difference(row, baseline) == pytest.approx(0.05)
 
 
 def test_the_rendered_table_explains_the_notation_it_uses():
     """A reader meeting "1.4σ, within noise" in a cell needs the header to define it."""
-    summarize = summarize_module()
     rendered = summarize.render(summarize.flatten({}))
     assert "within noise" in rendered
     assert "standard deviation" in rendered

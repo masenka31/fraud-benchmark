@@ -1,4 +1,4 @@
-"""One figure per dataset caveat that words undersell, for docs/datasets/.
+"""One figure per dataset caveat that words undersell, for the dataset pages.
 
 Three caveats earn a figure, because each is a *shape* rather than a number:
 
@@ -11,9 +11,9 @@ Three caveats earn a figure, because each is a *shape* rather than a number:
 IBM CCF's regime shift already has `plot_monthly_fraud.py`; the other datasets'
 caveats are adequately stated as text in their doc pages.
 
-Colours are the dataviz reference palette's categorical slots 1 (blue) and 2
-(orange) plus its chrome inks, reused verbatim from plot_monthly_fraud so both
-figures read as one system. No slot is substituted, so no revalidation is needed.
+Colours come from `fraud_benchmark.figures` -- the reference palette's categorical
+slots 1 (blue) and 2 (orange) plus its chrome inks, the same palette every other
+figure here draws with, so no slot is substituted and no revalidation is needed.
 Each figure is emitted for light and dark, stepped for its own surface.
 
 Both panels of the PaySim figure carry ONE series each and share an x-axis: a
@@ -33,7 +33,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from plot_monthly_fraud import THEMES
+from fraud_benchmark.figures import THEMES
 
 PROCESSED = Path("data/processed")
 BAR_RADIUS = 4  # px, rounded data-end away from the baseline
@@ -79,7 +79,7 @@ def paysim(theme: str, out: Path) -> None:
         (top, h["frauds"], "frauds per hour"),
         (bottom, h["rows"], "transactions per hour"),
     ):
-        ax.bar(h.index, values, width=0.82, color=c["series"], zorder=3)
+        ax.bar(h.index, values, width=0.82, color=c["series"][0], zorder=3)
         ax.grid(True, axis="y", color=c["grid"], lw=0.8, zorder=0)
         ax.set_ylabel(label, color=c["secondary"], fontsize=10)
         ax.yaxis.set_major_formatter(lambda v, _pos: f"{v:,.0f}")
@@ -125,7 +125,7 @@ def banksim(theme: str, out: Path) -> None:
     g = g.sort_values("rate")
 
     c, fig, ax = _frame(theme, (9, 5.2))
-    ax.barh(range(len(g)), g["rate"], height=0.78, color=c["series"], zorder=3)
+    ax.barh(range(len(g)), g["rate"], height=0.78, color=c["series"][0], zorder=3)
     ax.axvline(base, color=c["accent"], lw=2.0, zorder=4)
     # Below the shortest bars, the only region of the panel with no mark in it.
     ax.annotate(f"base rate {base:.2f}%", xy=(base, -0.95), xytext=(7, 0),
@@ -170,7 +170,7 @@ def sparkov_delay(theme: str, out: Path) -> None:
         )
 
     c, fig, ax = _frame(theme, (9, 5.0))
-    colours = {"sparkov": c["series"], "sparkov_slow": c["accent"]}
+    colours = {"sparkov": c["series"][0], "sparkov_slow": c["accent"]}
     for name, days in series.items():
         y = np.arange(1, len(days) + 1) / len(days) * 100
         ax.plot(days, y, color=colours[name], lw=2.0, zorder=3, label=name)
@@ -229,7 +229,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("figures", nargs="*", choices=list(FIGURES),
                     help="which figures to draw; default is all of them")
-    ap.add_argument("--out-dir", type=Path, default=Path("docs/datasets/figures"))
+    ap.add_argument("--out-dir", type=Path, default=Path("results/figures"))
     args = ap.parse_args()
 
     for name in args.figures or list(FIGURES):

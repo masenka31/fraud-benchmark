@@ -24,7 +24,7 @@ contain nothing but fraud** — 44.1% of all PaySim frauds, identifiable from th
 timestamp with no model. Holds in every split. Any feature touching hour-of-day
 carries this.
 
-![PaySim fraud by hour of day](figures/paysim_hourly_light.png)
+![PaySim fraud by hour of day](../../results/figures/paysim_hourly_light.png)
 
 ⚠ **`type` is a hard gate.** `CASH_IN`, `DEBIT` and `PAYMENT` — 3,592,211 rows, 56.5%
 of the dataset — contain **exactly zero** frauds.

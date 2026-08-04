@@ -25,15 +25,14 @@ seeds there is no distribution to be confident about, only the spread of the run
 Values are printed on the bars because the datasets differ by an order of magnitude in
 difficulty -- IBM CCF's bars are a few pixels tall beside SAML-D's.
 
-Colours are the dataviz reference palette's categorical slots, unchanged, plus its
-chrome inks. Both light and dark are emitted, each stepped for its own surface rather
-than flipped.
+Colours come from `fraud_benchmark.figures`, the palette every other figure here draws
+with. Both light and dark are emitted, each stepped for its own surface rather than
+flipped.
 """
 
 from __future__ import annotations
 
 import argparse
-import sys
 from pathlib import Path
 
 import matplotlib
@@ -44,30 +43,16 @@ import numpy as np
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from summarize import (  # noqa: E402
+from fraud_benchmark.experiments.summary import (
     NOISE_SIGMA,
     RESULTS_DIR,
-    _baseline_index,
-    _sigma,
+    baseline_index,
     flatten,
+    is_measured,
     load,
+    sigma_of_difference,
 )
-
-THEMES = {
-    "light": dict(
-        surface="#fcfcfb", ink="#0b0b0b", secondary="#52514e", muted="#898781",
-        grid="#e1e0d9", axis="#c3c2b7",
-        series=("#2a78d6", "#eb6834", "#3d9970"), positive="#3d9970",
-        negative="#eb6834", noise="#c3c2b7",
-    ),
-    "dark": dict(
-        surface="#1a1a19", ink="#ffffff", secondary="#c3c2b7", muted="#898781",
-        grid="#2c2c2a", axis="#383835",
-        series=("#3987e5", "#d95926", "#4fae82"), positive="#4fae82",
-        negative="#d95926", noise="#4a4a47",
-    ),
-}
+from fraud_benchmark.figures import THEMES
 
 MODELS = ("xgboost", "mlp", "logistic")
 DATASETS = ("ibm_ccf", "saml_d", "sparkov")
@@ -156,7 +141,7 @@ def draw_baselines(ax, rows: list[dict], colours: dict) -> None:
 
 def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
     """Horizontal diverging bars: each cell against its own baseline."""
-    baselines = _baseline_index(rows)
+    baselines = baseline_index(rows)
     entries = []
     for row in rows:
         if row["group"] == "baseline" or not row["ran"]:
@@ -165,11 +150,13 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
         if baseline is None:
             continue
         difference = row["test_ap"] - baseline["test_ap"]
-        sigma = _sigma(row, baseline)
-        # Same rule the table uses. Without it the figure contradicts the table:
-        # saml_d's delay cell is the largest bar here and is 1.5 sigma.
-        real = sigma < 1e-12 or abs(difference) / sigma >= NOISE_SIGMA
-        entries.append((_delta_label(row), difference, sigma, real))
+        sigma = sigma_of_difference(row, baseline)
+        # The table's own rule, called rather than restated. Without it the figure
+        # contradicts the table: saml_d's delay cell is the largest bar here and is
+        # 1.5 sigma.
+        entries.append(
+            (_delta_label(row), difference, sigma, is_measured(difference, sigma))
+        )
 
     if not entries:
         ax.text(

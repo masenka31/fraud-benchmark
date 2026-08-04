@@ -4,8 +4,8 @@ Two stacked panels sharing one x-axis rather than a dual-axis chart: rate and
 count are different scales, and overlaying them on two y-axes would invent a
 correlation by the arbitrary alignment of the scales.
 
-Colours are the dataviz reference palette's slots 1 and 2, unchanged (blue for
-the series, orange for the Italy-regime band), plus its chrome inks. Both light
+Colours come from `fraud_benchmark.figures` -- the reference palette's slot 1 for
+the series and slot 2 for the Italy-regime band, plus its chrome inks. Both light
 and dark are emitted, each stepped for its own surface rather than flipped.
 
 The monthly CSV written alongside is the table-view twin of the figure.
@@ -24,20 +24,10 @@ import pandas as pd
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
+from fraud_benchmark.figures import THEMES
+
 ITALY_REGIME_START = pd.Timestamp("2017-11-19")
 MIN_GAP_MONTHS = 3
-
-THEMES = {
-    "light": dict(
-        surface="#fcfcfb", ink="#0b0b0b", secondary="#52514e", muted="#898781",
-        grid="#e1e0d9", axis="#c3c2b7", series="#2a78d6", accent="#eb6834",
-    ),
-    "dark": dict(
-        surface="#1a1a19", ink="#ffffff", secondary="#c3c2b7", muted="#898781",
-        grid="#2c2c2a", axis="#383835", series="#3987e5", accent="#d95926",
-    ),
-}
-
 
 def monthly(df: pd.DataFrame) -> pd.DataFrame:
     m = df.groupby(df["event_time"].dt.to_period("M")).agg(
@@ -91,7 +81,7 @@ def draw(m: pd.DataFrame, theme: str, out: Path) -> None:
             ax.spines[side].set_linewidth(0.8)
         ax.tick_params(colors=c["muted"], labelsize=9, length=3, width=0.8)
 
-    ax_rate.plot(m.index, m["rate_pct"], color=c["series"], lw=2.0, zorder=3)
+    ax_rate.plot(m.index, m["rate_pct"], color=c["series"][0], lw=2.0, zorder=3)
     ax_rate.set_ylabel("fraud rate, % of transactions", color=c["secondary"], fontsize=10)
     ax_rate.set_title(
         "IBM CCF: the fraud rate is not stationary, and the generator stops emitting fraud for months at a time",
@@ -109,7 +99,7 @@ def draw(m: pd.DataFrame, theme: str, out: Path) -> None:
         va="bottom", ha="left",
     )
 
-    ax_count.plot(m.index, m["frauds"], color=c["series"], lw=2.0, zorder=3)
+    ax_count.plot(m.index, m["frauds"], color=c["series"][0], lw=2.0, zorder=3)
     ax_count.set_ylabel("frauds per month", color=c["secondary"], fontsize=10)
     ax_count.xaxis.set_major_locator(mdates.YearLocator(2))
     ax_count.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
@@ -124,7 +114,7 @@ def draw(m: pd.DataFrame, theme: str, out: Path) -> None:
     )
 
     handles = [
-        Line2D([], [], color=c["series"], lw=2.0, label="monthly fraud rate / count"),
+        Line2D([], [], color=c["series"][0], lw=2.0, label="monthly fraud rate / count"),
         Patch(facecolor=c["muted"], alpha=0.18, label=f"zero-fraud gap ({MIN_GAP_MONTHS}+ months)"),
         Patch(facecolor=c["accent"], alpha=0.14, label="Italy regime (from 2017-11-19)"),
     ]

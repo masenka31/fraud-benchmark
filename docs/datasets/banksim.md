@@ -24,7 +24,7 @@ categories hold **57.1% of all frauds**; as a rule they score 0.463 precision / 
 recall on test. Three categories contain no fraud at all. 16 merchants are flagged the
 same way (`M980657600`: 83.2% fraud, 20.4% of all frauds).
 
-![BankSim fraud rate by category](figures/banksim_categories_light.png)
+![BankSim fraud rate by category](../../results/figures/banksim_categories_light.png)
 
 - **`fraud`, the source label column, is dropped by the pipeline.** `is_fraud` is the only
   label in the output; the card records the removal in `dropped_source_label`.

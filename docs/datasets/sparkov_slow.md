@@ -28,7 +28,7 @@ same 9,651 frauds, same 999 cards, same 63/7/30 splits, same artifacts (none), s
 enough for a delay-aware method to have something to work with — **on identical rows**,
 which makes it the only paired delay contrast in the suite.
 
-![Sparkov's two delay regimes](figures/sparkov_delay_regimes_light.png)
+![Sparkov's two delay regimes](../../results/figures/sparkov_delay_regimes_light.png)
 
 ## Artifacts and disclaimers
 
