@@ -29,13 +29,3 @@ it. Everything else lives here.
 |---|---|
 | [`experiments.md`](experiments.md) | Two halves: the closed record of the retired IBM CCF experiments — every result with its seed spread, what closed the 0.041-vs-0.764 gap and what did not — and the current experimental surface, being the three feature parquets and the three axes chosen at fit time. |
 | [`../results/summary.md`](../results/summary.md) | The leakage ablation table. The grid that produced it has since been retired; the numbers stand as a record. |
-
-## Not in version control
-
-`docs/superpowers/` holds the working specs and implementation plans used while building
-this. They are kept local and gitignored; some notes here still refer to them by name.
-
-`docs/verification-notes.md` was the measurement log behind most of the statistics on
-these pages, and `docs/dataset-characteristics-table.tex` the LaTeX table of them. Both
-are kept out of the repository; the per-dataset pages and each prepared dataset's
-`dataset_card.json` carry the figures that survive them.

@@ -42,25 +42,38 @@ see **[Running the four stages](#running-the-four-stages)** below.
 ## Datasets
 
 Eight registered: seven distinct sources plus `sparkov_slow`, which is `sparkov` under a
-second delay regime. 73 million transactions in total.
+second delay regime. 73 million transactions in total. Six of the eight are fully synthetic;
+IEEE-CIS is the only real-world data.
+
+### Recommended
+
+We recommend to use the following datasets for sequential fraud (and AML) detection.
+The datasets contain entity features, have a realistic time-span, and the artifacts
+of the data do not disqualify them from benchmark purposes.
+
+| dataset | rows | fraud rate | span | licence |
+|---|---:|---:|---:|---|
+| [`sparkov`](docs/datasets/sparkov.md) | 1,852,394 | 0.521% | 730d | CC0 1.0 |
+| [`sparkov_slow`](docs/datasets/sparkov_slow.md) | 1,852,394 | 0.521% | 730d | CC0 1.0 |
+| [`saml_d`](docs/datasets/saml_d.md) | 9,504,852 | 0.104% | 320d | CC BY-NC-SA 4.0 |
+| [`ibm_ccf`](docs/datasets/ibm_ccf.md) | 24,386,900 | 0.122% | 10,649d | Apache-2.0 ⚠ |
+
+There is a known artifact for IBM CFF dataset where nearly all of fraudulent transactions
+in validation and test periods come with `country = Italy`.
+
+### Use with caution
+
+The following datasets are available, but are recommended to use with caution.
 
 | dataset | rows | fraud rate | span | licence |
 |---|---:|---:|---:|---|
 | [`paysim`](docs/datasets/paysim.md) | 6,362,620 | 0.129% | 30d | CC BY-SA 4.0 |
 | [`banksim`](docs/datasets/banksim.md) | 594,643 | 1.211% | 179d | CC BY-NC-SA 4.0 |
-| [`sparkov`](docs/datasets/sparkov.md) | 1,852,394 | 0.521% | 730d | CC0 1.0 |
-| [`sparkov_slow`](docs/datasets/sparkov_slow.md) | 1,852,394 | 0.521% | 730d | CC0 1.0 |
-| [`saml_d`](docs/datasets/saml_d.md) | 9,504,852 | 0.104% | 320d | CC BY-NC-SA 4.0 |
-| [`ibm_ccf`](docs/datasets/ibm_ccf.md) | 24,386,900 | 0.122% | 10,649d | Apache-2.0 ⚠ |
 | [`ieee_cis`](docs/datasets/ieee_cis.md) | 590,540 | 3.499% | 181d | competition rules |
 | [`amaretto`](docs/datasets/amaretto.md) | 29,704,090 | 0.274% | 83d | MIT |
 
-⚠ **Read a dataset's page before using it.** Several carry artifacts sharp enough to
-invalidate a result — `ibm_ccf` most of all, where validation frauds are 100% a single
-merchant country and a one-line rule outscores every model. Each page gives the numbers,
+⚠ **Read a dataset's page before using it.** Each page gives the numbers,
 the schema mapping, and the disclaimers: **[`docs/datasets/`](docs/datasets/README.md)**.
-
-Six of the eight are fully synthetic; IEEE-CIS is the only real-world data.
 
 ## Time splits
 
