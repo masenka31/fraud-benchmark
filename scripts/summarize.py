@@ -42,6 +42,12 @@ no useful precision.
 The baseline is every dataset × every model with no history, true labels, and the
 `artifact_` columns dropped. Each later group changes exactly one thing against it, so
 the column that matters is **Δ**, not the absolute score.
+
+Every Δ carries the noise scale of its own comparison: **σ** is the standard deviation of
+the *difference* between the two cells' means, so a Δ marked *within noise* is smaller
+than {sigma:.0f}σ and should be read as "no measured effect", not as a small one. A bare
+Δ invites over-reading — IBM CCF's delay cell moves −0.0035, which looks like a 9% drop
+and is 1.5σ with seed ranges that overlap.
 """
 
 
@@ -109,17 +115,52 @@ def _ap(row: dict) -> str:
     return f"{row['test_ap']:.4f} ± {row['test_ap_sd']:.4f}"
 
 
+#: A delta smaller than this many standard deviations of its own difference is not
+#: distinguishable from seed noise. Two is the conventional line and is generous here:
+#: with three seeds the sd is itself poorly estimated, so anything close to it should be
+#: read as "no measured effect" rather than as a small one.
+NOISE_SIGMA = 2.0
+
+#: Below this, a spread is floating-point residue rather than variance. A deterministic
+#: model (logistic) returns identical scores per seed, whose population sd computes to
+#: something like 1e-19 rather than exactly 0 -- and dividing by that reported a delta
+#: as 1.6e15 sigma.
+SIGMA_FLOOR = 1e-12
+
+
+def _sigma(row: dict, baseline: dict) -> float:
+    """Standard deviation of the *difference* between two cells' means.
+
+    Seeds are independent between runs, so the variances add. Using either cell's own sd
+    alone would understate the spread of the comparison, which is the quantity a reader
+    needs before believing a delta.
+    """
+    return float((row["test_ap_sd"] ** 2 + baseline["test_ap_sd"] ** 2) ** 0.5)
+
+
 def _delta(row: dict, baseline: dict | None) -> str:
-    """This cell against its baseline, in average precision and as a multiple."""
+    """This cell against its baseline, with the noise scale of the comparison.
+
+    A bare delta invites over-reading. IBM CCF's delay cell moves -0.0035, which looks
+    like a 9% drop and is 1.5 sigma: its seed range overlaps the baseline's. Sparkov's
+    moves -0.0242 at 10 sigma. Both would print as "0.9x" without this.
+    """
     if not row["ran"] or row["group"] == "baseline":
         return "—"
     if baseline is None:
         return "no baseline"
+
     difference = row["test_ap"] - baseline["test_ap"]
-    if baseline["test_ap"] > 0:
-        factor = row["test_ap"] / baseline["test_ap"]
-        return f"{difference:+.4f}  ({factor:.2f}×)"
-    return f"{difference:+.4f}"
+    sigma = _sigma(row, baseline)
+    if sigma < SIGMA_FLOOR:
+        # Both cells deterministic (logistic), so the difference is exact, not sampled.
+        return f"{difference:+.4f}  (deterministic)"
+
+    z = abs(difference) / sigma
+    if z < NOISE_SIGMA:
+        return f"{difference:+.4f}  ({z:.1f}σ, within noise)"
+    factor = row["test_ap"] / baseline["test_ap"] if baseline["test_ap"] > 0 else 0.0
+    return f"{difference:+.4f}  ({factor:.2f}×, {z:.0f}σ)"
 
 
 #: What distinguishes each group's cells from the baseline, as a column heading.
@@ -147,7 +188,7 @@ def render(rows: list[dict]) -> str:
     """The whole summary as markdown."""
     seeds = sorted({row.get("seeds") for row in rows if row["ran"]})
     seed_text = f"0–{max(seeds) - 1}" if seeds else "—"
-    parts = [_HEADER.format(seeds=seed_text)]
+    parts = [_HEADER.format(seeds=seed_text, sigma=NOISE_SIGMA)]
 
     ran = [row for row in rows if row["ran"]]
     parts.append(

@@ -255,3 +255,60 @@ def test_the_summary_never_names_roc_auc(tmp_path):
     rendered = summarize.render(summarize.flatten(summarize.load(tmp_path)))
     assert "ROC AUC" in rendered  # named only to say it is deliberately absent
     assert "average precision" in rendered.lower()
+
+
+# --- deltas carry their own noise scale ----------------------------------
+
+
+def delta_of(baseline_ap, baseline_sd, cell_ap, cell_sd) -> str:
+    """`_delta` for one comparison. Asserted directly rather than through `render`,
+    whose header explains the notation and so contains the phrases being looked for."""
+    summarize = summarize_module()
+    row = {"ran": True, "group": "history", "test_ap": cell_ap, "test_ap_sd": cell_sd}
+    baseline = {"test_ap": baseline_ap, "test_ap_sd": baseline_sd}
+    return summarize._delta(row, baseline)
+
+
+def test_a_delta_inside_the_seed_spread_is_marked_within_noise():
+    """IBM CCF's delay cell moved -0.0035 at 1.4 sigma with overlapping seed ranges.
+    Printed as a bare 0.91x it reads as a 9% drop."""
+    delta = delta_of(0.0377, 0.0023, 0.0342, 0.0012)
+    assert "within noise" in delta
+    assert "×" not in delta
+
+
+def test_a_delta_well_outside_the_spread_reports_its_factor():
+    """Sparkov's delay cell moved -0.0242 at 10 sigma, which is a real effect."""
+    delta = delta_of(0.9733, 0.0014, 0.9491, 0.0021)
+    assert "within noise" not in delta
+    assert "0.98×" in delta and "10σ" in delta
+
+
+def test_a_deterministic_pair_is_not_reported_in_sigmas():
+    """Logistic returns identical scores per seed; a population sd of ~1e-19 once
+    reported a delta as 1.6e15 sigma."""
+    delta = delta_of(0.2356, 0.0, 0.2516, 0.0)
+    assert delta == "+0.0160  (deterministic)"
+
+
+def test_a_baseline_cell_has_no_delta_of_its_own():
+    summarize = summarize_module()
+    row = {"ran": True, "group": "baseline", "test_ap": 0.5, "test_ap_sd": 0.01}
+    assert summarize._delta(row, row) == "—"
+
+
+def test_the_noise_scale_combines_both_cells_spreads():
+    """Seeds are independent between runs, so the variances add. Using one cell's sd
+    alone would understate the spread of the comparison."""
+    summarize = summarize_module()
+    row = {"test_ap": 0.5, "test_ap_sd": 0.03}
+    baseline = {"test_ap": 0.4, "test_ap_sd": 0.04}
+    assert summarize._sigma(row, baseline) == pytest.approx(0.05)
+
+
+def test_the_rendered_table_explains_the_notation_it_uses():
+    """A reader meeting "1.4σ, within noise" in a cell needs the header to define it."""
+    summarize = summarize_module()
+    rendered = summarize.render(summarize.flatten({}))
+    assert "within noise" in rendered
+    assert "standard deviation" in rendered
