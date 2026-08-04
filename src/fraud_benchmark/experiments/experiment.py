@@ -191,6 +191,44 @@ def _resolve_history_columns(
     return declared
 
 
+#: Datasets whose final stretch carries no labels at all, and so cannot be scored.
+#: IBM CCF stops generating fraud on 2019-10-27 but keeps producing transactions until
+#: 2020-02-28: 645,180 rows, 2.6% of the dataset, four months, zero frauds. They are
+#: not negatives that happen to be clean -- they are rows the generator never labelled.
+UNLABELLED_TAIL_DATASETS = frozenset({"ibm_ccf"})
+
+
+def _drop_unlabelled_tail(df: pd.DataFrame, dataset: str) -> tuple[pd.DataFrame, str]:
+    """Cut everything after a dataset's last labelled fraud. Returns (frame, note).
+
+    `experiments.splits.italy_holdout_split` already did this for its own boundary and
+    `LAST_LABELLED_FRAUD` names the timestamp; `standard_split` did not, so the two
+    disagreed about whether those rows exist. Keeping them dilutes a full-data test
+    split with 645,180 unscorable rows, and breaks a cropped one outright: the last 10%
+    of the last 6M rows lies entirely inside the tail, so test held zero frauds and
+    average precision was undefined. That is how this was found -- the three IBM CCF
+    MLP cells failed on it.
+
+    Applied before the split rather than inside it, because it is a statement about
+    which rows the dataset labelled and not about where a boundary goes.
+    """
+    if dataset not in UNLABELLED_TAIL_DATASETS or "is_fraud" not in df.columns:
+        return df, ""
+    frauds = df.loc[df["is_fraud"].astype(bool), "event_time"]
+    if frauds.empty:
+        return df, ""
+    last_labelled = frauds.max()
+    keep = df["event_time"] <= last_labelled
+    dropped = int((~keep).sum())
+    if not dropped:
+        return df, ""
+    return (
+        df.loc[keep],
+        f"dropped {dropped:,} row(s) after the last labelled fraud "
+        f"({last_labelled:%Y-%m-%d}); they carry no labels and cannot be scored",
+    )
+
+
 def prepare(config: ExperimentConfig, features_dir: Path | str = FEATURE_DIR) -> Prepared:
     """Read the parquet and build the design matrix, labels and split indices."""
     config.validate()
@@ -203,6 +241,9 @@ def prepare(config: ExperimentConfig, features_dir: Path | str = FEATURE_DIR) ->
             f"`python -m fraud_benchmark.experiments.features.{config.dataset}`"
         )
     df = pd.read_parquet(source)
+    df, tail_note = _drop_unlabelled_tail(df, config.dataset)
+    if tail_note:
+        notes.append(tail_note)
 
     if config.max_rows is not None and config.max_rows < len(df):
         # The temporal tail, not a random sample: the splits are temporal, and a

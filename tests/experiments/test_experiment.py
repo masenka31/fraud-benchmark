@@ -283,6 +283,79 @@ def test_the_matrix_is_float32(features_dir):
     assert prepare(config(), features_dir).x.dtype == np.dtype("float32")
 
 
+# --- the unlabelled tail --------------------------------------------------
+
+
+def ibm_frame(directory, n=600, tail=120):
+    """An ibm_ccf-shaped parquet whose last `tail` rows carry no frauds at all."""
+    rng = np.random.default_rng(2)
+    time = [BASE + pd.Timedelta(hours=i) for i in range(n)]
+    fraud = np.zeros(n, dtype=bool)
+    # Frauds spread through the labelled part only, as IBM CCF's are.
+    fraud[rng.choice(n - tail, size=(n - tail) // 8, replace=False)] = True
+
+    keys = pd.DataFrame(
+        {
+            "entity_id": pd.Series([f"user{i % 5}" for i in range(n)], dtype="string"),
+            "event_time": time,
+            "reported_at": [
+                (t + pd.Timedelta(days=1)) if f else pd.NaT for t, f in zip(time, fraud)
+            ],
+            "is_fraud": fraud,
+            "split": pd.Series(["train"] * n, dtype="string"),
+        }
+    )
+    names = (
+        "amount_log1p", "seconds_since_prev_txn", "hour", "same_state", "same_city",
+        "merchant_is_online", "merchant_is_foreign", "amount_over_credit_limit",
+        "amount_over_entity_mean", "txn_count_24h", "errors_24h",
+        "first_merchant_for_entity",
+    )
+    features = pd.DataFrame({name: rng.random(n) for name in names})
+    for name in ("mcc_group", "use_chip"):
+        features[name] = pd.Series(
+            [f"{name}{i % 3}" for i in range(n)], dtype="string"
+        ).astype("category")
+    features["artifact_merchant_state"] = pd.Series(
+        ["Italy" if i % 9 == 0 else "CA" for i in range(n)], dtype="string"
+    ).astype("category")
+    write_features("ibm_ccf", keys, features, features_dir=directory)
+    return directory
+
+
+def test_the_unlabelled_tail_is_dropped_from_ibm_ccf(tmp_path):
+    """IBM CCF stops generating fraud four months before the data ends."""
+    directory = ibm_frame(tmp_path)
+    prepared = prepare(
+        ExperimentConfig(dataset="ibm_ccf", model="xgboost", seeds=(0,)), directory
+    )
+    # The cut lands on the last fraud, which is somewhere in the labelled 480 -- so
+    # at least the 120-row tail goes, and the surviving frame ends *on* a fraud.
+    assert len(prepared.y) <= 480
+    assert prepared.y_true[-1] == 1
+    assert any("after the last labelled fraud" in note for note in prepared.notes)
+
+
+def test_dropping_the_tail_is_what_lets_a_cropped_run_be_scored(tmp_path):
+    """Without it the last 10% of a crop lands wholly inside the unlabelled tail."""
+    directory = ibm_frame(tmp_path)
+    prepared = prepare(
+        ExperimentConfig(
+            dataset="ibm_ccf", model="xgboost", seeds=(0,), max_rows=300
+        ),
+        directory,
+    )
+    assert int(prepared.y_true[prepared.test_rows].sum()) > 0
+
+
+def test_other_datasets_keep_every_row(tmp_path):
+    """Only IBM CCF has a tail its generator left unlabelled."""
+    directory = make_parquet(tmp_path)
+    prepared = prepare(config(), directory)
+    assert len(prepared.y) == N
+    assert not any("last labelled fraud" in note for note in prepared.notes)
+
+
 # --- a run that cannot measure anything must fail, not report NaN ----------
 
 
