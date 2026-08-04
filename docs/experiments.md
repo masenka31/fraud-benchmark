@@ -141,6 +141,17 @@ parquets are built once and read by every combination:
 | `--artifacts` | `drop`, `keep` | the `artifact_` column group |
 | `--split` | `standard`, `italy_holdout` | where the boundaries fall |
 
+**Every run uses every row.** There is no subsampling flag, by design: a model fitted on
+part of a dataset is not comparable to one fitted on all of it, so a gap between two runs
+would measure how much data each saw rather than what the axis changed. An earlier
+version cropped the MLP to 6M rows to save memory it turned out not to need, which
+quietly turned the baseline group into a comparison of training-set sizes.
+
+The one exclusion that is not a crop: IBM CCF stops generating fraud on 2019-10-27 but
+keeps producing transactions until 2020-02-28, so 645,180 rows (2.6%) carry no labels at
+all. They are dropped before the split, because they cannot be scored — with them, the
+test half of any cropped run held zero frauds.
+
 `--label-delay` is the one worth stating precisely. `off` trains on `is_fraud`. `on`
 trains on the labels known at the train cutoff, so a fraud reported later stays in the
 training data **labelled 0 rather than dropped** — at that moment it is

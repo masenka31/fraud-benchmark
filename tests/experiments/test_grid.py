@@ -14,7 +14,6 @@ from fraud_benchmark.experiments.grid import (
     CELLS,
     GROUPS,
     HISTORY_LAGS,
-    MLP_MAX_ROWS,
     build_cells,
     cells_by_group,
     estimate_cost,
@@ -106,22 +105,12 @@ def test_the_italy_holdout_cell_is_ibm_ccf_only():
     assert holdout and all(c.config.dataset == "ibm_ccf" for c in holdout)
 
 
-def test_no_cell_is_subsampled():
-    """A model trained on a crop is not comparable to one trained on the full data, and
-    the baseline group exists to compare models."""
-    assert MLP_MAX_ROWS == {}
-    for cell in CELLS:
-        assert cell.config.max_rows is None, cell.name
+def test_nothing_can_subsample():
+    """Every run uses every row. A model fitted on part of a dataset is not comparable
+    to one fitted on all of it, so the capability is gone rather than merely unused."""
+    from dataclasses import fields
 
-
-def test_every_model_on_one_dataset_sees_the_same_rows():
-    """Otherwise a gap between two models measures training-set size."""
-    for group in cells_by_group().values():
-        by_dataset: dict[str, set] = {}
-        for cell in group:
-            by_dataset.setdefault(cell.config.dataset, set()).add(cell.config.max_rows)
-        for dataset, crops in by_dataset.items():
-            assert crops == {None}, f"{dataset} mixes crops within one group: {crops}"
+    assert "max_rows" not in {f.name for f in fields(CELLS[0].config)}
 
 
 def test_every_cell_runs_three_seeds():

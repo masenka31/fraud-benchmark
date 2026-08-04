@@ -98,8 +98,6 @@ def cell_arguments(cell) -> list[str]:
         arguments += ["--artifacts", config.artifacts]
     if config.split != "standard":
         arguments += ["--split", config.split]
-    if config.max_rows is not None:
-        arguments += ["--max-rows", str(config.max_rows)]
     arguments += ["--seeds", *(str(s) for s in config.seeds)]
     return arguments
 

@@ -19,6 +19,16 @@ plus two that exist because the parquets are built to allow them:
 None of these is a property of the parquet, which is why the parquet is built once
 and read by every combination.
 
+**Every run uses every row.** There is no subsampling and no row limit: a model fitted
+on part of a dataset is not comparable to one fitted on all of it, so a gap between two
+runs would measure how much data each saw rather than what the axis changed. An earlier
+version cropped the MLP to 6M rows to save memory it turned out not to need, and the
+baseline group -- whose entire purpose is comparing models on one dataset -- silently
+became a comparison of training-set sizes.
+
+The one exclusion that remains is not a crop: `_drop_unlabelled_tail` removes rows a
+dataset never labelled, which cannot be scored at all. See its docstring.
+
 ## What "label delay" does
 
 `off` trains on `is_fraud`. `on` trains on the labels a detector would have had at
@@ -101,7 +111,6 @@ class ExperimentConfig:
     artifacts: str = "drop"
     split: str = "standard"
     seeds: tuple[int, ...] = (0, 1, 2)
-    max_rows: int | None = None
     history_columns: str = "default"
 
     def validate(self) -> None:
@@ -131,13 +140,6 @@ class ExperimentConfig:
             raise ExperimentError(
                 "split 'italy_holdout' is defined by IBM CCF's own timestamps and "
                 f"means nothing on {self.dataset}"
-            )
-        if self.split == "italy_holdout" and self.max_rows is not None:
-            # The holdout's train half is a fixed row count chosen to make it exactly
-            # 80/10/10 against its tail. Cropping first silently changes the ratios.
-            raise ExperimentError(
-                "split 'italy_holdout' cannot be combined with max_rows: its train "
-                "size is a fixed row count chosen against the full dataset"
             )
 
 
@@ -245,11 +247,6 @@ def prepare(config: ExperimentConfig, features_dir: Path | str = FEATURE_DIR) ->
     if tail_note:
         notes.append(tail_note)
 
-    if config.max_rows is not None and config.max_rows < len(df):
-        # The temporal tail, not a random sample: the splits are temporal, and a
-        # random subsample would leave train and test drawn from the same period.
-        df = df.sort_values("event_time", kind="mergesort").tail(config.max_rows)
-        notes.append(f"cropped to the last {config.max_rows:,} rows by event_time")
     df = _apply_split(df, config.split).reset_index(drop=True)
 
     # The trivial rule is read before any column is dropped, so it is available as a
@@ -320,14 +317,14 @@ def prepare(config: ExperimentConfig, features_dir: Path | str = FEATURE_DIR) ->
     # A split with no positives scores NaN average precision, and a NaN record reads
     # as a result rather than as a run that could not measure anything -- worse, it
     # serialises as a bare `NaN`, which is not valid JSON. Reachable with a small
-    # --max-rows on a dataset whose frauds are not spread evenly, which is all of them.
+    # a dataset whose frauds are not spread evenly, which is all of them.
     for name in ("val", "test"):
         positives = int(y_true[rows[name]].sum())
         if positives == 0:
             raise ExperimentError(
                 f"the {name} split contains no frauds, so average precision is "
                 f"undefined; at a {y_true.mean() * 100:.3f}% base rate a "
-                f"{len(rows[name]):,}-row split is too small, so raise --max-rows"
+                f"{len(rows[name]):,}-row split cannot be scored"
             )
     if int(y[rows["train"]].sum()) == 0:
         raise ExperimentError(

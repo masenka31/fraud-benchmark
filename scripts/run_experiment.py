@@ -13,9 +13,13 @@ a future runner about.
     python scripts/run_experiment.py --dataset sparkov --history 10 --label-delay on
     python scripts/run_experiment.py --dataset sparkov --history 10 --label-delay slow
 
-    # the MLP on IBM CCF, cropped to what fits, artifacts included for the contrast
+    # the MLP on IBM CCF, artifacts included for the contrast
     python scripts/run_experiment.py --dataset ibm_ccf --model mlp \\
-        --history 10 --max-rows 5000000 --artifacts keep
+        --history 10 --artifacts keep
+
+Every run uses every row. There is no subsampling: a model fitted on part of a dataset
+is not comparable to one fitted on all of it, so a gap between two runs would measure
+how much data each saw rather than what the axis changed.
 
 Each run appends one JSON line to `--out` and prints a readable summary. Requires
 `data/features/<dataset>.parquet`; build it with
@@ -78,11 +82,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="default: 0 1 2. Reported as mean +/- population sd",
     )
     parser.add_argument(
-        "--max-rows", type=int, default=None, metavar="N",
-        help="crop to the last N rows by event_time before splitting -- the temporal "
-             "tail, not a random sample. For combinations that will not fit in memory",
-    )
-    parser.add_argument(
         "--history-columns", default="default", choices=("default", "all"),
         help="default: the dataset module's HISTORY_COLUMNS. 'all' lags every "
              "feature, which on IBM CCF at 10 lags is ~88 GB",
@@ -109,7 +108,6 @@ def main(argv: list[str] | None = None) -> int:
         artifacts=args.artifacts,
         split=args.split,
         seeds=tuple(args.seeds),
-        max_rows=args.max_rows,
         history_columns=args.history_columns,
     )
 

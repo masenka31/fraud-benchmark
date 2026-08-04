@@ -41,22 +41,6 @@ from fraud_benchmark.experiments.experiment import ExperimentConfig
 #: so its 13%-of-gain finding is a direct comparison.
 HISTORY_LAGS = 10
 
-#: **Every cell runs on the full dataset.** An earlier version cropped the MLP to 6M
-#: rows on ibm_ccf and saml_d, on the assumption that the matrix would not fit a sane
-#: request. Measured, it does: the widest MLP cell is ibm_ccf with 10 lags, a 22.4 GB
-#: float32 matrix on a 384 GB node, and roughly 74 minutes for three seeds.
-#:
-#: The crop had to go regardless of cost, because it confounded the question the
-#: baseline group exists to answer. Comparing an MLP trained on 6M rows against a tree
-#: trained on 24.4M measures training-set size as much as architecture, and the group is
-#: titled "what does each model score on each dataset". Nothing here is subsampled now,
-#: so a gap between two models on one dataset is attributable to the model.
-#:
-#: `--max-rows` remains on the CLI for one-off runs that genuinely will not fit. It is
-#: recorded in the result, and `scripts/summarize.py` prints it, so a cropped number
-#: cannot be mistaken for a full one.
-MLP_MAX_ROWS: dict[str, int] = {}
-
 DATASETS = ("ibm_ccf", "saml_d", "sparkov")
 MODELS = ("xgboost", "mlp", "logistic")
 
@@ -85,11 +69,8 @@ class Cell:
 
 
 def _config(dataset: str, model: str, **overrides) -> ExperimentConfig:
-    """A config with the grid's shared defaults. Nothing is subsampled."""
-    max_rows = MLP_MAX_ROWS.get(dataset) if model == "mlp" else None
-    return ExperimentConfig(
-        dataset=dataset, model=model, seeds=(0, 1, 2), max_rows=max_rows, **overrides
-    )
+    """A config with the grid's shared defaults. Every cell sees every row."""
+    return ExperimentConfig(dataset=dataset, model=model, seeds=(0, 1, 2), **overrides)
 
 
 def build_cells() -> tuple[Cell, ...]:
@@ -141,8 +122,6 @@ def estimate_cost(cell: Cell) -> tuple[str, str, str]:
     rows = {"ibm_ccf": 24_400_000, "saml_d": 9_500_000, "sparkov": 1_900_000}[
         config.dataset
     ]
-    if config.max_rows is not None:
-        rows = min(rows, config.max_rows)
 
     # Feature count drives the matrix; history multiplies the lagged subset only.
     features = 90 + (config.history * 14)

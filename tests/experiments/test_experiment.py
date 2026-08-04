@@ -109,12 +109,6 @@ def test_italy_holdout_is_rejected_off_ibm_ccf():
         config(split="italy_holdout").validate()
 
 
-def test_italy_holdout_is_rejected_with_a_row_crop():
-    """Its train half is a fixed row count chosen against the full dataset."""
-    with pytest.raises(ExperimentError, match="cannot be combined with max_rows"):
-        config(dataset="ibm_ccf", split="italy_holdout", max_rows=1000).validate()
-
-
 @pytest.mark.parametrize(
     "overrides,message",
     [
@@ -265,10 +259,13 @@ def test_the_splits_stay_in_time_order(features_dir):
     assert prepared.val_rows.max() < prepared.test_rows.min()
 
 
-def test_max_rows_takes_the_temporal_tail(features_dir):
-    prepared = prepare(config(max_rows=200), features_dir)
-    assert len(prepared.y) == 200
-    assert any("cropped" in note for note in prepared.notes)
+def test_every_run_uses_every_row(features_dir):
+    """There is no subsampling, and no field that could request it."""
+    from dataclasses import fields
+
+    assert "max_rows" not in {f.name for f in fields(ExperimentConfig)}
+    prepared = prepare(config(), features_dir)
+    assert len(prepared.y) == N
 
 
 def test_continuous_and_categorical_indices_partition_the_columns(features_dir):
@@ -336,16 +333,14 @@ def test_the_unlabelled_tail_is_dropped_from_ibm_ccf(tmp_path):
     assert any("after the last labelled fraud" in note for note in prepared.notes)
 
 
-def test_dropping_the_tail_is_what_lets_a_cropped_run_be_scored(tmp_path):
-    """Without it the last 10% of a crop lands wholly inside the unlabelled tail."""
+def test_dropping_the_tail_leaves_frauds_in_every_split(tmp_path):
+    """The point of the cut: an unlabelled tail in test cannot be scored at all."""
     directory = ibm_frame(tmp_path)
     prepared = prepare(
-        ExperimentConfig(
-            dataset="ibm_ccf", model="xgboost", seeds=(0,), max_rows=300
-        ),
-        directory,
+        ExperimentConfig(dataset="ibm_ccf", model="xgboost", seeds=(0,)), directory
     )
-    assert int(prepared.y_true[prepared.test_rows].sum()) > 0
+    for rows in (prepared.train_rows, prepared.val_rows, prepared.test_rows):
+        assert int(prepared.y_true[rows].sum()) > 0
 
 
 def test_other_datasets_keep_every_row(tmp_path):
