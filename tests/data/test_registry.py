@@ -61,7 +61,8 @@ def test_every_registered_adapter_has_a_raw_name():
     """A variant may share another dataset's raw files, but never by accident."""
     for name in list_datasets():
         adapter = get_adapter(name)
-        assert isinstance(adapter.raw_name, str) and adapter.raw_name
+        assert isinstance(adapter.raw_name, str)
+        assert adapter.raw_name
 
 
 def test_raw_name_can_be_overridden():

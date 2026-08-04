@@ -188,7 +188,7 @@ MODULES = [
 # --- the contract, for every module ---------------------------------------
 
 
-@pytest.mark.parametrize('module,make,extra,dropped', MODULES)
+@pytest.mark.parametrize(('module', 'make', 'extra', 'dropped'), MODULES)
 def test_build_returns_one_row_per_input_row(module, make, extra, dropped):
     df = make()
     keys, features = module.build(df)
@@ -196,13 +196,13 @@ def test_build_returns_one_row_per_input_row(module, make, extra, dropped):
     assert len(features) == len(df)
 
 
-@pytest.mark.parametrize('module,make,extra,dropped', MODULES)
+@pytest.mark.parametrize(('module', 'make', 'extra', 'dropped'), MODULES)
 def test_keys_are_exactly_the_key_columns(module, make, extra, dropped):
     keys, _ = module.build(make())
     assert list(keys.columns) == [*KEY_COLUMNS, *extra]
 
 
-@pytest.mark.parametrize('module,make,extra,dropped', MODULES)
+@pytest.mark.parametrize(('module', 'make', 'extra', 'dropped'), MODULES)
 def test_the_documented_drop_list_really_is_dropped(module, make, extra, dropped):
     """Each module's docstring names what it discards. This is that claim, checked."""
     df = make()
@@ -212,7 +212,7 @@ def test_the_documented_drop_list_really_is_dropped(module, make, extra, dropped
     assert not survived, f'{module.DATASET}: dropped column(s) became features: {survived}'
 
 
-@pytest.mark.parametrize('module,make,extra,dropped', MODULES)
+@pytest.mark.parametrize(('module', 'make', 'extra', 'dropped'), MODULES)
 def test_no_absolute_clock_and_no_label_reaches_a_feature(module, make, extra, dropped):
     """The splits are temporal, so an absolute clock lets a model find the boundary."""
     _, features = module.build(make())
@@ -220,7 +220,7 @@ def test_no_absolute_clock_and_no_label_reaches_a_feature(module, make, extra, d
     assert_no_excluded(list(features.columns))
 
 
-@pytest.mark.parametrize('module,make,extra,dropped', MODULES)
+@pytest.mark.parametrize(('module', 'make', 'extra', 'dropped'), MODULES)
 def test_features_are_writable_and_round_trip(module, make, extra, dropped, tmp_path):
     df = make()
     keys, features = module.build(df)
@@ -235,7 +235,7 @@ def test_features_are_writable_and_round_trip(module, make, extra, dropped, tmp_
         assert dtype == 'float32' or isinstance(dtype, pd.CategoricalDtype)
 
 
-@pytest.mark.parametrize('module,make,extra,dropped', MODULES)
+@pytest.mark.parametrize(('module', 'make', 'extra', 'dropped'), MODULES)
 def test_no_feature_is_entirely_null(module, make, extra, dropped):
     _, features = module.build(make())
     all_null = [c for c in features.columns if features[c].isna().all()]
@@ -245,7 +245,7 @@ def test_no_feature_is_entirely_null(module, make, extra, dropped):
 # --- the property that matters -------------------------------------------
 
 
-@pytest.mark.parametrize('module,make,extra,dropped', MODULES)
+@pytest.mark.parametrize(('module', 'make', 'extra', 'dropped'), MODULES)
 def test_tampering_with_the_last_row_cannot_change_an_earlier_one(module, make, extra, dropped):
     """A feature that can see its own row, or a later one, fails here and nowhere else."""
     df = make()
@@ -269,7 +269,7 @@ def test_tampering_with_the_last_row_cannot_change_an_earlier_one(module, make, 
     assert not changed, f'{module.DATASET}: later data leaked into {changed}'
 
 
-@pytest.mark.parametrize('module,make,extra,dropped', MODULES)
+@pytest.mark.parametrize(('module', 'make', 'extra', 'dropped'), MODULES)
 def test_a_lone_first_transaction_has_no_history(module, make, extra, dropped):
     """Every count over an empty window is 0, not NaN -- the column stays dense."""
     df = make().iloc[:1].reset_index(drop=True)
@@ -321,7 +321,7 @@ def test_ibm_mcc_group_generalises_where_the_raw_code_does_not():
 
 
 @pytest.mark.parametrize(
-    'mcc,group',
+    ('mcc', 'group'),
     [
         (5499, 54),  # a two-digit range
         (5816, 5815),  # the 5815-5818 merge
@@ -397,7 +397,8 @@ def test_saml_d_measures_both_sides_of_the_transfer():
     _, features = saml_d.build(saml_frame())
     fan_out = [c for c in features.columns if c.startswith('distinct_receivers')]
     fan_in = [c for c in features.columns if c.startswith('receiver_')]
-    assert fan_out and fan_in
+    assert fan_out
+    assert fan_in
 
 
 def test_saml_d_fan_in_differs_from_fan_out():

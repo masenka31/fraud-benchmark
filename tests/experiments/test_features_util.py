@@ -132,7 +132,8 @@ def test_gap_seconds_is_nan_on_an_entity_first_row():
 def test_gap_since_same_measures_the_matching_value_only():
     df = frame(['a'] * 3, [0, 1, 5], [1.0] * 3, ['x', 'y', 'x'])
     gaps = history_of(df).gap_since_same(df['value'])
-    assert np.isnan(gaps[0]) and np.isnan(gaps[1])
+    assert np.isnan(gaps[0])
+    assert np.isnan(gaps[1])
     assert gaps[2] == 5 * 3600
 
 

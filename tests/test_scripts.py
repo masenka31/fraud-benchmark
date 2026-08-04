@@ -157,7 +157,8 @@ def test_download_skips_noncommercial_when_asked(config_file, fake_fetch):
         == 0
     )
     names = {name for name, _ in fake_fetch}
-    assert 'banksim' not in names and 'saml_d' not in names
+    assert 'banksim' not in names
+    assert 'saml_d' not in names
     assert 'paysim' in names
 
 

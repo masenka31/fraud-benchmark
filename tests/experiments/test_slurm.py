@@ -62,7 +62,7 @@ def test_a_job_declares_its_resources():
     assert '--partition=cpu\n' in script
 
 
-@pytest.mark.parametrize('dataset,partition,memory,walltime', FEATURE_JOBS)
+@pytest.mark.parametrize(('dataset', 'partition', 'memory', 'walltime'), FEATURE_JOBS)
 def test_a_job_fails_loudly_rather_than_writing_a_partial_result(
     dataset, partition, memory, walltime
 ):

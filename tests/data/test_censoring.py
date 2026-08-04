@@ -35,7 +35,8 @@ def test_fraud_reported_after_the_cutoff_is_labelled_zero_not_dropped():
 
 def test_non_fraud_is_zero():
     labels = censored_labels(_frame(), cutoff=pd.Timestamp('2024-03-01'))
-    assert labels[2] == 0 and labels[3] == 0
+    assert labels[2] == 0
+    assert labels[3] == 0
 
 
 def test_returns_an_integer_array():

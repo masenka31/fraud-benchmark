@@ -107,7 +107,7 @@ def test_italy_holdout_is_rejected_off_ibm_ccf():
 
 
 @pytest.mark.parametrize(
-    'overrides,message',
+    ('overrides', 'message'),
     [
         ({'dataset': 'nope'}, 'unknown dataset'),
         ({'label_delay': 'maybe'}, 'label_delay must be'),

@@ -68,7 +68,8 @@ def test_column_mapping_documents_provenance():
     mapping = get_adapter('saml_d').column_mapping({})
     assert mapping['entity_id'] == 'Sender_account'
     assert mapping['is_fraud'] == 'Is_laundering'
-    assert 'Date' in mapping['event_time'] and 'Time' in mapping['event_time']
+    assert 'Date' in mapping['event_time']
+    assert 'Time' in mapping['event_time']
 
 
 def test_missing_file_is_an_error(tmp_path):

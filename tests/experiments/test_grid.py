@@ -97,7 +97,8 @@ def test_every_delay_regime_is_represented():
 
 def test_the_italy_holdout_cell_is_ibm_ccf_only():
     holdout = [c for c in CELLS if c.config.split == 'italy_holdout']
-    assert holdout and all(c.config.dataset == 'ibm_ccf' for c in holdout)
+    assert holdout
+    assert all(c.config.dataset == 'ibm_ccf' for c in holdout)
 
 
 def test_nothing_can_subsample():
@@ -128,9 +129,12 @@ def test_the_groups_are_reported_in_a_stable_order():
 def test_every_cell_gets_a_usable_request(cell):
     partition, memory, walltime = estimate_cost(cell)
     assert partition in ('cpu', 'cpulong')
-    assert memory.endswith('G') and int(memory[:-1]) >= 16
+    assert memory.endswith('G')
+    assert int(memory[:-1]) >= 16
     hours, minutes, seconds = (int(p) for p in walltime.split(':'))
-    assert 1 <= hours <= 70 and minutes == 0 and seconds == 0
+    assert 1 <= hours <= 70
+    assert minutes == 0
+    assert seconds == 0
 
 
 def test_a_long_walltime_moves_to_the_long_partition():
@@ -255,7 +259,8 @@ def test_a_delta_well_outside_the_spread_reports_its_factor():
     """Sparkov's delay cell moved -0.0242 at 10 sigma, which is a real effect."""
     delta = delta_of(0.9733, 0.0014, 0.9491, 0.0021)
     assert 'within noise' not in delta
-    assert '0.98×' in delta and '10σ' in delta
+    assert '0.98×' in delta
+    assert '10σ' in delta
 
 
 def test_a_deterministic_pair_is_not_reported_in_sigmas():
