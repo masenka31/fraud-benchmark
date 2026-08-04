@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
@@ -239,11 +240,9 @@ def _write_atomically(
             frame.to_parquet(staging / f'{key}.parquet', index=False)
         (staging / 'dataset_card.json').write_text(json.dumps(card, indent=2, default=str) + '\n')
 
-        try:
+        # No previous output, or a concurrent run moved it first. Either is fine.
+        with contextlib.suppress(FileNotFoundError):
             Path(dest).rename(previous)
-        except FileNotFoundError:
-            # No previous output, or a concurrent run moved it first. Either is fine.
-            pass
         Path(staging).replace(dest)
     except BaseException:
         # The swap failed after the old output was moved aside; put it back.

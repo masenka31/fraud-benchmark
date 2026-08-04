@@ -126,7 +126,7 @@ def test_invalid_params_are_rejected():
         {'median_days': 7.0, 'sigma': 0.0},
         {'median_days': 7.0, 'sigma': -1.0},
     ):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match='must be positive'):
             DelayParams(seed=0, **kwargs)
 
 

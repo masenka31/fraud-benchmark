@@ -95,7 +95,8 @@ def draw(m: pd.DataFrame, theme: str, out: Path) -> None:
     ax_rate.plot(m.index, m['rate_pct'], color=c['series'][0], lw=2.0, zorder=3)
     ax_rate.set_ylabel('fraud rate, % of transactions', color=c['secondary'], fontsize=10)
     ax_rate.set_title(
-        'IBM CCF: the fraud rate is not stationary, and the generator stops emitting fraud for months at a time',
+        'IBM CCF: the fraud rate is not stationary, and the generator stops '
+        'emitting fraud for months at a time',
         color=c['ink'],
         fontsize=12.5,
         loc='left',

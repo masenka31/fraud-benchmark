@@ -413,7 +413,7 @@ def test_a_delay_that_hides_every_train_label_is_rejected(tmp_path):
 
 def test_append_record_refuses_to_write_a_nan(tmp_path):
     """Python writes NaN as a bare literal that json.loads accepts and pandas does not."""
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='not JSON compliant'):
         append_record({'aggregate': float('nan')}, tmp_path / 'out.jsonl')
 
 

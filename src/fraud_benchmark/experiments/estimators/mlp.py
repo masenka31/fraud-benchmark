@@ -166,7 +166,10 @@ def run_seed(
     cardinalities=None,
 ) -> dict:
     torch.manual_seed(seed)
-    np.random.seed(seed)
+    # Deliberately the legacy global seed, not a Generator: this is here to pin the
+    # library code that reaches for np.random directly. The local rng below is the
+    # Generator for our own draws. Swapping this would move every number in results/.
+    np.random.seed(seed)  # noqa: NPY002
     rng = np.random.default_rng(seed)
 
     cont_cols = np.arange(x.shape[1]) if cont_cols is None else cont_cols

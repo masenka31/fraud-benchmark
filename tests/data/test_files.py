@@ -52,10 +52,8 @@ def _make_split_zip(tmp_path, member_name, member_bytes, part_size):
     whole.unlink()
     parts_dir = tmp_path / 'raw' / 'Data'
     parts_dir.mkdir(parents=True)
-    index = 1
-    for offset in range(0, len(data), part_size):
+    for index, offset in enumerate(range(0, len(data), part_size), start=1):
         (parts_dir / f'archive.zip.{index:03d}').write_bytes(data[offset : offset + part_size])
-        index += 1
     return tmp_path / 'raw'
 
 

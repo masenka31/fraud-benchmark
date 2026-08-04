@@ -157,7 +157,7 @@ def brute_force_distinct(df, window):
     """Distinct values in each row's trailing window, computed the obvious way."""
     span = pd.Timedelta(window)
     out = []
-    for i, row in df.iterrows():
+    for _, row in df.iterrows():
         past = df[
             (df['entity_id'] == row['entity_id'])
             & (df['event_time'] < row['event_time'])
