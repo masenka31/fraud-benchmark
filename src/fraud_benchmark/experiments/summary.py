@@ -26,8 +26,8 @@ from pathlib import Path
 from fraud_benchmark.experiments.grid import CELLS
 from fraud_benchmark.experiments.grid import cells_by_group
 
-RESULTS_DIR = Path("results/experiments")
-SUMMARY = Path("results/experiments.md")
+RESULTS_DIR = Path('results/experiments')
+SUMMARY = Path('results/experiments.md')
 
 #: Written into the markdown so a stale table is identifiable as stale.
 _HEADER = """# Experiment results
@@ -57,7 +57,7 @@ def load(results_dir: Path = RESULTS_DIR) -> dict[str, dict]:
     the older ones stay on disk as the history of the run.
     """
     out: dict[str, dict] = {}
-    for path in sorted(Path(results_dir).glob("*.jsonl")):
+    for path in sorted(Path(results_dir).glob('*.jsonl')):
         lines = [line for line in path.read_text().splitlines() if line.strip()]
         if lines:
             out[path.stem] = json.loads(lines[-1])
@@ -70,29 +70,29 @@ def flatten(records: dict[str, dict]) -> list[dict]:
     for cell in CELLS:
         record = records.get(cell.name)
         row = {
-            "cell": cell.name,
-            "group": cell.group,
-            "dataset": cell.config.dataset,
-            "model": cell.config.model,
-            "history": cell.config.history,
-            "label_delay": cell.config.label_delay,
-            "artifacts": cell.config.artifacts,
-            "split": cell.config.split,
-            "ran": record is not None,
+            'cell': cell.name,
+            'group': cell.group,
+            'dataset': cell.config.dataset,
+            'model': cell.config.model,
+            'history': cell.config.history,
+            'label_delay': cell.config.label_delay,
+            'artifacts': cell.config.artifacts,
+            'split': cell.config.split,
+            'ran': record is not None,
         }
         if record is not None:
-            for split in ("val", "test"):
-                aggregate = record["aggregate"][split]
-                row[f"{split}_ap"] = aggregate["average_precision"]["mean"]
-                row[f"{split}_ap_sd"] = aggregate["average_precision"]["sd"]
-                row[f"{split}_f1"] = aggregate["f1"]["mean"]
-            row["n_features"] = record["n_features"]
-            row["train_rows"] = record["rows"]["train"]
-            row["censored_train_labels"] = record["censored_train_labels"]
-            row["seconds"] = record["total_seconds"]
-            row["seeds"] = len(record["seeds"])
-            rule = record.get("trivial_rule")
-            row["rule_test_ap"] = rule["test"]["average_precision"] if rule else None
+            for split in ('val', 'test'):
+                aggregate = record['aggregate'][split]
+                row[f'{split}_ap'] = aggregate['average_precision']['mean']
+                row[f'{split}_ap_sd'] = aggregate['average_precision']['sd']
+                row[f'{split}_f1'] = aggregate['f1']['mean']
+            row['n_features'] = record['n_features']
+            row['train_rows'] = record['rows']['train']
+            row['censored_train_labels'] = record['censored_train_labels']
+            row['seconds'] = record['total_seconds']
+            row['seeds'] = len(record['seeds'])
+            rule = record.get('trivial_rule')
+            row['rule_test_ap'] = rule['test']['average_precision'] if rule else None
         rows.append(row)
     return rows
 
@@ -100,16 +100,16 @@ def flatten(records: dict[str, dict]) -> list[dict]:
 def baseline_index(rows: list[dict]) -> dict[tuple[str, str], dict]:
     """The baseline row per (dataset, model), for the Δ column."""
     return {
-        (row["dataset"], row["model"]): row
+        (row['dataset'], row['model']): row
         for row in rows
-        if row["group"] == "baseline" and row["ran"]
+        if row['group'] == 'baseline' and row['ran']
     }
 
 
 def _ap(row: dict) -> str:
-    if not row["ran"]:
-        return "not run"
-    return f"{row['test_ap']:.4f} ± {row['test_ap_sd']:.4f}"
+    if not row['ran']:
+        return 'not run'
+    return f'{row["test_ap"]:.4f} ± {row["test_ap_sd"]:.4f}'
 
 
 #: A delta smaller than this many standard deviations of its own difference is not
@@ -132,7 +132,7 @@ def sigma_of_difference(row: dict, baseline: dict) -> float:
     alone would understate the spread of the comparison, which is the quantity a reader
     needs before believing a delta.
     """
-    return float((row["test_ap_sd"] ** 2 + baseline["test_ap_sd"] ** 2) ** 0.5)
+    return float((row['test_ap_sd'] ** 2 + baseline['test_ap_sd'] ** 2) ** 0.5)
 
 
 def is_measured(difference: float, sigma: float) -> bool:
@@ -152,165 +152,165 @@ def _delta(row: dict, baseline: dict | None) -> str:
     like a 9% drop and is 1.5 sigma: its seed range overlaps the baseline's. Sparkov's
     moves -0.0242 at 10 sigma. Both would print as "0.9x" without this.
     """
-    if not row["ran"] or row["group"] == "baseline":
-        return "—"
+    if not row['ran'] or row['group'] == 'baseline':
+        return '—'
     if baseline is None:
-        return "no baseline"
+        return 'no baseline'
 
-    difference = row["test_ap"] - baseline["test_ap"]
+    difference = row['test_ap'] - baseline['test_ap']
     sigma = sigma_of_difference(row, baseline)
     if sigma < SIGMA_FLOOR:
         # Both cells deterministic (logistic), so the difference is exact, not sampled.
-        return f"{difference:+.4f}  (deterministic)"
+        return f'{difference:+.4f}  (deterministic)'
 
     z = abs(difference) / sigma
     if z < NOISE_SIGMA:
-        return f"{difference:+.4f}  ({z:.1f}σ, within noise)"
-    factor = row["test_ap"] / baseline["test_ap"] if baseline["test_ap"] > 0 else 0.0
-    return f"{difference:+.4f}  ({factor:.2f}×, {z:.0f}σ)"
+        return f'{difference:+.4f}  ({z:.1f}σ, within noise)'
+    factor = row['test_ap'] / baseline['test_ap'] if baseline['test_ap'] > 0 else 0.0
+    return f'{difference:+.4f}  ({factor:.2f}×, {z:.0f}σ)'
 
 
 #: What distinguishes each group's cells from the baseline, as a column heading.
 _VARIED = {
-    "baseline": ("model", lambda row: row["model"]),
-    "history": ("lags", lambda row: str(row["history"])),
-    "delay": ("delay", lambda row: row["label_delay"]),
-    "artifacts": (
-        "condition",
+    'baseline': ('model', lambda row: row['model']),
+    'history': ('lags', lambda row: str(row['history'])),
+    'delay': ('delay', lambda row: row['label_delay']),
+    'artifacts': (
+        'condition',
         lambda row: (
-            "artifacts kept" if row["artifacts"] == "keep" else row["split"].replace("_", " ")
+            'artifacts kept' if row['artifacts'] == 'keep' else row['split'].replace('_', ' ')
         ),
     ),
 }
 
 _QUESTIONS = {
-    "baseline": "What does each model score on each dataset, cleanly?",
-    "history": "Does concatenating the previous transactions help?",
-    "delay": "What does training on the labels a detector would have had cost?",
-    "artifacts": "What does the generator's own geography supply?",
+    'baseline': 'What does each model score on each dataset, cleanly?',
+    'history': 'Does concatenating the previous transactions help?',
+    'delay': 'What does training on the labels a detector would have had cost?',
+    'artifacts': "What does the generator's own geography supply?",
 }
 
 
 def render(rows: list[dict]) -> str:
     """The whole summary as markdown."""
-    seeds = sorted({row.get("seeds") for row in rows if row["ran"]})
-    seed_text = f"0–{max(seeds) - 1}" if seeds else "—"
+    seeds = sorted({row.get('seeds') for row in rows if row['ran']})
+    seed_text = f'0–{max(seeds) - 1}' if seeds else '—'
     parts = [_HEADER.format(seeds=seed_text, sigma=NOISE_SIGMA)]
 
-    ran = [row for row in rows if row["ran"]]
+    ran = [row for row in rows if row['ran']]
     parts.append(
-        f"**{len(ran)} of {len(rows)} cells have results.**"
-        + ("" if len(ran) == len(rows) else " Missing cells are marked *not run*.")
-        + "\n"
+        f'**{len(ran)} of {len(rows)} cells have results.**'
+        + ('' if len(ran) == len(rows) else ' Missing cells are marked *not run*.')
+        + '\n'
     )
 
     baselines = baseline_index(rows)
     for group, cells in cells_by_group().items():
         names = {cell.name for cell in cells}
-        group_rows = [row for row in rows if row["cell"] in names]
+        group_rows = [row for row in rows if row['cell'] in names]
         heading, describe = _VARIED[group]
 
-        parts.append(f"\n## {group}\n")
-        parts.append(f"*{_QUESTIONS[group]}*\n")
+        parts.append(f'\n## {group}\n')
+        parts.append(f'*{_QUESTIONS[group]}*\n')
         parts.append(
-            f"| dataset | {heading} | model | test AP | Δ vs baseline | test F1 | "
-            "features | train rows | fit |"
+            f'| dataset | {heading} | model | test AP | Δ vs baseline | test F1 | '
+            'features | train rows | fit |'
         )
-        parts.append("|---|---|---|---:|---:|---:|---:|---:|---:|")
+        parts.append('|---|---|---|---:|---:|---:|---:|---:|---:|')
         for row in group_rows:
-            baseline = baselines.get((row["dataset"], row["model"]))
+            baseline = baselines.get((row['dataset'], row['model']))
             parts.append(
-                f"| `{row['dataset']}` | {describe(row)} | {row['model']} | "
-                f"{_ap(row)} | {_delta(row, baseline)} | "
-                f"{row['test_f1']:.4f} | {row['n_features']} | "
-                f"{row['train_rows']:,} | {row['seconds'] / 60:.0f}m |"
-                if row["ran"]
-                else f"| `{row['dataset']}` | {describe(row)} | {row['model']} | "
-                f"*not run* | — | — | — | — | — |"
+                f'| `{row["dataset"]}` | {describe(row)} | {row["model"]} | '
+                f'{_ap(row)} | {_delta(row, baseline)} | '
+                f'{row["test_f1"]:.4f} | {row["n_features"]} | '
+                f'{row["train_rows"]:,} | {row["seconds"] / 60:.0f}m |'
+                if row['ran']
+                else f'| `{row["dataset"]}` | {describe(row)} | {row["model"]} | '
+                f'*not run* | — | — | — | — | — |'
             )
-        parts.append("")
+        parts.append('')
 
         note = _group_note(group, group_rows, baselines)
         if note:
-            parts.append(note + "\n")
+            parts.append(note + '\n')
 
-    rules = [row for row in ran if row.get("rule_test_ap") is not None]
+    rules = [row for row in ran if row.get('rule_test_ap') is not None]
     if rules:
-        parts.append("\n## The trivial rule\n")
+        parts.append('\n## The trivial rule\n')
         parts.append(
             'A **ceiling, not a floor.** `artifact_merchant_state == "Italy"` needs no '
             "fitting, and IBM CCF's train half holds zero Italy frauds — so the rule "
-            "imports knowledge no train-only model could have. It bounds what the "
-            "evaluation labels encode. A model scoring far below it has not "
-            "necessarily failed; the labels may simply be a country name.\n"
+            'imports knowledge no train-only model could have. It bounds what the '
+            'evaluation labels encode. A model scoring far below it has not '
+            'necessarily failed; the labels may simply be a country name.\n'
         )
-        best = max(row["test_ap"] for row in ran if row["dataset"] == "ibm_ccf")
+        best = max(row['test_ap'] for row in ran if row['dataset'] == 'ibm_ccf')
         parts.append(
-            f"| rule test AP | best model test AP on `ibm_ccf` |\n|---:|---:|\n"
-            f"| {rules[0]['rule_test_ap']:.4f} | {best:.4f} |\n"
+            f'| rule test AP | best model test AP on `ibm_ccf` |\n|---:|---:|\n'
+            f'| {rules[0]["rule_test_ap"]:.4f} | {best:.4f} |\n'
         )
 
-    return "\n".join(parts)
+    return '\n'.join(parts)
 
 
 def _group_note(group: str, rows: list[dict], baselines: dict) -> str:
     """One sentence of measured fact per group, or nothing if it has not run."""
-    ran = [row for row in rows if row["ran"]]
+    ran = [row for row in rows if row['ran']]
     if not ran:
-        return ""
+        return ''
 
-    if group == "history":
+    if group == 'history':
         helped = []
         for row in ran:
-            baseline = baselines.get((row["dataset"], row["model"]))
-            if baseline and row["test_ap"] > baseline["test_ap"]:
-                helped.append(row["cell"])
+            baseline = baselines.get((row['dataset'], row['model']))
+            if baseline and row['test_ap'] > baseline['test_ap']:
+                helped.append(row['cell'])
         return (
-            f"History helped in {len(helped)} of {len(ran)} cells. The retired "
-            "flattened-window experiment measured lagged columns earning 13% of a "
+            f'History helped in {len(helped)} of {len(ran)} cells. The retired '
+            'flattened-window experiment measured lagged columns earning 13% of a '
             "tree's total gain; each record's `top_features` carries the same number "
-            "for these runs."
+            'for these runs.'
         )
-    if group == "delay":
+    if group == 'delay':
         hidden = [
-            f"`{row['dataset']}` {row['label_delay']}: {row['censored_train_labels']:,}"
+            f'`{row["dataset"]}` {row["label_delay"]}: {row["censored_train_labels"]:,}'
             for row in ran
-            if row["censored_train_labels"]
+            if row['censored_train_labels']
         ]
         return (
-            "Train fraud labels hidden by the delay — "
-            + ", ".join(hidden)
-            + ". Val and test always use true labels, so a drop here is the cost of "
-            "learning from labels that arrive late, not a change in what is scored."
+            'Train fraud labels hidden by the delay — '
+            + ', '.join(hidden)
+            + '. Val and test always use true labels, so a drop here is the cost of '
+            'learning from labels that arrive late, not a change in what is scored.'
             if hidden
-            else ""
+            else ''
         )
-    if group == "artifacts":
+    if group == 'artifacts':
         return (
-            "Both rows ask the same question. Keeping the `artifact_` columns hands "
-            "the model the merchant country directly; the Italy holdout leaves them "
-            "in but moves the split so train predates the first Italy fraud."
+            'Both rows ask the same question. Keeping the `artifact_` columns hands '
+            'the model the merchant country directly; the Italy holdout leaves them '
+            'in but moves the split so train predates the first Italy fraud.'
         )
-    return ""
+    return ''
 
 
 def print_table(rows: list[dict]) -> None:
     """A compact fixed-width view, for a terminal or a log."""
     baselines = baseline_index(rows)
-    width = max(len(row["cell"]) for row in rows)
+    width = max(len(row['cell']) for row in rows)
     current = None
     for row in rows:
-        if row["group"] != current:
-            current = row["group"]
-            print(f"\n--- {current}: {_QUESTIONS[current]}")
-        if not row["ran"]:
-            print(f"  {row['cell']:<{width}}  not run")
+        if row['group'] != current:
+            current = row['group']
+            print(f'\n--- {current}: {_QUESTIONS[current]}')
+        if not row['ran']:
+            print(f'  {row["cell"]:<{width}}  not run')
             continue
-        baseline = baselines.get((row["dataset"], row["model"]))
+        baseline = baselines.get((row['dataset'], row['model']))
         print(
-            f"  {row['cell']:<{width}}  test AP {row['test_ap']:.4f} "
-            f"± {row['test_ap_sd']:.4f}   {_delta(row, baseline):<22} "
-            f"{row['n_features']:>4} feat  {row['seconds'] / 60:>4.0f}m"
+            f'  {row["cell"]:<{width}}  test AP {row["test_ap"]:.4f} '
+            f'± {row["test_ap_sd"]:.4f}   {_delta(row, baseline):<22} '
+            f'{row["n_features"]:>4} feat  {row["seconds"] / 60:>4.0f}m'
         )
-    ran = sum(row["ran"] for row in rows)
-    print(f"\n{ran} of {len(rows)} cells have results.")
+    ran = sum(row['ran'] for row in rows)
+    print(f'\n{ran} of {len(rows)} cells have results.')

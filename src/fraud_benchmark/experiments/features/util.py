@@ -28,25 +28,25 @@ import pandas as pd
 from fraud_benchmark.experiments.columns import assert_no_excluded
 
 #: Where feature parquets are written, and where the model side reads them.
-FEATURE_DIR = Path("data/features")
+FEATURE_DIR = Path('data/features')
 
 #: Carried by every feature parquet, in this order, ahead of the features.
 #: `reported_at` is NaT on non-frauds; `split` comes from the preparation that
 #: produced the frame and is a default, not the authority (see `experiments.splits`).
-KEY_COLUMNS = ("entity_id", "event_time", "reported_at", "is_fraud", "split")
+KEY_COLUMNS = ('entity_id', 'event_time', 'reported_at', 'is_fraud', 'split')
 
 #: Keys only some datasets carry. Listed here rather than passed around so that
 #: `feature_columns` gives the right answer on any parquet without being told which
 #: dataset it came from. `reported_at_slow` is Sparkov's second delay regime.
-OPTIONAL_KEY_COLUMNS = ("reported_at_slow",)
+OPTIONAL_KEY_COLUMNS = ('reported_at_slow',)
 
 #: Prefix for a column naming an absolute place or a specific counterparty --
 #: kept, but droppable as a group by a prefix test.
-ARTIFACT_PREFIX = "artifact_"
+ARTIFACT_PREFIX = 'artifact_'
 
 #: Label -> pandas offset alias. The labels name the output columns and stay
 #: lowercase; the offsets must use "D", since lowercase "d" is deprecated.
-WINDOWS = {"1h": "1h", "24h": "24h", "7d": "7D", "30d": "30D"}
+WINDOWS = {'1h': '1h', '24h': '24h', '7d': '7D', '30d': '30D'}
 
 
 def _offset(window: str) -> str:
@@ -55,7 +55,7 @@ def _offset(window: str) -> str:
         return WINDOWS[window]
     except KeyError:
         raise ValueError(
-            f"unknown window {window!r}; known windows are {sorted(WINDOWS)}"
+            f'unknown window {window!r}; known windows are {sorted(WINDOWS)}'
         ) from None
 
 
@@ -73,41 +73,41 @@ class EntityHistory:
 
     def __init__(self, entity: pd.Series, event_time: pd.Series) -> None:
         if len(entity) != len(event_time):
-            raise ValueError("entity and event_time must have the same length")
+            raise ValueError('entity and event_time must have the same length')
         self._n = len(entity)
 
         work = pd.DataFrame(
             {
-                "entity": entity.to_numpy(),
-                "event_time": pd.to_datetime(event_time).to_numpy(),
-                "_pos": np.arange(self._n),
+                'entity': entity.to_numpy(),
+                'event_time': pd.to_datetime(event_time).to_numpy(),
+                '_pos': np.arange(self._n),
             }
         )
         # mergesort is stable, so rows sharing an (entity, time) tie keep their
         # input order. Coarse timestamps make those ties common: IBM CCF has
         # minute resolution and no seconds at all.
-        self._work = work.sort_values(["entity", "event_time"], kind="mergesort")
-        self._pos = self._work["_pos"].to_numpy()
-        self._time = self._work["event_time"].to_numpy()
-        self._group_key = self._work["entity"]
-        self._indexed = self._work.set_index("event_time")
+        self._work = work.sort_values(['entity', 'event_time'], kind='mergesort')
+        self._pos = self._work['_pos'].to_numpy()
+        self._time = self._work['event_time'].to_numpy()
+        self._group_key = self._work['entity']
+        self._indexed = self._work.set_index('event_time')
 
     def __len__(self) -> int:
         return self._n
 
     def _scatter(self, values) -> np.ndarray:
         """Sorted-order values back into input order."""
-        out = np.empty(self._n, dtype="float64")
-        out[self._pos] = np.asarray(values, dtype="float64")
+        out = np.empty(self._n, dtype='float64')
+        out[self._pos] = np.asarray(values, dtype='float64')
         return out
 
     def _sorted(self, values: pd.Series | np.ndarray) -> np.ndarray:
         """Caller-order values into this history's sorted order."""
-        return np.asarray(values, dtype="float64")[self._pos]
+        return np.asarray(values, dtype='float64')[self._pos]
 
     def _rolled(self, values: np.ndarray, window: str):
         frame = self._indexed.assign(_v=values)
-        return frame.groupby("entity", observed=True)["_v"].rolling(_offset(window), closed="left")
+        return frame.groupby('entity', observed=True)['_v'].rolling(_offset(window), closed='left')
 
     # --- counts and sums over a trailing window -------------------------------
 
@@ -117,7 +117,7 @@ class EntityHistory:
         An empty left-closed window counts as NaN rather than 0, so a row with no
         prior history would otherwise carry NaN into every count column.
         """
-        ones = np.ones(self._n, dtype="float64")
+        ones = np.ones(self._n, dtype='float64')
         counts = self._rolled(ones, window).count().to_numpy()
         return self._scatter(np.nan_to_num(counts))
 
@@ -138,7 +138,7 @@ class EntityHistory:
         """
         ordered = self._sorted(values)
         rolled = self._rolled(ordered, window)
-        with np.errstate(invalid="ignore", divide="ignore"):
+        with np.errstate(invalid='ignore', divide='ignore'):
             z = (ordered - rolled.mean().to_numpy()) / rolled.std().to_numpy()
         z[~np.isfinite(z)] = 0.0
         return self._scatter(z)
@@ -147,16 +147,16 @@ class EntityHistory:
 
     def ordinal(self) -> np.ndarray:
         """How many transactions this entity made before this one. 0 on the first."""
-        counts = self._work.groupby("entity", observed=True).cumcount().to_numpy()
-        return self._scatter(counts.astype("float64"))
+        counts = self._work.groupby('entity', observed=True).cumcount().to_numpy()
+        return self._scatter(counts.astype('float64'))
 
     def prior_mean(self, values: pd.Series | np.ndarray) -> np.ndarray:
         """Mean of `values` over this entity's entire past. 0.0 on the first row."""
         ordered = self._sorted(values)
         grouped = pd.Series(ordered).groupby(self._group_key.to_numpy(), observed=True)
         prior_sum = grouped.cumsum().to_numpy() - ordered
-        prior_count = self._work.groupby("entity", observed=True).cumcount().to_numpy()
-        with np.errstate(invalid="ignore", divide="ignore"):
+        prior_count = self._work.groupby('entity', observed=True).cumcount().to_numpy()
+        with np.errstate(invalid='ignore', divide='ignore'):
             mean = prior_sum / prior_count
         mean[~np.isfinite(mean)] = 0.0
         return self._scatter(mean)
@@ -184,14 +184,14 @@ class EntityHistory:
 
     def _keyed(self, values: pd.Series) -> pd.DataFrame:
         """This history's sorted frame with `values` attached as a grouping key."""
-        keys = values.astype("string").fillna("~na").to_numpy()[self._pos]
+        keys = values.astype('string').fillna('~na').to_numpy()[self._pos]
         return self._work.assign(_key=keys)
 
     def _first_flags(self, values: pd.Series) -> np.ndarray:
         """Sorted-order 1.0 on an entity's first transaction with this value."""
         keyed = self._keyed(values)
-        counted = keyed.groupby(["entity", "_key"], observed=True).cumcount()
-        return (counted == 0).to_numpy().astype("float64")
+        counted = keyed.groupby(['entity', '_key'], observed=True).cumcount()
+        return (counted == 0).to_numpy().astype('float64')
 
     def first_occurrence(self, values: pd.Series) -> np.ndarray:
         """1.0 the first time this entity sees this value, 0.0 after.
@@ -205,7 +205,7 @@ class EntityHistory:
     def gap_seconds(self) -> np.ndarray:
         """Seconds since this entity's previous transaction. NaN on the first."""
         gaps = (
-            self._work.groupby("entity", observed=True)["event_time"]
+            self._work.groupby('entity', observed=True)['event_time']
             .diff()
             .dt.total_seconds()
             .to_numpy()
@@ -220,7 +220,7 @@ class EntityHistory:
         """
         keyed = self._keyed(values)
         gaps = (
-            keyed.groupby(["entity", "_key"], observed=True)["event_time"]
+            keyed.groupby(['entity', '_key'], observed=True)['event_time']
             .diff()
             .dt.total_seconds()
             .to_numpy()
@@ -247,11 +247,11 @@ class EntityHistory:
         case: IBM CCF has minute resolution and no seconds at all.
         """
         offset = pd.Timedelta(_offset(window))
-        keys = values.astype("string").fillna("~na").to_numpy()[self._pos]
+        keys = values.astype('string').fillna('~na').to_numpy()[self._pos]
         times = self._time
         groups = self._group_key.to_numpy()
 
-        out = np.zeros(self._n, dtype="float64")
+        out = np.zeros(self._n, dtype='float64')
         counts: dict[str, int] = {}
         start = 0  # left edge of the window, an index into the sorted arrays
         block = 0
@@ -292,9 +292,9 @@ def safe_ratio(numerator, denominator) -> np.ndarray:
     neither raw count can. Zero is the right value when the denominator is empty:
     there is no burst to report.
     """
-    num = np.asarray(pd.to_numeric(numerator, errors="coerce"), dtype="float64")
-    den = np.asarray(pd.to_numeric(denominator, errors="coerce"), dtype="float64")
-    with np.errstate(invalid="ignore", divide="ignore"):
+    num = np.asarray(pd.to_numeric(numerator, errors='coerce'), dtype='float64')
+    den = np.asarray(pd.to_numeric(denominator, errors='coerce'), dtype='float64')
+    with np.errstate(invalid='ignore', divide='ignore'):
         ratio = num / den
     ratio[~np.isfinite(ratio)] = 0.0
     return ratio
@@ -302,7 +302,7 @@ def safe_ratio(numerator, denominator) -> np.ndarray:
 
 def signed_log1p(values) -> np.ndarray:
     """`sign(x) * log1p(|x|)`. Compresses a heavy tail while keeping refunds negative."""
-    x = np.asarray(pd.to_numeric(values, errors="coerce"), dtype="float64")
+    x = np.asarray(pd.to_numeric(values, errors='coerce'), dtype='float64')
     return np.sign(x) * np.log1p(np.abs(x))
 
 
@@ -310,12 +310,12 @@ def haversine_km(lat1, lon1, lat2, lon2) -> np.ndarray:
     """Great-circle distance in kilometres between two coordinate pairs."""
     radius = 6371.0088
     p1, p2 = (
-        np.radians(np.asarray(lat1, dtype="float64")),
-        np.radians(np.asarray(lat2, dtype="float64")),
+        np.radians(np.asarray(lat1, dtype='float64')),
+        np.radians(np.asarray(lat2, dtype='float64')),
     )
     dlat = p2 - p1
-    dlon = np.radians(np.asarray(lon2, dtype="float64")) - np.radians(
-        np.asarray(lon1, dtype="float64")
+    dlon = np.radians(np.asarray(lon2, dtype='float64')) - np.radians(
+        np.asarray(lon1, dtype='float64')
     )
     a = np.sin(dlat / 2) ** 2 + np.cos(p1) * np.cos(p2) * np.sin(dlon / 2) ** 2
     return 2 * radius * np.arcsin(np.sqrt(np.clip(a, 0.0, 1.0)))
@@ -324,7 +324,7 @@ def haversine_km(lat1, lon1, lat2, lon2) -> np.ndarray:
 def days_between(later, earlier) -> np.ndarray:
     """Whole and fractional days from `earlier` to `later`. NaN if either is missing."""
     delta = pd.to_datetime(later) - pd.to_datetime(earlier)
-    return (delta.dt.total_seconds() / 86400.0).to_numpy(dtype="float64")
+    return (delta.dt.total_seconds() / 86400.0).to_numpy(dtype='float64')
 
 
 def clock_features(event_time: pd.Series) -> pd.DataFrame:
@@ -337,19 +337,19 @@ def clock_features(event_time: pd.Series) -> pd.DataFrame:
     01:00 are adjacent.
     """
     t = pd.to_datetime(event_time)
-    hour = t.dt.hour.to_numpy(dtype="float64")
+    hour = t.dt.hour.to_numpy(dtype='float64')
     angle = 2 * np.pi * hour / 24.0
-    weekday = t.dt.weekday.to_numpy(dtype="float64")
+    weekday = t.dt.weekday.to_numpy(dtype='float64')
     return pd.DataFrame(
         {
-            "hour": hour,
-            "minute": t.dt.minute.to_numpy(dtype="float64"),
-            "weekday": weekday,
-            "day": t.dt.day.to_numpy(dtype="float64"),
-            "month": t.dt.month.to_numpy(dtype="float64"),
-            "is_weekend": (weekday >= 5).astype("float64"),
-            "hour_sin": np.sin(angle),
-            "hour_cos": np.cos(angle),
+            'hour': hour,
+            'minute': t.dt.minute.to_numpy(dtype='float64'),
+            'weekday': weekday,
+            'day': t.dt.day.to_numpy(dtype='float64'),
+            'month': t.dt.month.to_numpy(dtype='float64'),
+            'is_weekend': (weekday >= 5).astype('float64'),
+            'hour_sin': np.sin(angle),
+            'hour_cos': np.cos(angle),
         },
         index=t.index,
     )
@@ -362,22 +362,22 @@ def amount_shape(amount: pd.Series) -> pd.DataFrame:
     measured $0.01-$0.09 at 11-35x the base rate, which is card testing rather
     than an expensive purchase. `amount_log1p` is signed so a refund stays negative.
     """
-    raw = pd.to_numeric(amount, errors="coerce")
+    raw = pd.to_numeric(amount, errors='coerce')
     absolute = raw.abs().fillna(0.0)
-    cents = (absolute * 100).round().astype("int64") % 100
+    cents = (absolute * 100).round().astype('int64') % 100
     return pd.DataFrame(
         {
-            "amount": raw.to_numpy(dtype="float64"),
-            "amount_log1p": signed_log1p(raw),
-            "amount_is_refund": (raw.fillna(0.0) < 0).to_numpy().astype("float64"),
-            "amount_cents": cents.to_numpy(dtype="float64"),
-            "amount_is_round_10": ((absolute % 10 == 0) & (absolute > 0))
+            'amount': raw.to_numpy(dtype='float64'),
+            'amount_log1p': signed_log1p(raw),
+            'amount_is_refund': (raw.fillna(0.0) < 0).to_numpy().astype('float64'),
+            'amount_cents': cents.to_numpy(dtype='float64'),
+            'amount_is_round_10': ((absolute % 10 == 0) & (absolute > 0))
             .to_numpy()
-            .astype("float64"),
-            "amount_is_round_100": ((absolute % 100 == 0) & (absolute > 0))
+            .astype('float64'),
+            'amount_is_round_100': ((absolute % 100 == 0) & (absolute > 0))
             .to_numpy()
-            .astype("float64"),
-            "amount_is_micro": ((absolute > 0) & (absolute < 0.10)).to_numpy().astype("float64"),
+            .astype('float64'),
+            'amount_is_micro': ((absolute > 0) & (absolute < 0.10)).to_numpy().astype('float64'),
         },
         index=raw.index,
     )
@@ -386,9 +386,9 @@ def amount_shape(amount: pd.Series) -> pd.DataFrame:
 def parse_money(series: pd.Series) -> pd.Series:
     """'$1,234.50' -> 1234.5. Some sources keep money as strings."""
     if pd.api.types.is_numeric_dtype(series):
-        return pd.to_numeric(series, errors="coerce")
+        return pd.to_numeric(series, errors='coerce')
     return pd.to_numeric(
-        series.astype("string").str.replace(r"[$,]", "", regex=True), errors="coerce"
+        series.astype('string').str.replace(r'[$,]', '', regex=True), errors='coerce'
     )
 
 
@@ -432,41 +432,41 @@ def write_features(
     unknown = sorted(set(extra_keys) - set(OPTIONAL_KEY_COLUMNS))
     if unknown:
         raise FeatureContractError(
-            f"{dataset}: {unknown} is not a known optional key; add it to "
-            f"OPTIONAL_KEY_COLUMNS or pass it as a feature, or `feature_columns` will "
-            "report it as a feature"
+            f'{dataset}: {unknown} is not a known optional key; add it to '
+            f'OPTIONAL_KEY_COLUMNS or pass it as a feature, or `feature_columns` will '
+            'report it as a feature'
         )
     expected_keys = (*KEY_COLUMNS, *extra_keys)
     missing = [c for c in expected_keys if c not in keys.columns]
     if missing:
-        raise FeatureContractError(f"{dataset}: keys are missing {missing}")
+        raise FeatureContractError(f'{dataset}: keys are missing {missing}')
     stray = [c for c in keys.columns if c not in expected_keys]
     if stray:
         raise FeatureContractError(
-            f"{dataset}: keys carries non-key column(s) {stray}; pass them as features"
+            f'{dataset}: keys carries non-key column(s) {stray}; pass them as features'
         )
     if len(keys) != len(features):
         raise FeatureContractError(
-            f"{dataset}: {len(keys)} key rows against {len(features)} feature rows"
+            f'{dataset}: {len(keys)} key rows against {len(features)} feature rows'
         )
 
     overlap = sorted(set(keys.columns) & set(features.columns))
     if overlap:
-        raise FeatureContractError(f"{dataset}: {overlap} is both a key and a feature")
+        raise FeatureContractError(f'{dataset}: {overlap} is both a key and a feature')
     assert_no_excluded(list(features.columns))
 
     out = features.copy()
     for column in out.columns:
         values = out[column]
         if pd.api.types.is_numeric_dtype(values) or pd.api.types.is_bool_dtype(values):
-            numeric = pd.to_numeric(values, errors="coerce").to_numpy(dtype="float64")
+            numeric = pd.to_numeric(values, errors='coerce').to_numpy(dtype='float64')
             if np.isinf(numeric).any():
-                raise FeatureContractError(f"{dataset}: feature {column!r} contains infinities")
-            out[column] = numeric.astype("float32")
+                raise FeatureContractError(f'{dataset}: feature {column!r} contains infinities')
+            out[column] = numeric.astype('float32')
         else:
             # Unfitted on purpose: the levels are named, not coded or capped.
             # `experiments.encoding` does that, fitted on the chosen train split.
-            out[column] = values.astype("string").fillna("~na").astype("category")
+            out[column] = values.astype('string').fillna('~na').astype('category')
 
     frame = pd.concat(
         [keys[list(expected_keys)].reset_index(drop=True), out.reset_index(drop=True)],
@@ -475,7 +475,7 @@ def write_features(
 
     features_dir = Path(features_dir)
     features_dir.mkdir(parents=True, exist_ok=True)
-    destination = features_dir / f"{dataset}.parquet"
+    destination = features_dir / f'{dataset}.parquet'
 
     # Written beside the destination and renamed into place, the way the preparation
     # pipeline swaps a processed directory. A 2.5 GB parquet takes long enough to write
@@ -484,7 +484,7 @@ def write_features(
     # rebuild while any of them is reading would otherwise corrupt that run silently.
     # os.replace is atomic within a filesystem, and the temp file is in the same
     # directory so it always is one.
-    temporary = destination.with_suffix(".parquet.tmp")
+    temporary = destination.with_suffix('.parquet.tmp')
     try:
         frame.to_parquet(temporary, index=False)
         os.replace(temporary, destination)

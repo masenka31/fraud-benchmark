@@ -37,7 +37,7 @@ from pathlib import Path
 
 import matplotlib
 
-matplotlib.use("Agg")
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
@@ -52,36 +52,36 @@ from fraud_benchmark.experiments.summary import load
 from fraud_benchmark.experiments.summary import sigma_of_difference
 from fraud_benchmark.figures import THEMES
 
-MODELS = ("xgboost", "mlp", "logistic")
-DATASETS = ("ibm_ccf", "saml_d", "sparkov")
+MODELS = ('xgboost', 'mlp', 'logistic')
+DATASETS = ('ibm_ccf', 'saml_d', 'sparkov')
 
 
 #: A short label per non-baseline cell, for the delta panel's y-axis.
 def _delta_label(row: dict) -> str:
-    if row["group"] == "history":
-        return f"{row['dataset']} {row['model']}  +{row['history']} lags"
-    if row["group"] == "delay":
-        return f"{row['dataset']} {row['model']}  delay {row['label_delay']}"
-    if row["artifacts"] == "keep":
-        return f"{row['dataset']} {row['model']}  artifacts kept"
-    return f"{row['dataset']} {row['model']}  {row['split'].replace('_', ' ')}"
+    if row['group'] == 'history':
+        return f'{row["dataset"]} {row["model"]}  +{row["history"]} lags'
+    if row['group'] == 'delay':
+        return f'{row["dataset"]} {row["model"]}  delay {row["label_delay"]}'
+    if row['artifacts'] == 'keep':
+        return f'{row["dataset"]} {row["model"]}  artifacts kept'
+    return f'{row["dataset"]} {row["model"]}  {row["split"].replace("_", " ")}'
 
 
 def _style(ax, colours: dict) -> None:
-    ax.set_facecolor(colours["surface"])
-    for side in ("top", "right"):
+    ax.set_facecolor(colours['surface'])
+    for side in ('top', 'right'):
         ax.spines[side].set_visible(False)
-    for side in ("left", "bottom"):
-        ax.spines[side].set_color(colours["axis"])
-    ax.tick_params(colors=colours["secondary"], labelsize=9)
-    ax.xaxis.label.set_color(colours["secondary"])
-    ax.yaxis.label.set_color(colours["secondary"])
+    for side in ('left', 'bottom'):
+        ax.spines[side].set_color(colours['axis'])
+    ax.tick_params(colors=colours['secondary'], labelsize=9)
+    ax.xaxis.label.set_color(colours['secondary'])
+    ax.yaxis.label.set_color(colours['secondary'])
 
 
 def draw_baselines(ax, rows: list[dict], colours: dict) -> None:
     """Grouped bars: test average precision, one group per dataset."""
-    baseline = [row for row in rows if row["group"] == "baseline" and row["ran"]]
-    by_key = {(row["dataset"], row["model"]): row for row in baseline}
+    baseline = [row for row in rows if row['group'] == 'baseline' and row['ran']]
+    by_key = {(row['dataset'], row['model']): row for row in baseline}
 
     positions = np.arange(len(DATASETS))
     width = 0.26
@@ -96,26 +96,26 @@ def draw_baselines(ax, rows: list[dict], colours: dict) -> None:
                 ax.text(
                     offset,
                     0.012,
-                    "not run",
+                    'not run',
                     rotation=90,
-                    ha="center",
-                    va="bottom",
-                    color=colours["muted"],
+                    ha='center',
+                    va='bottom',
+                    color=colours['muted'],
                     fontsize=7.5,
                 )
                 continue
             offsets.append(offset)
-            values.append(row["test_ap"])
-            errors.append(row["test_ap_sd"])
+            values.append(row['test_ap'])
+            errors.append(row['test_ap_sd'])
         ax.bar(
             offsets,
             values,
             width,
             yerr=errors,
             capsize=2.5,
-            color=colours["series"][index],
-            edgecolor="none",
-            error_kw={"ecolor": colours["muted"], "elinewidth": 1},
+            color=colours['series'][index],
+            edgecolor='none',
+            error_kw={'ecolor': colours['muted'], 'elinewidth': 1},
             label=model,
         )
         # The three datasets differ by an order of magnitude in difficulty, so IBM CCF's
@@ -124,34 +124,34 @@ def draw_baselines(ax, rows: list[dict], colours: dict) -> None:
             ax.text(
                 offset,
                 value + error + 0.015,
-                f"{value:.3f}",
-                ha="center",
-                va="bottom",
+                f'{value:.3f}',
+                ha='center',
+                va='bottom',
                 rotation=90,
-                color=colours["secondary"],
+                color=colours['secondary'],
                 fontsize=7.5,
             )
 
     ax.set_xticks(positions)
     ax.set_xticklabels(DATASETS)
-    ax.set_ylabel("test average precision")
+    ax.set_ylabel('test average precision')
     ax.set_ylim(0, 1.0)
-    ax.yaxis.grid(True, color=colours["grid"], linewidth=0.8)
+    ax.yaxis.grid(True, color=colours['grid'], linewidth=0.8)
     ax.set_axisbelow(True)
     ax.set_title(
-        "Baseline: no history, true labels, artifacts dropped",
-        color=colours["ink"],
+        'Baseline: no history, true labels, artifacts dropped',
+        color=colours['ink'],
         fontsize=10.5,
-        loc="left",
+        loc='left',
         pad=10,
     )
     legend = ax.legend(
         frameon=False,
         fontsize=9,
-        loc="upper left",
-        labelcolor=colours["secondary"],
+        loc='upper left',
+        labelcolor=colours['secondary'],
     )
-    legend.set_title("")
+    legend.set_title('')
 
 
 def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
@@ -159,12 +159,12 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
     baselines = baseline_index(rows)
     entries = []
     for row in rows:
-        if row["group"] == "baseline" or not row["ran"]:
+        if row['group'] == 'baseline' or not row['ran']:
             continue
-        baseline = baselines.get((row["dataset"], row["model"]))
+        baseline = baselines.get((row['dataset'], row['model']))
         if baseline is None:
             continue
-        difference = row["test_ap"] - baseline["test_ap"]
+        difference = row['test_ap'] - baseline['test_ap']
         sigma = sigma_of_difference(row, baseline)
         # The table's own rule, called rather than restated. Without it the figure
         # contradicts the table: saml_d's delay cell is the largest bar here and is
@@ -175,11 +175,11 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
         ax.text(
             0.5,
             0.5,
-            "no comparable cells yet",
+            'no comparable cells yet',
             transform=ax.transAxes,
-            ha="center",
-            va="center",
-            color=colours["muted"],
+            ha='center',
+            va='center',
+            color=colours['muted'],
             fontsize=10,
         )
         _style(ax, colours)
@@ -191,7 +191,7 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
     sigmas = [entry[2] for entry in entries]
     positions = np.arange(len(entries))
     colour = [
-        (colours["positive"] if value >= 0 else colours["negative"]) if real else colours["noise"]
+        (colours['positive'] if value >= 0 else colours['negative']) if real else colours['noise']
         for _, value, _, real in entries
     ]
 
@@ -201,58 +201,58 @@ def draw_deltas(ax, rows: list[dict], colours: dict) -> None:
         0.66,
         xerr=sigmas,
         color=colour,
-        edgecolor="none",
-        error_kw={"ecolor": colours["muted"], "elinewidth": 1, "capsize": 2},
+        edgecolor='none',
+        error_kw={'ecolor': colours['muted'], 'elinewidth': 1, 'capsize': 2},
     )
-    ax.axvline(0, color=colours["axis"], linewidth=1)
+    ax.axvline(0, color=colours['axis'], linewidth=1)
     ax.set_yticks(positions)
     ax.set_yticklabels(labels, fontsize=8.5)
     ax.set_xlabel("change in test average precision vs the same model's baseline")
-    ax.xaxis.grid(True, color=colours["grid"], linewidth=0.8)
+    ax.xaxis.grid(True, color=colours['grid'], linewidth=0.8)
     ax.set_axisbelow(True)
     ax.set_title(
-        "What each axis changed",
-        color=colours["ink"],
+        'What each axis changed',
+        color=colours['ink'],
         fontsize=10.5,
-        loc="left",
+        loc='left',
         pad=10,
     )
     ax.legend(
         handles=[
-            Patch(facecolor=colours["positive"], label="better than baseline"),
-            Patch(facecolor=colours["negative"], label="worse"),
+            Patch(facecolor=colours['positive'], label='better than baseline'),
+            Patch(facecolor=colours['negative'], label='worse'),
             Patch(
-                facecolor=colours["noise"],
-                label=f"within noise (<{NOISE_SIGMA:.0f}σ)",
+                facecolor=colours['noise'],
+                label=f'within noise (<{NOISE_SIGMA:.0f}σ)',
             ),
         ],
         frameon=False,
         fontsize=8.5,
-        loc="lower right",
-        labelcolor=colours["secondary"],
+        loc='lower right',
+        labelcolor=colours['secondary'],
     )
 
 
 def figure(rows: list[dict], theme: str) -> plt.Figure:
     colours = THEMES[theme]
     fig, (left, right) = plt.subplots(
-        1, 2, figsize=(13.5, 6.2), gridspec_kw={"width_ratios": [1, 1.35]}
+        1, 2, figsize=(13.5, 6.2), gridspec_kw={'width_ratios': [1, 1.35]}
     )
-    fig.patch.set_facecolor(colours["surface"])
+    fig.patch.set_facecolor(colours['surface'])
 
     draw_baselines(left, rows, colours)
     draw_deltas(right, rows, colours)
     for ax in (left, right):
         _style(ax, colours)
 
-    ran = sum(row["ran"] for row in rows)
+    ran = sum(row['ran'] for row in rows)
     fig.text(
         0.005,
         0.015,
-        f"{ran} of {len(rows)} cells. Left: error bars are population sd over seeds. "
-        f"Right: error bars are σ of the difference; a bar shorter than {NOISE_SIGMA:.0f}σ "
-        "is greyed as no measured effect. Average precision, never ROC AUC.",
-        color=colours["muted"],
+        f'{ran} of {len(rows)} cells. Left: error bars are population sd over seeds. '
+        f'Right: error bars are σ of the difference; a bar shorter than {NOISE_SIGMA:.0f}σ '
+        'is greyed as no measured effect. Average precision, never ROC AUC.',
+        color=colours['muted'],
         fontsize=8,
     )
     fig.tight_layout(rect=(0, 0.03, 1, 1))
@@ -261,24 +261,24 @@ def figure(rows: list[dict], theme: str) -> plt.Figure:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
-    parser.add_argument("--out-dir", type=Path, default=Path("results/figures"))
+    parser.add_argument('--results-dir', type=Path, default=RESULTS_DIR)
+    parser.add_argument('--out-dir', type=Path, default=Path('results/figures'))
     args = parser.parse_args(argv)
 
     rows = flatten(load(args.results_dir))
-    if not any(row["ran"] for row in rows):
-        print("no results yet; nothing to plot")
+    if not any(row['ran'] for row in rows):
+        print('no results yet; nothing to plot')
         return 1
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    for theme in ("light", "dark"):
+    for theme in ('light', 'dark'):
         fig = figure(rows, theme)
-        out = args.out_dir / f"experiments_{theme}.png"
-        fig.savefig(out, dpi=150, facecolor=THEMES[theme]["surface"])
+        out = args.out_dir / f'experiments_{theme}.png'
+        fig.savefig(out, dpi=150, facecolor=THEMES[theme]['surface'])
         plt.close(fig)
-        print(f"wrote {out}")
+        print(f'wrote {out}')
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(main())

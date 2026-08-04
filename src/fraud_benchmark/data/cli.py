@@ -32,22 +32,22 @@ from fraud_benchmark.data.selection import run_over
 def build_parser() -> argparse.ArgumentParser:
     """The `fraud-benchmark` parser: `list`, `download`, `prepare` and `info`."""
     parser = argparse.ArgumentParser(
-        prog="fraud-benchmark",
-        description="Prepare fraud and AML benchmark datasets.",
+        prog='fraud-benchmark',
+        description='Prepare fraud and AML benchmark datasets.',
     )
-    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = parser.add_subparsers(dest='command', required=True)
 
-    subparsers.add_parser("list", help="list available datasets")
+    subparsers.add_parser('list', help='list available datasets')
 
-    download_parser = subparsers.add_parser("download", help="fetch a dataset's raw files and stop")
-    add_selection_arguments(download_parser, "download", positional=True)
+    download_parser = subparsers.add_parser('download', help="fetch a dataset's raw files and stop")
+    add_selection_arguments(download_parser, 'download', positional=True)
 
-    prepare_parser = subparsers.add_parser("prepare", help="download and process a dataset")
-    add_selection_arguments(prepare_parser, "prepare", positional=True)
+    prepare_parser = subparsers.add_parser('prepare', help='download and process a dataset')
+    add_selection_arguments(prepare_parser, 'prepare', positional=True)
 
-    info_parser = subparsers.add_parser("info", help="print a prepared dataset's card")
-    info_parser.add_argument("dataset")
-    info_parser.add_argument("--config", help="path to a config file")
+    info_parser = subparsers.add_parser('info', help="print a prepared dataset's card")
+    info_parser.add_argument('dataset')
+    info_parser.add_argument('--config', help='path to a config file')
 
     return parser
 
@@ -57,11 +57,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    if args.command == "list":
+    if args.command == 'list':
         return _cmd_list()
-    if args.command in ("download", "prepare"):
+    if args.command in ('download', 'prepare'):
         require_one_selection(parser, args)
-        return _cmd_download(args) if args.command == "download" else _cmd_prepare(args)
+        return _cmd_download(args) if args.command == 'download' else _cmd_prepare(args)
     return _cmd_info(args)
 
 
@@ -69,9 +69,9 @@ def _cmd_list() -> int:
     """Print one line per registered dataset: name, licence, URL."""
     for name in list_datasets():
         adapter = get_adapter(name)
-        flag = "" if adapter.commercial_use else "  [noncommercial]"
-        url = getattr(adapter.source, "url", "")
-        print(f"{name:12s} {adapter.data_license:18s} {url}{flag}")
+        flag = '' if adapter.commercial_use else '  [noncommercial]'
+        url = getattr(adapter.source, 'url', '')
+        print(f'{name:12s} {adapter.data_license:18s} {url}{flag}')
     return 0
 
 
@@ -81,7 +81,7 @@ def _cmd_download(args) -> int:
     return run_over(
         dataset_names(args.dataset, args.all),
         lambda name: download(name, config, force=args.force),
-        verb="fetched",
+        verb='fetched',
         exclude_noncommercial=args.exclude_noncommercial,
     )
 
@@ -99,10 +99,10 @@ def _cmd_prepare(args) -> int:
 def _cmd_info(args) -> int:
     """Print a prepared dataset's card. Returns 1 if it has not been prepared."""
     config = load_config(args.config)
-    card = config.processed_dir / args.dataset / "dataset_card.json"
+    card = config.processed_dir / args.dataset / 'dataset_card.json'
     if not card.exists():
         print(
-            f"{args.dataset} has not been prepared; run: fraud-benchmark prepare {args.dataset}",
+            f'{args.dataset} has not been prepared; run: fraud-benchmark prepare {args.dataset}',
             file=sys.stderr,
         )
         return 1
@@ -110,7 +110,7 @@ def _cmd_info(args) -> int:
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     # `python -m fraud_benchmark.data.cli` would otherwise import and exit silently,
     # which reads as a broken install rather than a missing entry point.
     sys.exit(main())

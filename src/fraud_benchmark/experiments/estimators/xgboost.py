@@ -51,13 +51,13 @@ def fit_and_score(prepared: Prepared, seed: int) -> dict:
     threshold = best_f1_threshold(prepared.y_true[prepared.val_rows], val_scores)
 
     return {
-        "seed": seed,
-        "fit_seconds": round(time.monotonic() - started, 1),
-        "n_trees": int(model.n_estimators),
-        "top_features": _top_features(model, prepared.names),
-        "scores": {
-            "val": score(prepared.y_true[prepared.val_rows], val_scores, threshold),
-            "test": score(prepared.y_true[prepared.test_rows], test_scores, threshold),
+        'seed': seed,
+        'fit_seconds': round(time.monotonic() - started, 1),
+        'n_trees': int(model.n_estimators),
+        'top_features': _top_features(model, prepared.names),
+        'scores': {
+            'val': score(prepared.y_true[prepared.val_rows], val_scores, threshold),
+            'test': score(prepared.y_true[prepared.test_rows], test_scores, threshold),
         },
     }
 
@@ -70,7 +70,7 @@ def _top_features(model, names: list[str]) -> list[dict]:
     history is worth its memory, and is invisible in an average precision alone.
     """
     booster = model.get_booster()
-    gains = booster.get_score(importance_type="total_gain")
+    gains = booster.get_score(importance_type='total_gain')
     if not gains:
         return []
     total = sum(gains.values())
@@ -78,11 +78,11 @@ def _top_features(model, names: list[str]) -> list[dict]:
     ranked = sorted(gains.items(), key=lambda item: item[1], reverse=True)
     out = []
     for key, gain in ranked[:TOP_FEATURES]:
-        index = int(key[1:]) if key.startswith("f") and key[1:].isdigit() else None
+        index = int(key[1:]) if key.startswith('f') and key[1:].isdigit() else None
         out.append(
             {
-                "feature": names[index] if index is not None and index < len(names) else key,
-                "gain_share": round(float(gain) / total, 5),
+                'feature': names[index] if index is not None and index < len(names) else key,
+                'gain_share': round(float(gain) / total, 5),
             }
         )
     return out
@@ -92,4 +92,4 @@ def lagged_gain_share(top_features: list[dict]) -> float:
     """Share of reported gain earned by lagged columns. 0.0 with no history."""
     if not top_features:
         return 0.0
-    return float(np.sum([f["gain_share"] for f in top_features if "_lag" in f["feature"]]))
+    return float(np.sum([f['gain_share'] for f in top_features if '_lag' in f['feature']]))

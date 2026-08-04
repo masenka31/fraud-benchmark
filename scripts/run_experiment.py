@@ -49,67 +49,67 @@ from fraud_benchmark.experiments.features.util import FEATURE_DIR
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=__doc__.splitlines()[0],
-        epilog="See docs/experiments.md for what each axis measures.",
+        epilog='See docs/experiments.md for what each axis measures.',
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--dataset", required=True, choices=DATASETS)
+    parser.add_argument('--dataset', required=True, choices=DATASETS)
     parser.add_argument(
-        "--model",
-        default="xgboost",
+        '--model',
+        default='xgboost',
         choices=MODELS,
-        help="default: xgboost -- indifferent to the ordinal codes, handles NaN "
-        "natively, needs no standardisation",
+        help='default: xgboost -- indifferent to the ordinal codes, handles NaN '
+        'natively, needs no standardisation',
     )
     parser.add_argument(
-        "--history",
+        '--history',
         type=int,
         default=0,
-        metavar="N",
+        metavar='N',
         help="lags of the dataset's HISTORY_COLUMNS concatenated onto each row "
-        "(default: 0, no history)",
+        '(default: 0, no history)',
     )
     parser.add_argument(
-        "--label-delay",
-        default="off",
+        '--label-delay',
+        default='off',
         choices=LABEL_DELAYS,
-        help="off: true labels. on: train labels known at the train cutoff. "
-        "slow: the same against reported_at_slow (sparkov only). "
-        "Val and test always use true labels",
+        help='off: true labels. on: train labels known at the train cutoff. '
+        'slow: the same against reported_at_slow (sparkov only). '
+        'Val and test always use true labels',
     )
     parser.add_argument(
-        "--artifacts",
-        default="drop",
+        '--artifacts',
+        default='drop',
         choices=ARTIFACT_MODES,
-        help="drop (default) excludes the artifact_ columns. On IBM CCF, keeping "
+        help='drop (default) excludes the artifact_ columns. On IBM CCF, keeping '
         "them is what produces a score measuring the generator's geography",
     )
-    parser.add_argument("--split", default="standard", choices=SPLITS)
+    parser.add_argument('--split', default='standard', choices=SPLITS)
     parser.add_argument(
-        "--seeds",
+        '--seeds',
         type=int,
-        nargs="+",
+        nargs='+',
         default=[0, 1, 2],
-        metavar="N",
-        help="default: 0 1 2. Reported as mean +/- population sd",
+        metavar='N',
+        help='default: 0 1 2. Reported as mean +/- population sd',
     )
     parser.add_argument(
-        "--history-columns",
-        default="default",
-        choices=("default", "all"),
+        '--history-columns',
+        default='default',
+        choices=('default', 'all'),
         help="default: the dataset module's HISTORY_COLUMNS. 'all' lags every "
-        "feature, which on IBM CCF at 10 lags is ~88 GB",
+        'feature, which on IBM CCF at 10 lags is ~88 GB',
     )
-    parser.add_argument("--features-dir", type=Path, default=FEATURE_DIR)
+    parser.add_argument('--features-dir', type=Path, default=FEATURE_DIR)
     parser.add_argument(
-        "--out",
+        '--out',
         type=Path,
         default=DEFAULT_RESULTS,
-        help=f"JSONL to append one record to (default: {DEFAULT_RESULTS})",
+        help=f'JSONL to append one record to (default: {DEFAULT_RESULTS})',
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="prepare the matrix and report its shape, then stop without fitting",
+        '--dry-run',
+        action='store_true',
+        help='prepare the matrix and report its shape, then stop without fitting',
     )
     return parser
 
@@ -131,13 +131,13 @@ def main(argv: list[str] | None = None) -> int:
         config.validate()
     except ExperimentError as error:
         # A rejected combination is a usage error, not a crash: exit 2 like argparse.
-        print(f"error: {error}", file=sys.stderr)
+        print(f'error: {error}', file=sys.stderr)
         return 2
 
     print(
-        f"{config.dataset} / {config.model} / history={config.history} / "
-        f"delay={config.label_delay} / artifacts={config.artifacts} / "
-        f"split={config.split} / seeds={list(config.seeds)}",
+        f'{config.dataset} / {config.model} / history={config.history} / '
+        f'delay={config.label_delay} / artifacts={config.artifacts} / '
+        f'split={config.split} / seeds={list(config.seeds)}',
         flush=True,
     )
 
@@ -147,26 +147,26 @@ def main(argv: list[str] | None = None) -> int:
 
             prepared = prepare(config, args.features_dir)
             for note in prepared.notes:
-                print(f"  {note}")
+                print(f'  {note}')
             print(
-                f"  matrix {prepared.x.shape[0]:,} x {prepared.x.shape[1]} "
-                f"({prepared.x.nbytes / 1e9:.1f} GB), "
-                f"{len(prepared.categorical)} coded categorical column(s), "
-                f"one-hot width {sum(prepared.cardinalities)}"
+                f'  matrix {prepared.x.shape[0]:,} x {prepared.x.shape[1]} '
+                f'({prepared.x.nbytes / 1e9:.1f} GB), '
+                f'{len(prepared.categorical)} coded categorical column(s), '
+                f'one-hot width {sum(prepared.cardinalities)}'
             )
-            print("  dry run: nothing fitted")
+            print('  dry run: nothing fitted')
             return 0
 
         record = run(config, args.features_dir)
     except ExperimentError as error:
-        print(f"error: {error}", file=sys.stderr)
+        print(f'error: {error}', file=sys.stderr)
         return 2
 
     destination = append_record(record, args.out)
     print(describe(record), flush=True)
-    print(f"  appended to {destination}")
+    print(f'  appended to {destination}')
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(main())

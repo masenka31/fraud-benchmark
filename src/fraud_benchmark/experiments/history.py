@@ -37,7 +37,7 @@ def lag_columns(names: list[str], n_lags: int) -> list[str]:
     """The column names `lag_matrix` produces, in the order it produces them."""
     out = list(names)
     for lag in range(1, n_lags + 1):
-        out.extend(f"{name}_lag{lag}" for name in names)
+        out.extend(f'{name}_lag{lag}' for name in names)
     return out
 
 
@@ -52,20 +52,20 @@ def previous_positions(entity_id: pd.Series, event_time: pd.Series, n_lags: int)
     n = len(entity_id)
     work = pd.DataFrame(
         {
-            "entity": entity_id.to_numpy(),
-            "event_time": pd.to_datetime(event_time).to_numpy(),
-            "_pos": np.arange(n),
+            'entity': entity_id.to_numpy(),
+            'event_time': pd.to_datetime(event_time).to_numpy(),
+            '_pos': np.arange(n),
         }
     )
     # Stable, so rows tied on (entity, time) keep their input order -- IBM CCF has
     # minute resolution and no seconds, which makes ties routine.
-    work = work.sort_values(["entity", "event_time"], kind="mergesort")
-    pos = work["_pos"].to_numpy()
+    work = work.sort_values(['entity', 'event_time'], kind='mergesort')
+    pos = work['_pos'].to_numpy()
     # How many earlier transactions this entity has: the k-th lag exists only where
     # this is at least k.
-    depth = work.groupby("entity", observed=True).cumcount().to_numpy()
+    depth = work.groupby('entity', observed=True).cumcount().to_numpy()
 
-    out = np.full((n, n_lags), -1, dtype="int64")
+    out = np.full((n, n_lags), -1, dtype='int64')
     for lag in range(1, n_lags + 1):
         exists = depth >= lag
         source = np.roll(pos, lag)
@@ -85,14 +85,14 @@ def lag_matrix(
     `(rows, features * (n_lags + 1))`, target block first. `n_lags=0` returns
     `values` unchanged, which is the no-history condition.
     """
-    values = np.asarray(values, dtype="float32")
+    values = np.asarray(values, dtype='float32')
     if n_lags == 0:
         return values
 
     rows, features = values.shape
     previous = previous_positions(entity_id, event_time, n_lags)
 
-    out = np.empty((rows, features * (n_lags + 1)), dtype="float32")
+    out = np.empty((rows, features * (n_lags + 1)), dtype='float32')
     out[:, :features] = values
     for lag in range(1, n_lags + 1):
         source = previous[:, lag - 1]

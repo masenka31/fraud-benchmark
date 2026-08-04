@@ -33,7 +33,7 @@ from fraud_benchmark.data.selection import run_over
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    add_selection_arguments(parser, "prepare")
+    add_selection_arguments(parser, 'prepare')
     args = parser.parse_args(argv)
     require_one_selection(parser, args)
 
@@ -45,5 +45,5 @@ def main(argv: list[str] | None = None) -> int:
     )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(main())

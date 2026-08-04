@@ -144,8 +144,7 @@ mypy-init-return = true
 force-single-line = true
 
 [tool.ruff.format]
-# Double, not single: the code is ~5000 double quotes to ~340 single.
-quote-style = "double"
+quote-style = "single"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"

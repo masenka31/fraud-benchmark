@@ -12,4 +12,4 @@ Two halves, and the boundary between them is the point:
 about features or models.
 """
 
-__version__ = "0.1.0"
+__version__ = '0.1.0'

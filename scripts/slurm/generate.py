@@ -29,23 +29,23 @@ REPO = Path(__file__).resolve().parents[2]
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--repo", type=Path, default=REPO, help="checkout jobs run in")
-    parser.add_argument("--out", type=Path, default=None, help="default: <repo>/scripts/slurm/jobs")
+    parser.add_argument('--repo', type=Path, default=REPO, help='checkout jobs run in')
+    parser.add_argument('--out', type=Path, default=None, help='default: <repo>/scripts/slurm/jobs')
     args = parser.parse_args(argv)
 
-    target = args.out or args.repo / "scripts" / "slurm" / "jobs"
+    target = args.out or args.repo / 'scripts' / 'slurm' / 'jobs'
     write_all(target, args.repo)
-    (args.repo / "results" / "logs").mkdir(parents=True, exist_ok=True)
-    (args.repo / "results" / "experiments").mkdir(parents=True, exist_ok=True)
+    (args.repo / 'results' / 'logs').mkdir(parents=True, exist_ok=True)
+    (args.repo / 'results' / 'experiments').mkdir(parents=True, exist_ok=True)
 
     total = len(FEATURE_JOBS) + len(CELLS)
     print(
-        f"wrote {total} sbatch files to {target} "
-        f"({len(FEATURE_JOBS)} feature builds, {len(CELLS)} experiments)"
+        f'wrote {total} sbatch files to {target} '
+        f'({len(FEATURE_JOBS)} feature builds, {len(CELLS)} experiments)'
     )
-    print(f"submit the study with: {target / 'submit_all.sh'}")
+    print(f'submit the study with: {target / "submit_all.sh"}')
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(main())

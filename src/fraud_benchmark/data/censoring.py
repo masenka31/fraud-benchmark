@@ -19,6 +19,6 @@ def censored_labels(df: pd.DataFrame, cutoff: pd.Timestamp) -> np.ndarray:
     legitimate transaction, and dropping it would presume knowledge of which rows
     to distrust.
     """
-    reported = pd.to_datetime(df["reported_at"])
-    known_fraud = df["is_fraud"].astype(bool) & (reported <= cutoff)
+    reported = pd.to_datetime(df['reported_at'])
+    known_fraud = df['is_fraud'].astype(bool) & (reported <= cutoff)
     return known_fraud.to_numpy().astype(int)

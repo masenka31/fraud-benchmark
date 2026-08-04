@@ -29,9 +29,9 @@ from collections.abc import Callable
 #: Name on the CLI -> the module path that implements it. Imported lazily: the MLP
 #: pulls in torch, which costs seconds and is pointless for an XGBoost run.
 ESTIMATORS = {
-    "xgboost": "fraud_benchmark.experiments.estimators.xgboost",
-    "mlp": "fraud_benchmark.experiments.estimators.mlp",
-    "logistic": "fraud_benchmark.experiments.estimators.logistic",
+    'xgboost': 'fraud_benchmark.experiments.estimators.xgboost',
+    'mlp': 'fraud_benchmark.experiments.estimators.mlp',
+    'logistic': 'fraud_benchmark.experiments.estimators.logistic',
 }
 
 MODELS = tuple(ESTIMATORS)
@@ -42,5 +42,5 @@ def get_estimator(name: str) -> Callable:
     from importlib import import_module
 
     if name not in ESTIMATORS:
-        raise ValueError(f"unknown model {name!r}; known: {', '.join(MODELS)}")
+        raise ValueError(f'unknown model {name!r}; known: {", ".join(MODELS)}')
     return import_module(ESTIMATORS[name]).fit_and_score

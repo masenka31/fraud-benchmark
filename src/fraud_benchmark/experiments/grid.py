@@ -41,8 +41,8 @@ from fraud_benchmark.experiments.experiment import ExperimentConfig
 #: so its 13%-of-gain finding is a direct comparison.
 HISTORY_LAGS = 10
 
-DATASETS = ("ibm_ccf", "saml_d", "sparkov")
-MODELS = ("xgboost", "mlp", "logistic")
+DATASETS = ('ibm_ccf', 'saml_d', 'sparkov')
+MODELS = ('xgboost', 'mlp', 'logistic')
 
 
 @dataclass(frozen=True)
@@ -58,14 +58,14 @@ class Cell:
         c = self.config
         parts = [c.dataset, c.model]
         if c.history:
-            parts.append(f"h{c.history}")
-        if c.label_delay != "off":
-            parts.append(f"delay-{c.label_delay}")
-        if c.artifacts != "drop":
-            parts.append("artifacts")
-        if c.split != "standard":
+            parts.append(f'h{c.history}')
+        if c.label_delay != 'off':
+            parts.append(f'delay-{c.label_delay}')
+        if c.artifacts != 'drop':
+            parts.append('artifacts')
+        if c.split != 'standard':
             parts.append(c.split)
-        return "_".join(parts)
+        return '_'.join(parts)
 
 
 def _config(dataset: str, model: str, **overrides) -> ExperimentConfig:
@@ -80,24 +80,24 @@ def build_cells() -> tuple[Cell, ...]:
     # --- baseline: the reference every other group is read against
     for dataset in DATASETS:
         for model in MODELS:
-            cells.append(Cell("baseline", _config(dataset, model)))
+            cells.append(Cell('baseline', _config(dataset, model)))
 
     # --- history: the same thing with the previous 10 transactions concatenated
     for dataset in DATASETS:
         for model in MODELS:
-            cells.append(Cell("history", _config(dataset, model, history=HISTORY_LAGS)))
+            cells.append(Cell('history', _config(dataset, model, history=HISTORY_LAGS)))
 
     # --- delay: what training on the labels a detector would have had costs.
     # Trees only: the question is about labels, and adding two more models triples
     # the cost of the group without changing what it measures.
     for dataset in DATASETS:
-        cells.append(Cell("delay", _config(dataset, "xgboost", label_delay="on")))
-    cells.append(Cell("delay", _config("sparkov", "xgboost", label_delay="slow")))
+        cells.append(Cell('delay', _config(dataset, 'xgboost', label_delay='on')))
+    cells.append(Cell('delay', _config('sparkov', 'xgboost', label_delay='slow')))
 
     # --- artifacts: what the generator's geography supplies, two ways
-    for model in ("xgboost", "mlp"):
-        cells.append(Cell("artifacts", _config("ibm_ccf", model, artifacts="keep")))
-    cells.append(Cell("artifacts", _config("ibm_ccf", "xgboost", split="italy_holdout")))
+    for model in ('xgboost', 'mlp'):
+        cells.append(Cell('artifacts', _config('ibm_ccf', model, artifacts='keep')))
+    cells.append(Cell('artifacts', _config('ibm_ccf', 'xgboost', split='italy_holdout')))
 
     return tuple(cells)
 
@@ -116,18 +116,18 @@ def estimate_cost(cell: Cell) -> tuple[str, str, str]:
     big datasets are where a bad guess is expensive.
     """
     config = cell.config
-    rows = {"ibm_ccf": 24_400_000, "saml_d": 9_500_000, "sparkov": 1_900_000}[config.dataset]
+    rows = {'ibm_ccf': 24_400_000, 'saml_d': 9_500_000, 'sparkov': 1_900_000}[config.dataset]
 
     # Feature count drives the matrix; history multiplies the lagged subset only.
     features = 90 + (config.history * 14)
     matrix_gb = rows * features * 4 / 1e9
 
-    if config.model == "mlp":
+    if config.model == 'mlp':
         # Batches are gathered by index from the resident matrix, so memory is the
         # matrix plus room for the one-hot expansion per batch; time is 15 epochs.
         memory = max(32, int(matrix_gb * 6) + 16)
         hours = max(4, int(rows / 1_000_000) * 2)
-    elif config.model == "xgboost":
+    elif config.model == 'xgboost':
         # hist tree method builds its own quantile sketch alongside the matrix.
         memory = max(16, int(matrix_gb * 5) + 8)
         hours = max(2, int(rows / 4_000_000) + 1)
@@ -137,8 +137,8 @@ def estimate_cost(cell: Cell) -> tuple[str, str, str]:
         hours = max(2, int(rows / 6_000_000) + 1)
 
     hours = min(hours, 70)
-    partition = "cpu" if hours <= 20 else "cpulong"
-    return partition, f"{memory}G", f"{hours:02d}:00:00"
+    partition = 'cpu' if hours <= 20 else 'cpulong'
+    return partition, f'{memory}G', f'{hours:02d}:00:00'
 
 
 def cells_by_group() -> dict[str, tuple[Cell, ...]]:

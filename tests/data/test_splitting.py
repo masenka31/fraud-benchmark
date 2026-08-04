@@ -6,26 +6,26 @@ from fraud_benchmark.data.splitting import split_boundaries
 
 
 def frame_with_times(times):
-    return pd.DataFrame({"event_time": pd.to_datetime(times)})
+    return pd.DataFrame({'event_time': pd.to_datetime(times)})
 
 
 def test_splits_ten_distinct_days_80_10_10():
-    df = frame_with_times([f"2023-01-{d:02d}" for d in range(1, 11)])
+    df = frame_with_times([f'2023-01-{d:02d}' for d in range(1, 11)])
     splits = assign_splits(df, (0.8, 0.1, 0.1))
-    assert splits.tolist() == ["train"] * 8 + ["val"] + ["test"]
+    assert splits.tolist() == ['train'] * 8 + ['val'] + ['test']
 
 
 def test_result_is_categorical_with_all_three_levels():
-    df = frame_with_times([f"2023-01-{d:02d}" for d in range(1, 11)])
+    df = frame_with_times([f'2023-01-{d:02d}' for d in range(1, 11)])
     splits = assign_splits(df, (0.8, 0.1, 0.1))
-    assert str(splits.dtype) == "category"
-    assert set(splits.cat.categories) == {"train", "val", "test"}
+    assert str(splits.dtype) == 'category'
+    assert set(splits.cat.categories) == {'train', 'val', 'test'}
 
 
 def test_rows_sharing_a_timestamp_are_never_split():
     # Nine rows on day 1, one row each on days 2 and 3. A naive positional 80/10/10
     # cut would slice through the day-1 block.
-    times = ["2023-01-01"] * 9 + ["2023-01-02", "2023-01-03"]
+    times = ['2023-01-01'] * 9 + ['2023-01-02', '2023-01-03']
     df = frame_with_times(times)
     splits = assign_splits(df, (0.8, 0.1, 0.1))
     day_one = splits[:9]
@@ -33,70 +33,70 @@ def test_rows_sharing_a_timestamp_are_never_split():
 
 
 def test_split_is_monotonic_in_time():
-    df = frame_with_times([f"2023-01-{d:02d}" for d in range(1, 21)])
+    df = frame_with_times([f'2023-01-{d:02d}' for d in range(1, 21)])
     splits = assign_splits(df, (0.7, 0.2, 0.1))
-    rank = {"train": 0, "val": 1, "test": 2}
+    rank = {'train': 0, 'val': 1, 'test': 2}
     codes = [rank[s] for s in splits]
     assert codes == sorted(codes)
 
 
 def test_unsorted_input_is_handled():
-    df = frame_with_times(["2023-01-05", "2023-01-01", "2023-01-03", "2023-01-02", "2023-01-04"])
+    df = frame_with_times(['2023-01-05', '2023-01-01', '2023-01-03', '2023-01-02', '2023-01-04'])
     splits = assign_splits(df, (0.6, 0.2, 0.2))
     # The earliest date must be train, the latest must be test.
-    assert splits.iloc[1] == "train"
-    assert splits.iloc[0] == "test"
+    assert splits.iloc[1] == 'train'
+    assert splits.iloc[0] == 'test'
 
 
 def test_single_timestamp_puts_everything_in_train():
-    df = frame_with_times(["2023-01-01"] * 5)
-    with pytest.warns(UserWarning, match="empty split"):
+    df = frame_with_times(['2023-01-01'] * 5)
+    with pytest.warns(UserWarning, match='empty split'):
         splits = assign_splits(df, (0.8, 0.1, 0.1))
-    assert set(splits) == {"train"}
+    assert set(splits) == {'train'}
 
 
 def test_boundaries_are_reported():
-    df = frame_with_times([f"2023-01-{d:02d}" for d in range(1, 11)])
+    df = frame_with_times([f'2023-01-{d:02d}' for d in range(1, 11)])
     bounds = split_boundaries(df, (0.8, 0.1, 0.1))
-    assert bounds["train_end"] == pd.Timestamp("2023-01-08")
-    assert bounds["val_end"] == pd.Timestamp("2023-01-09")
+    assert bounds['train_end'] == pd.Timestamp('2023-01-08')
+    assert bounds['val_end'] == pd.Timestamp('2023-01-09')
 
 
 def test_ratios_must_sum_to_one():
-    df = frame_with_times(["2023-01-01", "2023-01-02"])
-    with pytest.raises(ValueError, match="sum to 1"):
+    df = frame_with_times(['2023-01-01', '2023-01-02'])
+    with pytest.raises(ValueError, match='sum to 1'):
         assign_splits(df, (0.5, 0.2, 0.2))
 
 
 def test_nat_in_event_time_is_rejected():
-    df = frame_with_times(["2023-01-01", None, "2023-01-03"])
-    with pytest.raises(ValueError, match="missing value"):
+    df = frame_with_times(['2023-01-01', None, '2023-01-03'])
+    with pytest.raises(ValueError, match='missing value'):
         assign_splits(df, (0.8, 0.1, 0.1))
 
 
 def test_empty_frame_is_rejected():
     df = frame_with_times([])
-    with pytest.raises(ValueError, match="empty frame"):
+    with pytest.raises(ValueError, match='empty frame'):
         assign_splits(df, (0.8, 0.1, 0.1))
 
 
 def test_missing_event_time_column_is_rejected():
-    df = pd.DataFrame({"amount": [1.0, 2.0]})
-    with pytest.raises(ValueError, match="event_time"):
+    df = pd.DataFrame({'amount': [1.0, 2.0]})
+    with pytest.raises(ValueError, match='event_time'):
         assign_splits(df, (0.8, 0.1, 0.1))
 
 
 def test_negative_ratios_are_rejected():
-    df = frame_with_times([f"2023-01-{d:02d}" for d in range(1, 11)])
+    df = frame_with_times([f'2023-01-{d:02d}' for d in range(1, 11)])
     # Sums to 1.0, so the sum check alone would let this through.
-    with pytest.raises(ValueError, match="positive"):
+    with pytest.raises(ValueError, match='positive'):
         assign_splits(df, (1.2, -0.1, -0.1))
 
 
 def test_empty_split_warns_with_actionable_detail():
     # Two timestamps cannot be divided into three non-empty splits.
-    df = frame_with_times(["2023-01-01"] * 95 + ["2023-01-02"] * 5)
-    with pytest.warns(UserWarning, match="distinct timestamp"):
+    df = frame_with_times(['2023-01-01'] * 95 + ['2023-01-02'] * 5)
+    with pytest.warns(UserWarning, match='distinct timestamp'):
         assign_splits(df, (0.8, 0.1, 0.1))
 
 
@@ -106,42 +106,42 @@ def test_no_timestamp_appears_in_two_splits():
     # 20 distinct timestamps, not 7: with only 7 every timestamp is an
     # indivisible 14.3% block, so a 10% test split comes out empty and the
     # val/test boundary below would never be exercised.
-    times = [f"2023-01-{d:02d}" for d in range(1, 21) for _ in range(5)]
+    times = [f'2023-01-{d:02d}' for d in range(1, 21) for _ in range(5)]
     df = frame_with_times(times)
-    df["split"] = assign_splits(df, (0.7, 0.2, 0.1))
+    df['split'] = assign_splits(df, (0.7, 0.2, 0.1))
 
-    per_timestamp = df.groupby("event_time")["split"].nunique()
+    per_timestamp = df.groupby('event_time')['split'].nunique()
     assert (per_timestamp == 1).all()
 
     # All three splits must be non-empty for the boundary checks to mean anything.
-    assert set(df["split"]) == {"train", "val", "test"}
-    assert df[df.split == "train"]["event_time"].max() < (df[df.split == "val"]["event_time"].min())
-    assert df[df.split == "val"]["event_time"].max() < (df[df.split == "test"]["event_time"].min())
+    assert set(df['split']) == {'train', 'val', 'test'}
+    assert df[df.split == 'train']['event_time'].max() < (df[df.split == 'val']['event_time'].min())
+    assert df[df.split == 'val']['event_time'].max() < (df[df.split == 'test']['event_time'].min())
 
 
 def test_boundary_at_cuts_on_a_timestamp_value():
-    df = frame_with_times([f"2023-01-{d:02d}" for d in range(1, 11)])
+    df = frame_with_times([f'2023-01-{d:02d}' for d in range(1, 11)])
     from fraud_benchmark.data.splitting import boundary_at
 
-    assert boundary_at(df, 0.9) == pd.Timestamp("2023-01-09")
+    assert boundary_at(df, 0.9) == pd.Timestamp('2023-01-09')
 
 
 def test_boundary_at_rejects_out_of_range_fractions():
     from fraud_benchmark.data.splitting import boundary_at
 
-    df = frame_with_times(["2023-01-01", "2023-01-02"])
+    df = frame_with_times(['2023-01-01', '2023-01-02'])
     for bad in (0.0, 1.0, -0.5, 2.0):
-        with pytest.raises(ValueError, match="between 0 and 1"):
+        with pytest.raises(ValueError, match='between 0 and 1'):
             boundary_at(df, bad)
 
 
 def test_labels_align_to_a_shuffled_index():
     # Assigning the result back to a frame must not silently misalign rows.
-    df = frame_with_times([f"2023-01-{d:02d}" for d in range(1, 21)])
+    df = frame_with_times([f'2023-01-{d:02d}' for d in range(1, 21)])
     shuffled = df.sample(frac=1, random_state=0)
     splits = assign_splits(shuffled, (0.8, 0.1, 0.1))
     assert splits.index.equals(shuffled.index)
-    shuffled["split"] = splits
+    shuffled['split'] = splits
     # The earliest date must be train and the latest test, whatever the row order.
-    assert shuffled.loc[shuffled.event_time.idxmin(), "split"] == "train"
-    assert shuffled.loc[shuffled.event_time.idxmax(), "split"] == "test"
+    assert shuffled.loc[shuffled.event_time.idxmin(), 'split'] == 'train'
+    assert shuffled.loc[shuffled.event_time.idxmax(), 'split'] == 'test'

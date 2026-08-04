@@ -115,10 +115,10 @@ def train_statistics(
     12 GiB, so the sums are accumulated a million rows at a time.
     """
     cols = np.arange(x.shape[1]) if cols is None else cols
-    total = np.zeros(len(cols), dtype="float64")
-    total_sq = np.zeros(len(cols), dtype="float64")
+    total = np.zeros(len(cols), dtype='float64')
+    total_sq = np.zeros(len(cols), dtype='float64')
     for start in range(0, len(rows), CHUNK):
-        block = x[np.ix_(rows[start : start + CHUNK], cols)].astype("float64")
+        block = x[np.ix_(rows[start : start + CHUNK], cols)].astype('float64')
         total += block.sum(axis=0)
         total_sq += (block**2).sum(axis=0)
     n = len(rows)
@@ -126,7 +126,7 @@ def train_statistics(
     var = np.maximum(total_sq / n - mean**2, 0.0)
     std = np.sqrt(var)
     std[std < 1e-6] = 1.0  # a constant column contributes nothing
-    return mean.astype("float32"), std.astype("float32")
+    return mean.astype('float32'), std.astype('float32')
 
 
 @torch.no_grad()
@@ -140,7 +140,7 @@ def predict(
     cat_cols: np.ndarray | None,
 ) -> np.ndarray:
     model.eval()
-    out = np.empty(len(rows), dtype="float32")
+    out = np.empty(len(rows), dtype='float32')
     for start in range(0, len(rows), EVAL_BATCH):
         idx = rows[start : start + EVAL_BATCH]
         cont = (x[np.ix_(idx, cont_cols)] - mean) / std
@@ -181,7 +181,7 @@ def run_seed(
     )
     opt = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-5)
 
-    best = {"val_ap": -1.0, "epoch": -1, "state": None}
+    best = {'val_ap': -1.0, 'epoch': -1, 'state': None}
     started = time.monotonic()
     for epoch in range(1, MAX_EPOCHS + 1):
         model.train()
@@ -192,7 +192,7 @@ def run_seed(
             if len(idx) < 2:  # BatchNorm needs >1 row
                 continue
             cont = (x[np.ix_(idx, cont_cols)] - mean) / std
-            target = torch.from_numpy(y[idx].astype("float32"))
+            target = torch.from_numpy(y[idx].astype('float32'))
             opt.zero_grad(set_to_none=True)
             if cat_cols is None:
                 logits = model(torch.from_numpy(cont))
@@ -208,31 +208,31 @@ def run_seed(
 
         val_ap = float(average_precision_score(y[va_rows], val_scores))
         print(
-            f"  seed={seed} epoch={epoch:02d} loss={running / max(batches, 1):.4f} "
-            f"val_AP={val_ap:.4f}",
+            f'  seed={seed} epoch={epoch:02d} loss={running / max(batches, 1):.4f} '
+            f'val_AP={val_ap:.4f}',
             flush=True,
         )
-        if val_ap > best["val_ap"]:
+        if val_ap > best['val_ap']:
             best = {
-                "val_ap": val_ap,
-                "epoch": epoch,
-                "state": {k: v.clone() for k, v in model.state_dict().items()},
+                'val_ap': val_ap,
+                'epoch': epoch,
+                'state': {k: v.clone() for k, v in model.state_dict().items()},
             }
-        elif epoch - best["epoch"] >= PATIENCE:
-            print(f"  seed={seed} early stop (no val gain in {PATIENCE} epochs)", flush=True)
+        elif epoch - best['epoch'] >= PATIENCE:
+            print(f'  seed={seed} early stop (no val gain in {PATIENCE} epochs)', flush=True)
             break
 
-    model.load_state_dict(best["state"])
+    model.load_state_dict(best['state'])
     val_scores = predict(model, x, va_rows, mean, std, cont_cols, cat_cols)
     test_scores = predict(model, x, te_rows, mean, std, cont_cols, cat_cols)
     threshold = best_f1_threshold(y[va_rows], val_scores)
     return {
-        "seed": seed,
-        "best_epoch": best["epoch"],
-        "fit_seconds": round(time.monotonic() - started, 1),
-        "scores": {
-            "val": score(y[va_rows], val_scores, threshold),
-            "test": score(y[te_rows], test_scores, threshold),
+        'seed': seed,
+        'best_epoch': best['epoch'],
+        'fit_seconds': round(time.monotonic() - started, 1),
+        'scores': {
+            'val': score(y[va_rows], val_scores, threshold),
+            'test': score(y[te_rows], test_scores, threshold),
         },
     }
 
@@ -290,7 +290,7 @@ def fit_and_score(prepared, seed: int, ordinal: bool = False) -> dict:
         # Everything standardised together: the codes, where there are any, ride along
         # as numbers, false ordering included.
         columns = np.sort(np.concatenate([prepared.continuous, prepared.categorical])).astype(
-            "int64"
+            'int64'
         )
         mean, std = train_statistics(prepared.x, prepared.train_rows, columns)
         record = run_seed(
@@ -305,7 +305,7 @@ def fit_and_score(prepared, seed: int, ordinal: bool = False) -> dict:
             cont_cols=columns,
         )
 
-    record["encoding"] = "onehot" if one_hot else "ordinal"
-    record["onehot_width"] = int(sum(prepared.cardinalities)) if one_hot else 0
-    record["filled_missing"] = filled
+    record['encoding'] = 'onehot' if one_hot else 'ordinal'
+    record['onehot_width'] = int(sum(prepared.cardinalities)) if one_hot else 0
+    record['filled_missing'] = filled
     return record

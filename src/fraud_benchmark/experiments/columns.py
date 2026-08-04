@@ -22,13 +22,13 @@ from fraud_benchmark.data.adapters.base import list_datasets
 
 # Produced by the pipeline: the label, its availability time, the campaign it was
 # discovered with, and which split the row landed in.
-_PIPELINE_COLUMNS = frozenset({"is_fraud", "reported_at", "campaign_id", "split"})
+_PIPELINE_COLUMNS = frozenset({'is_fraud', 'reported_at', 'campaign_id', 'split'})
 
 # Not labels, and not derived from one, but not inputs a model would have either.
 # `isFlaggedFraud` is PaySim's own detector output. `trans_num` is a row id.
 # `source_file` is here because Sparkov's splits come from separate upstream files,
 # so it predicts the split perfectly.
-_NOT_MODEL_INPUTS = frozenset({"isFlaggedFraud", "trans_num", "source_file"})
+_NOT_MODEL_INPUTS = frozenset({'isFlaggedFraud', 'trans_num', 'source_file'})
 
 
 def build_always_excluded() -> frozenset[str]:
@@ -63,10 +63,10 @@ ALWAYS_EXCLUDED = build_always_excluded()
 # they describe the cardholder, not when the transaction happened.
 ABSOLUTE_TIME_COLUMNS = frozenset(
     {
-        "trans_date_trans_time",  # sparkov: event_time as a string
-        "unix_time",  # sparkov: event_time as an int
-        "Date",  # saml_d: the absolute date
-        "Year",  # ibm_ccf: with Month and Day, reconstructs it
+        'trans_date_trans_time',  # sparkov: event_time as a string
+        'unix_time',  # sparkov: event_time as an int
+        'Date',  # saml_d: the absolute date
+        'Year',  # ibm_ccf: with Month and Day, reconstructs it
     }
 )
 
@@ -86,4 +86,4 @@ def assert_no_excluded(columns: list[str]) -> None:
     """
     leaked = sorted(set(ALWAYS_EXCLUDED) & set(columns))
     if leaked:
-        raise ExcludedColumnError(f"columns that must never reach a model are present: {leaked}")
+        raise ExcludedColumnError(f'columns that must never reach a model are present: {leaked}')

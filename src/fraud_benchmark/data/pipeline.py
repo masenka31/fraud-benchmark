@@ -50,14 +50,14 @@ def _drop_source_label(df: pd.DataFrame, adapter) -> str | None:
     Raises ValueError if the adapter names a column its frame does not contain.
     """
     column = adapter.source_label_column
-    if column == "is_fraud" or column in adapter.label_descriptive_columns:
+    if column == 'is_fraud' or column in adapter.label_descriptive_columns:
         return None
     if column not in df.columns:
         # An adapter bug, not a dataset quirk: staying silent would let the raw
         # label ride along under a name nobody is watching.
         raise ValueError(
-            f"{adapter.name} declares source_label_column {column!r}, which is not "
-            f"in its canonical frame; columns are: {sorted(df.columns)}"
+            f'{adapter.name} declares source_label_column {column!r}, which is not '
+            f'in its canonical frame; columns are: {sorted(df.columns)}'
         )
     return column
 
@@ -78,14 +78,14 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
         df = df.drop(columns=[dropped_label])
     validate_canonical(df)
 
-    df = df.sort_values("event_time", kind="stable").reset_index(drop=True)
+    df = df.sort_values('event_time', kind='stable').reset_index(drop=True)
     supplied = adapter.custom_splits(df, options)
-    df["split"] = assign_splits(df, config.split_ratios) if supplied is None else supplied
+    df['split'] = assign_splits(df, config.split_ratios) if supplied is None else supplied
 
     gap = config.campaign_gap_for(name)
     delay = config.delay_for(name)
-    df["campaign_id"] = assign_campaigns(df, gap=gap)
-    df["reported_at"] = assign_reported_at(df, delay)
+    df['campaign_id'] = assign_campaigns(df, gap=gap)
+    df['reported_at'] = assign_reported_at(df, delay)
 
     # Re-validate: the adapter's output was checked earlier, but the delay stage
     # is the one that can produce an impossible reported_at, and nothing should
@@ -105,7 +105,7 @@ def prepare(name: str, config: Config, *, force: bool = False) -> Path:
         delay=delay,
         dropped_label=dropped_label,
     )
-    card["auxiliary"] = {key: int(len(frame)) for key, frame in aux.items()}
+    card['auxiliary'] = {key: int(len(frame)) for key, frame in aux.items()}
     return _write_atomically(config.processed_dir / name, df, card, aux)
 
 
@@ -123,79 +123,79 @@ def _describe_dataset(
 ) -> dict:
     """Build the dataset card: provenance, licence, shape, split and delay."""
     return {
-        "name": name,
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "source": _describe_source(adapter.source),
+        'name': name,
+        'created_at': datetime.now(timezone.utc).isoformat(),
+        'source': _describe_source(adapter.source),
         # The dataset's own terms, not this repo's licence. Recorded here so the
         # terms travel with the output. See docs/dataset-licenses.md.
-        "data_license": adapter.data_license,
-        "commercial_use": adapter.commercial_use,
-        "n_rows": int(len(df)),
-        "n_fraud": int(df["is_fraud"].sum()),
-        "fraud_rate": float(df["is_fraud"].mean()),
-        "n_entities": int(df["entity_id"].nunique()),
-        "time_range": {
-            "start": df["event_time"].min().isoformat(),
-            "end": df["event_time"].max().isoformat(),
+        'data_license': adapter.data_license,
+        'commercial_use': adapter.commercial_use,
+        'n_rows': int(len(df)),
+        'n_fraud': int(df['is_fraud'].sum()),
+        'fraud_rate': float(df['is_fraud'].mean()),
+        'n_entities': int(df['entity_id'].nunique()),
+        'time_range': {
+            'start': df['event_time'].min().isoformat(),
+            'end': df['event_time'].max().isoformat(),
         },
-        "split": _describe_split(adapter, df, config, custom_split=custom_split),
-        "label_delay": _describe_delay(df, delay, gap),
-        "column_mapping": adapter.column_mapping(options),
+        'split': _describe_split(adapter, df, config, custom_split=custom_split),
+        'label_delay': _describe_delay(df, delay, gap),
+        'column_mapping': adapter.column_mapping(options),
         # What the label-drop stage removed. `column_mapping` still names the source
         # column as is_fraud's provenance; this says it is no longer in the output.
-        "dropped_source_label": dropped_label,
-        "label_descriptive_columns": list(adapter.label_descriptive_columns),
-        "options": options,
-        "caveats": list(adapter.caveats),
+        'dropped_source_label': dropped_label,
+        'label_descriptive_columns': list(adapter.label_descriptive_columns),
+        'options': options,
+        'caveats': list(adapter.caveats),
     }
 
 
 def _describe_split(adapter, df, config, *, custom_split: bool) -> dict:
     """Describe how `df` was split, and how many rows landed in each split."""
-    counts = {str(k): int(v) for k, v in df["split"].value_counts().items()}
+    counts = {str(k): int(v) for k, v in df['split'].value_counts().items()}
     if custom_split:
         return {
-            "strategy": f"supplied by the {adapter.name} adapter",
-            "ratios": None,
-            "counts": counts,
+            'strategy': f'supplied by the {adapter.name} adapter',
+            'ratios': None,
+            'counts': counts,
         }
     bounds = split_boundaries(df, config.split_ratios)
     return {
-        "strategy": "temporal, cut on timestamp values",
-        "ratios": list(config.split_ratios),
-        "train_end": bounds["train_end"].isoformat(),
-        "val_end": bounds["val_end"].isoformat(),
-        "counts": counts,
+        'strategy': 'temporal, cut on timestamp values',
+        'ratios': list(config.split_ratios),
+        'train_end': bounds['train_end'].isoformat(),
+        'val_end': bounds['val_end'].isoformat(),
+        'counts': counts,
     }
 
 
 def _describe_delay(df, delay: DelayParams, gap) -> dict:
     """Describe the delay settings alongside the campaign sizes and delays realised."""
-    sizes = campaign_sizes(df["campaign_id"])
-    fraud = df.loc[df["is_fraud"]]
-    delays = (fraud["reported_at"] - fraud["event_time"]).dt.total_seconds() / 86_400
+    sizes = campaign_sizes(df['campaign_id'])
+    fraud = df.loc[df['is_fraud']]
+    delays = (fraud['reported_at'] - fraud['event_time']).dt.total_seconds() / 86_400
     return {
-        "distribution": "lognormal",
-        "median_days": delay.median_days,
-        "sigma": delay.sigma,
-        "seed": delay.seed,
-        "max_delay_days": delay.max_delay_days,
-        "campaign_gap": str(gap),
-        "n_campaigns": int(sizes.size),
-        "largest_campaign": int(sizes.max()) if sizes.size else 0,
-        "median_campaign_size": float(sizes.median()) if sizes.size else 0.0,
-        "observed_median_delay_days": float(delays.median()) if len(delays) else 0.0,
+        'distribution': 'lognormal',
+        'median_days': delay.median_days,
+        'sigma': delay.sigma,
+        'seed': delay.seed,
+        'max_delay_days': delay.max_delay_days,
+        'campaign_gap': str(gap),
+        'n_campaigns': int(sizes.size),
+        'largest_campaign': int(sizes.max()) if sizes.size else 0,
+        'median_campaign_size': float(sizes.median()) if sizes.size else 0.0,
+        'observed_median_delay_days': float(delays.median()) if len(delays) else 0.0,
         # Truncation pulls the realised mean below nominal, so record what
         # actually happened rather than only what was configured.
-        "observed_mean_delay_days": float(delays.mean()) if len(delays) else 0.0,
+        'observed_mean_delay_days': float(delays.mean()) if len(delays) else 0.0,
     }
 
 
 def _describe_source(source) -> dict:
     """Flatten a Source into card fields, whatever its concrete type."""
-    described = asdict(source) if is_dataclass(source) else {"repr": repr(source)}
-    described["type"] = type(source).__name__
-    described["url"] = getattr(source, "url", None)
+    described = asdict(source) if is_dataclass(source) else {'repr': repr(source)}
+    described['type'] = type(source).__name__
+    described['url'] = getattr(source, 'url', None)
     return described
 
 
@@ -206,10 +206,10 @@ def _validate_auxiliary_keys(aux: dict[str, pd.DataFrame]) -> None:
     atomic swap and its rollback.
     """
     for key in aux:
-        if not key or key != Path(key).name or key in (".", ".."):
+        if not key or key != Path(key).name or key in ('.', '..'):
             raise ValueError(
-                f"auxiliary frame key {key!r} is not a valid filename; keys must not "
-                "contain path separators or refer to parent directories"
+                f'auxiliary frame key {key!r} is not a valid filename; keys must not '
+                'contain path separators or refer to parent directories'
             )
 
 
@@ -226,18 +226,18 @@ def _write_atomically(
     """
     _validate_auxiliary_keys(aux or {})
     dest.parent.mkdir(parents=True, exist_ok=True)
-    staging = dest.parent / f"{dest.name}.tmp{os.getpid()}"
-    previous = dest.parent / f"{dest.name}.old{os.getpid()}"
+    staging = dest.parent / f'{dest.name}.tmp{os.getpid()}'
+    previous = dest.parent / f'{dest.name}.old{os.getpid()}'
     for path in (staging, previous):
         if path.exists():
             shutil.rmtree(path)
     staging.mkdir()
 
     try:
-        df.to_parquet(staging / "data.parquet", index=False)
+        df.to_parquet(staging / 'data.parquet', index=False)
         for key, frame in (aux or {}).items():
-            frame.to_parquet(staging / f"{key}.parquet", index=False)
-        (staging / "dataset_card.json").write_text(json.dumps(card, indent=2, default=str) + "\n")
+            frame.to_parquet(staging / f'{key}.parquet', index=False)
+        (staging / 'dataset_card.json').write_text(json.dumps(card, indent=2, default=str) + '\n')
 
         try:
             os.rename(dest, previous)

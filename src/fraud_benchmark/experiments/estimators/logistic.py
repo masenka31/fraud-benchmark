@@ -40,10 +40,10 @@ def fit_and_score(prepared: Prepared, seed: int) -> dict:
 
     train = prepared.x[prepared.train_rows]
     mean = np.nanmean(train, axis=0)
-    mean = np.where(np.isfinite(mean), mean, 0.0).astype("float32")
+    mean = np.where(np.isfinite(mean), mean, 0.0).astype('float32')
     std = np.nanstd(train, axis=0)
     # A constant column has no spread; dividing by 1 leaves it at 0.
-    std = np.where(np.isfinite(std) & (std > 1e-6), std, 1.0).astype("float32")
+    std = np.where(np.isfinite(std) & (std > 1e-6), std, 1.0).astype('float32')
 
     def matrix(rows: np.ndarray) -> np.ndarray:
         block = prepared.x[rows]
@@ -56,13 +56,13 @@ def fit_and_score(prepared: Prepared, seed: int) -> dict:
     threshold = best_f1_threshold(prepared.y_true[prepared.val_rows], val_scores)
 
     return {
-        "seed": seed,
-        "fit_seconds": round(time.monotonic() - started, 1),
-        "deterministic": True,
-        "n_iterations": int(np.max(model.n_iter_)),
-        "converged": bool(np.max(model.n_iter_) < model.max_iter),
-        "scores": {
-            "val": score(prepared.y_true[prepared.val_rows], val_scores, threshold),
-            "test": score(prepared.y_true[prepared.test_rows], test_scores, threshold),
+        'seed': seed,
+        'fit_seconds': round(time.monotonic() - started, 1),
+        'deterministic': True,
+        'n_iterations': int(np.max(model.n_iter_)),
+        'converged': bool(np.max(model.n_iter_) < model.max_iter),
+        'scores': {
+            'val': score(prepared.y_true[prepared.val_rows], val_scores, threshold),
+            'test': score(prepared.y_true[prepared.test_rows], test_scores, threshold),
         },
     }

@@ -16,11 +16,11 @@ from sklearn.metrics import precision_recall_curve
 def score(y_true: np.ndarray, y_score: np.ndarray, threshold: float) -> dict:
     """Average precision, plus precision/recall/F1 at `threshold`."""
     y_true = np.asarray(y_true).astype(int)
-    y_score = np.asarray(y_score, dtype="float64")
+    y_score = np.asarray(y_score, dtype='float64')
     n_positive = int(y_true.sum())
 
     if n_positive == 0:
-        ap = float("nan")
+        ap = float('nan')
     else:
         ap = float(average_precision_score(y_true, y_score))
 
@@ -33,13 +33,13 @@ def score(y_true: np.ndarray, y_score: np.ndarray, threshold: float) -> dict:
     f1 = 2 * precision * recall / (precision + recall) if precision + recall else 0.0
 
     return {
-        "average_precision": ap,
-        "precision": precision,
-        "recall": recall,
-        "f1": f1,
-        "threshold": float(threshold),
-        "n_rows": int(len(y_true)),
-        "n_positive": n_positive,
+        'average_precision': ap,
+        'precision': precision,
+        'recall': recall,
+        'f1': f1,
+        'threshold': float(threshold),
+        'n_rows': int(len(y_true)),
+        'n_positive': n_positive,
     }
 
 

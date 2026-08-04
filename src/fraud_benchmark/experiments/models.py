@@ -23,18 +23,18 @@ TRIVIAL_RULES: dict[str, tuple[str, str]] = {
     # Not a baseline a train-only model could reach: train holds zero Italy
     # frauds, so this rule imports knowledge from outside the training data. It
     # bounds what the labels encode, and is reported as a ceiling, not a floor.
-    "ibm_ccf": ("artifact_merchant_state", "Italy"),
+    'ibm_ccf': ('artifact_merchant_state', 'Italy'),
 }
 
 XGB_PARAMS = {
-    "n_estimators": 300,
-    "max_depth": 6,
-    "learning_rate": 0.1,
-    "subsample": 0.8,
-    "colsample_bytree": 0.8,
-    "tree_method": "hist",
-    "n_jobs": 4,
-    "eval_metric": "aucpr",
+    'n_estimators': 300,
+    'max_depth': 6,
+    'learning_rate': 0.1,
+    'subsample': 0.8,
+    'colsample_bytree': 0.8,
+    'tree_method': 'hist',
+    'n_jobs': 4,
+    'eval_metric': 'aucpr',
 }
 
 
@@ -44,7 +44,7 @@ def fit_logistic(x: pd.DataFrame, y: np.ndarray) -> LogisticRegression:
     No n_jobs: lbfgs ignores it for a binary problem, and sklearn 1.9 deprecates
     passing it at all.
     """
-    model = LogisticRegression(max_iter=1000, class_weight="balanced", solver="lbfgs")
+    model = LogisticRegression(max_iter=1000, class_weight='balanced', solver='lbfgs')
     model.fit(x, y)
     return model
 
@@ -72,5 +72,5 @@ def trivial_rule_scores(df: pd.DataFrame, dataset: str) -> np.ndarray | None:
     # IBM CCF's Merchant State is null on every online transaction. A null is
     # not Italy, so False is the right reading -- without this the conversion
     # raises on NAType and takes the whole cell down before a single fit.
-    matches = (df[column].astype("string") == value).fillna(False)
-    return matches.to_numpy().astype("float64")
+    matches = (df[column].astype('string') == value).fillna(False)
+    return matches.to_numpy().astype('float64')

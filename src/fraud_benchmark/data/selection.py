@@ -44,16 +44,16 @@ def add_selection_arguments(parser, verb: str, *, positional: bool = False) -> N
     so no stage can drift from another about what they mean.
     """
     if positional:
-        parser.add_argument("dataset", nargs="?", help="dataset name")
+        parser.add_argument('dataset', nargs='?', help='dataset name')
     else:
-        parser.add_argument("--dataset", help="dataset name")
-    parser.add_argument("--all", action="store_true", help=f"{verb} every dataset")
-    parser.add_argument("--config", help="path to a config file")
-    parser.add_argument("--force", action="store_true", help="re-download even if raw files exist")
+        parser.add_argument('--dataset', help='dataset name')
+    parser.add_argument('--all', action='store_true', help=f'{verb} every dataset')
+    parser.add_argument('--config', help='path to a config file')
+    parser.add_argument('--force', action='store_true', help='re-download even if raw files exist')
     parser.add_argument(
-        "--exclude-noncommercial",
-        action="store_true",
-        help="skip datasets whose licence forbids commercial use",
+        '--exclude-noncommercial',
+        action='store_true',
+        help='skip datasets whose licence forbids commercial use',
     )
 
 
@@ -64,14 +64,14 @@ def require_one_selection(parser, args) -> None:
     optional positional inside such a group unreliably.
     """
     if bool(args.dataset) == bool(args.all):
-        parser.error("give exactly one of: a dataset name, or --all")
+        parser.error('give exactly one of: a dataset name, or --all')
 
 
 def run_over(
     names: Iterable[str],
     action: Callable[[str], Path | str],
     *,
-    verb: str = "wrote",
+    verb: str = 'wrote',
     exclude_noncommercial: bool = False,
 ) -> int:
     """Run `action` per dataset, reporting each. Returns a process exit code.
@@ -92,19 +92,19 @@ def run_over(
             return 1
 
         if exclude_noncommercial and not adapter.commercial_use:
-            print(f"{name}: skipped, licence forbids commercial use ({adapter.data_license})")
+            print(f'{name}: skipped, licence forbids commercial use ({adapter.data_license})')
             continue
 
         try:
             produced = action(name)
         except STAGE_ERRORS as exc:
             # Keep going: one unavailable dataset must not block the rest.
-            print(f"{name}: FAILED {exc}", file=sys.stderr)
+            print(f'{name}: FAILED {exc}', file=sys.stderr)
             failures.append(name)
             continue
-        print(f"{name}: {verb} {produced}")
+        print(f'{name}: {verb} {produced}')
 
     if failures:
-        print(f"\n{len(failures)} of {len(names)} failed: {', '.join(failures)}", file=sys.stderr)
+        print(f'\n{len(failures)} of {len(names)} failed: {", ".join(failures)}', file=sys.stderr)
         return 1
     return 0

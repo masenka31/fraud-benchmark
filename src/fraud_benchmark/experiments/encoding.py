@@ -12,8 +12,8 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-UNSEEN = "__unseen__"
-_NULL = "__null__"
+UNSEEN = '__unseen__'
+_NULL = '__null__'
 
 #: Vocabulary cap for `CappedOrdinalEncoder`: keep levels up to this share of
 #: cumulative train frequency, and at most this many.
@@ -43,9 +43,9 @@ class CappedOrdinalEncoder:
         self.max_levels = max_levels
         self.vocabularies_: dict[str, list[str]] = {}
 
-    def fit(self, train: pd.DataFrame, columns: list[str]) -> "CappedOrdinalEncoder":
+    def fit(self, train: pd.DataFrame, columns: list[str]) -> 'CappedOrdinalEncoder':
         for column in columns:
-            values = train[column].astype("string").fillna(_NULL)
+            values = train[column].astype('string').fillna(_NULL)
             counts = values.value_counts(normalize=True)
             # shift(1) so the level that crosses the threshold is itself kept:
             # the test is on the coverage *before* adding it.
@@ -61,8 +61,8 @@ class CappedOrdinalEncoder:
         """Codes for one column. The rare bucket is the last code, never a real level."""
         vocabulary = self.vocabularies_[column]
         lookup = {value: index for index, value in enumerate(vocabulary)}
-        coded = values.astype("string").fillna(_NULL).map(lookup)
-        return coded.fillna(len(vocabulary)).to_numpy(dtype="int32")
+        coded = values.astype('string').fillna(_NULL).map(lookup)
+        return coded.fillna(len(vocabulary)).to_numpy(dtype='int32')
 
 
 class Encoder:
@@ -81,11 +81,11 @@ class Encoder:
         categorical: list[str] | None = None,
         numeric: list[str] | None = None,
         scale: bool = False,
-    ) -> "Encoder":
+    ) -> 'Encoder':
         self.scale_ = scale
         self.numeric_ = list(numeric or [])
         for col in categorical or []:
-            values = train[col].astype("string").fillna(_NULL)
+            values = train[col].astype('string').fillna(_NULL)
             # UNSEEN last, so its code cannot collide with a real category.
             self.categories_[col] = sorted(set(values.tolist())) + [UNSEEN]
         if scale:
@@ -96,7 +96,7 @@ class Encoder:
             # non-converged linear reference is worse than none.
             encoded = self._encode(train)
             for col in encoded.columns:
-                values = pd.to_numeric(encoded[col], errors="coerce")
+                values = pd.to_numeric(encoded[col], errors='coerce')
                 mean = float(values.mean())
                 std = float(values.std())
                 self.mean_[col] = 0.0 if not np.isfinite(mean) else mean
@@ -113,14 +113,14 @@ class Encoder:
         for col, categories in self.categories_.items():
             lookup = {c: i for i, c in enumerate(categories)}
             unseen = lookup[UNSEEN]
-            values = out[col].astype("string").fillna(_NULL)
-            out[col] = values.map(lookup).fillna(unseen).astype("int32")
+            values = out[col].astype('string').fillna(_NULL)
+            out[col] = values.map(lookup).fillna(unseen).astype('int32')
         return out
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         out = self._encode(df)
         if self.scale_:
             for col in self.mean_:
-                values = pd.to_numeric(out[col], errors="coerce").fillna(self.mean_[col])
+                values = pd.to_numeric(out[col], errors='coerce').fillna(self.mean_[col])
                 out[col] = (values - self.mean_[col]) / self.std_[col]
         return out

@@ -80,7 +80,7 @@ from fraud_benchmark.experiments.features.util import write_features
 #: The datasets with a module here, in descending build cost. `scripts/features.py
 #: --all` walks this, and `experiments.slurm` sizes one job per entry -- so a fourth
 #: dataset becomes buildable by adding its module and its name, in one place each.
-DATASETS = ("ibm_ccf", "saml_d", "sparkov")
+DATASETS = ('ibm_ccf', 'saml_d', 'sparkov')
 
 
 def build(dataset: str, argv: list[str] | None = None) -> Path:
@@ -91,20 +91,20 @@ def build(dataset: str, argv: list[str] | None = None) -> Path:
     """
     if dataset not in DATASETS:
         raise ValueError(
-            f"{dataset!r} has no feature module; the experimental datasets are: "
-            f"{', '.join(DATASETS)}"
+            f'{dataset!r} has no feature module; the experimental datasets are: '
+            f'{", ".join(DATASETS)}'
         )
-    module = import_module(f"fraud_benchmark.experiments.features.{dataset}")
+    module = import_module(f'fraud_benchmark.experiments.features.{dataset}')
     return module.main(argv)
 
 
 __all__ = [
-    "DATASETS",
-    "FEATURE_DIR",
-    "KEY_COLUMNS",
-    "ARTIFACT_PREFIX",
-    "artifact_columns",
-    "build",
-    "feature_columns",
-    "write_features",
+    'DATASETS',
+    'FEATURE_DIR',
+    'KEY_COLUMNS',
+    'ARTIFACT_PREFIX',
+    'artifact_columns',
+    'build',
+    'feature_columns',
+    'write_features',
 ]

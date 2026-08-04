@@ -16,10 +16,10 @@ from fraud_benchmark.data.adapters.base import require_start_date
 from fraud_benchmark.data.adapters.files import require_file
 from fraud_benchmark.data.sources import KaggleCompetition
 
-TRAIN_TRANSACTION = "train_transaction.csv"
-TRAIN_IDENTITY = "train_identity.csv"
-TEST_TRANSACTION = "test_transaction.csv"
-TEST_IDENTITY = "test_identity.csv"
+TRAIN_TRANSACTION = 'train_transaction.csv'
+TRAIN_IDENTITY = 'train_identity.csv'
+TEST_TRANSACTION = 'test_transaction.csv'
+TEST_IDENTITY = 'test_identity.csv'
 
 SECONDS_PER_DAY = 86_400
 
@@ -28,7 +28,7 @@ def _load_with_identity(raw_dir: Path, transactions: str, identity: str) -> pd.D
     """Read a transaction file and left-join its identity file on TransactionID."""
     df = pd.read_csv(require_file(raw_dir, transactions))
     ids = pd.read_csv(require_file(raw_dir, identity))
-    return df.merge(ids, how="left", on="TransactionID")
+    return df.merge(ids, how='left', on='TransactionID')
 
 
 def build_uid(df: pd.DataFrame) -> pd.Series:
@@ -37,61 +37,61 @@ def build_uid(df: pd.DataFrame) -> pd.Series:
     This is the community 'uid' heuristic; IEEE-CIS ships no card identifier. Rows
     missing addr1 (~11%) or D1 fall back to a per-row unique id.
     """
-    day = df["TransactionDT"] / SECONDS_PER_DAY
-    account_start = (day - df["D1"]).round()
-    uid = df["card1"].astype(str) + "_" + df["addr1"].astype(str) + "_" + account_start.astype(str)
+    day = df['TransactionDT'] / SECONDS_PER_DAY
+    account_start = (day - df['D1']).round()
+    uid = df['card1'].astype(str) + '_' + df['addr1'].astype(str) + '_' + account_start.astype(str)
     # Falling back per row, rather than letting the components be stringified: a
     # shared "nan" key would fabricate campaigns out of unrelated transactions, and
     # under pandas 3 the propagated <NA> would fail schema validation anyway.
-    incomplete = df["addr1"].isna() | df["D1"].isna()
-    return uid.where(~incomplete, "txn_" + df["TransactionID"].astype(str))
+    incomplete = df['addr1'].isna() | df['D1'].isna()
+    return uid.where(~incomplete, 'txn_' + df['TransactionID'].astype(str))
 
 
 @register
 class IeeeCisAdapter(DatasetAdapter):
-    name = "ieee_cis"
-    source = KaggleCompetition("ieee-fraud-detection")
-    source_label_column = "isFraud"
-    data_license = "Competition rules (research use)"
+    name = 'ieee_cis'
+    source = KaggleCompetition('ieee-fraud-detection')
+    source_label_column = 'isFraud'
+    data_license = 'Competition rules (research use)'
     commercial_use = False
     caveats = (
-        "The only non-synthetic dataset here: real Vesta e-commerce transactions, "
-        "heavily anonymised.",
-        "entity_id is a DERIVED pseudo-identifier, not a real card id. It combines "
-        "card1, addr1 and a D1-derived account start day — the well-known community "
+        'The only non-synthetic dataset here: real Vesta e-commerce transactions, '
+        'heavily anonymised.',
+        'entity_id is a DERIVED pseudo-identifier, not a real card id. It combines '
+        'card1, addr1 and a D1-derived account start day — the well-known community '
         "'uid' heuristic. Rows missing addr1 or D1 (~11%) get a per-row unique id "
-        "rather than being fused into a shared bucket.",
-        "TransactionDT is a seconds offset with no stated origin, so event_time is "
-        "anchored to a configured start_date and absolute dates carry no meaning.",
-        "The competition test set has no labels and is therefore excluded from the "
-        "benchmark; it is written separately as unlabelled_test.parquet.",
-        "Identity data covers only about a quarter of transactions; the rest are null.",
-        "Use is governed by the Kaggle competition rules, which must be accepted before download.",
+        'rather than being fused into a shared bucket.',
+        'TransactionDT is a seconds offset with no stated origin, so event_time is '
+        'anchored to a configured start_date and absolute dates carry no meaning.',
+        'The competition test set has no labels and is therefore excluded from the '
+        'benchmark; it is written separately as unlabelled_test.parquet.',
+        'Identity data covers only about a quarter of transactions; the rest are null.',
+        'Use is governed by the Kaggle competition rules, which must be accepted before download.',
     )
 
     def to_canonical(self, raw_dir: Path, options: dict[str, Any]) -> pd.DataFrame:
-        anchor = require_start_date(options, "ieee_cis", "TransactionDT")
+        anchor = require_start_date(options, 'ieee_cis', 'TransactionDT')
         df = _load_with_identity(raw_dir, TRAIN_TRANSACTION, TRAIN_IDENTITY)
 
-        event_time = anchor + pd.to_timedelta(df["TransactionDT"], unit="s")
-        df.insert(0, "event_time", event_time)
-        df.insert(1, "entity_id", build_uid(df).astype("string"))
-        df.insert(2, "amount", df["TransactionAmt"].astype("float64"))
-        df.insert(3, "is_fraud", df["isFraud"].astype(bool))
+        event_time = anchor + pd.to_timedelta(df['TransactionDT'], unit='s')
+        df.insert(0, 'event_time', event_time)
+        df.insert(1, 'entity_id', build_uid(df).astype('string'))
+        df.insert(2, 'amount', df['TransactionAmt'].astype('float64'))
+        df.insert(3, 'is_fraud', df['isFraud'].astype(bool))
         return df
 
     def auxiliary_frames(self, raw_dir: Path, options: dict[str, Any]) -> dict[str, pd.DataFrame]:
         """The unlabelled competition test set, timestamped and keyed like train."""
-        anchor = require_start_date(options, "ieee_cis", "TransactionDT")
+        anchor = require_start_date(options, 'ieee_cis', 'TransactionDT')
         test = _load_with_identity(raw_dir, TEST_TRANSACTION, TEST_IDENTITY)
-        test.insert(0, "event_time", anchor + pd.to_timedelta(test["TransactionDT"], unit="s"))
-        test.insert(1, "entity_id", build_uid(test).astype("string"))
-        return {"unlabelled_test": test}
+        test.insert(0, 'event_time', anchor + pd.to_timedelta(test['TransactionDT'], unit='s'))
+        test.insert(1, 'entity_id', build_uid(test).astype('string'))
+        return {'unlabelled_test': test}
 
     def column_mapping(self, options: dict[str, Any]) -> dict[str, str]:
         return {
-            "event_time": f"TransactionDT (seconds since {options.get('start_date')})",
-            "entity_id": "derived uid: card1 + addr1 + (day - D1)",
-            "amount": "TransactionAmt",
-            "is_fraud": "isFraud",
+            'event_time': f'TransactionDT (seconds since {options.get("start_date")})',
+            'entity_id': 'derived uid: card1 + addr1 + (day - D1)',
+            'amount': 'TransactionAmt',
+            'is_fraud': 'isFraud',
         }

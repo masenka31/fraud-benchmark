@@ -18,35 +18,35 @@ from fraud_benchmark.data.adapters.base import register
 from fraud_benchmark.data.adapters.files import require_split_zip_member
 from fraud_benchmark.data.sources import GitRepo
 
-ARCHIVE_PARTS = "amaretto_dataset_anon.zip.*"
-ARCHIVE_MEMBER = "amaretto_dataset_anon.csv"
+ARCHIVE_PARTS = 'amaretto_dataset_anon.zip.*'
+ARCHIVE_MEMBER = 'amaretto_dataset_anon.csv'
 
 #: Where the extracted CSV is cached, relative to the raw directory. Kept inside
 #: data/raw so it is gitignored and survives between runs.
-EXTRACT_DIR = "_extracted"
+EXTRACT_DIR = '_extracted'
 
 
 @register
 class AmarettoAdapter(DatasetAdapter):
-    name = "amaretto"
-    source = GitRepo("https://github.com/necst/amaretto_dataset")
-    source_label_column = "Anomaly"
+    name = 'amaretto'
+    source = GitRepo('https://github.com/necst/amaretto_dataset')
+    source_label_column = 'Anomaly'
     # Anomaly IS the label source and is 0 plus five FATF classes, so dropping it
     # would throw away the typology. Listed here, which keeps it in the frame and
     # out of every model.
-    label_descriptive_columns = ("Anomaly",)
-    data_license = "MIT"
+    label_descriptive_columns = ('Anomaly',)
+    data_license = 'MIT'
     commercial_use = True
     caveats = (
-        "Capital-market trading data, not payments: rows are securities buy/sell "
+        'Capital-market trading data, not payments: rows are securities buy/sell '
         "orders, so 'amount' is a normalised trade value rather than a transfer.",
-        "The label column Anomaly is NOT binary. It is 0 plus five classes matching "
-        "the FATF typologies described upstream; is_fraud is Anomaly > 0 and the "
-        "class itself is retained.",
+        'The label column Anomaly is NOT binary. It is 0 plus five classes matching '
+        'the FATF typologies described upstream; is_fraud is Anomaly > 0 and the '
+        'class itself is retained.',
         "Originator_ID is the constant '_XID' in every row and carries no information.",
-        "Distributed as a 34-part split zip inside a git repository; the adapter "
-        "reassembles and extracts it once, caching the result under data/raw.",
-        "Fully synthetic, built from aggregate real market parameters.",
+        'Distributed as a 34-part split zip inside a git repository; the adapter '
+        'reassembles and extracts it once, caching the result under data/raw.',
+        'Fully synthetic, built from aggregate real market parameters.',
     )
 
     def to_canonical(self, raw_dir: Path, options: dict[str, Any]) -> pd.DataFrame:
@@ -55,16 +55,16 @@ class AmarettoAdapter(DatasetAdapter):
         )
         df = pd.read_csv(csv_path)
 
-        df.insert(0, "event_time", pd.to_datetime(df["EntryDate"]))
-        df.insert(1, "entity_id", df["Originator"].astype("string"))
-        df.insert(2, "amount", df["Normalized Amount"].astype("float64"))
-        df.insert(3, "is_fraud", df["Anomaly"].gt(0))
+        df.insert(0, 'event_time', pd.to_datetime(df['EntryDate']))
+        df.insert(1, 'entity_id', df['Originator'].astype('string'))
+        df.insert(2, 'amount', df['Normalized Amount'].astype('float64'))
+        df.insert(3, 'is_fraud', df['Anomaly'].gt(0))
         return df
 
     def column_mapping(self, options: dict[str, Any]) -> dict[str, str]:
         return {
-            "event_time": "EntryDate",
-            "entity_id": "Originator",
-            "amount": "Normalized Amount",
-            "is_fraud": "Anomaly > 0",
+            'event_time': 'EntryDate',
+            'entity_id': 'Originator',
+            'amount': 'Normalized Amount',
+            'is_fraud': 'Anomaly > 0',
         }

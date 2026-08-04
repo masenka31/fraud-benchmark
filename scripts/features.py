@@ -31,22 +31,22 @@ from fraud_benchmark.experiments.features import build
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--dataset", choices=DATASETS, help="dataset name")
-    parser.add_argument("--all", action="store_true", help="build every experimental dataset")
-    parser.add_argument("--processed-dir", type=Path, default=None)
-    parser.add_argument("--features-dir", type=Path, default=None)
+    parser.add_argument('--dataset', choices=DATASETS, help='dataset name')
+    parser.add_argument('--all', action='store_true', help='build every experimental dataset')
+    parser.add_argument('--processed-dir', type=Path, default=None)
+    parser.add_argument('--features-dir', type=Path, default=None)
     args = parser.parse_args(argv)
 
     if bool(args.dataset) == bool(args.all):
-        parser.error("give exactly one of: --dataset, or --all")
+        parser.error('give exactly one of: --dataset, or --all')
 
     # Forwarded rather than re-declared, so a module stays the authority on its own
     # defaults.
     forwarded: list[str] = []
     if args.processed_dir is not None:
-        forwarded += ["--processed-dir", str(args.processed_dir)]
+        forwarded += ['--processed-dir', str(args.processed_dir)]
     if args.features_dir is not None:
-        forwarded += ["--features-dir", str(args.features_dir)]
+        forwarded += ['--features-dir', str(args.features_dir)]
 
     names = list(DATASETS) if args.all else [args.dataset]
     failures: list[str] = []
@@ -56,14 +56,14 @@ def main(argv: list[str] | None = None) -> int:
         except STAGE_ERRORS as exc:
             # Same rule the data stages follow: one dataset that has not been prepared
             # must not stop the ones that have.
-            print(f"{name}: FAILED {exc}", file=sys.stderr)
+            print(f'{name}: FAILED {exc}', file=sys.stderr)
             failures.append(name)
 
     if failures:
-        print(f"\n{len(failures)} of {len(names)} failed: {', '.join(failures)}", file=sys.stderr)
+        print(f'\n{len(failures)} of {len(names)} failed: {", ".join(failures)}', file=sys.stderr)
         return 1
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(main())

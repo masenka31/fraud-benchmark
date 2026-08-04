@@ -14,12 +14,12 @@ import warnings
 import numpy as np
 import pandas as pd
 
-SPLIT_NAMES = ("train", "val", "test")
+SPLIT_NAMES = ('train', 'val', 'test')
 
 
 def _cumulative_fraction(df: pd.DataFrame) -> pd.Series:
     """Fraction of rows at or before each distinct timestamp, indexed by timestamp."""
-    counts = df["event_time"].value_counts().sort_index()
+    counts = df['event_time'].value_counts().sort_index()
     return counts.cumsum() / len(df)
 
 
@@ -29,7 +29,7 @@ def _cut_at(cumulative: pd.Series, target: float) -> pd.Timestamp:
     Rounding up rather than down keeps a split non-empty even when one tied block is
     larger than its target share.
     """
-    index = int(np.searchsorted(cumulative.to_numpy(), target, side="left"))
+    index = int(np.searchsorted(cumulative.to_numpy(), target, side='left'))
     index = min(index, len(cumulative) - 1)
     return cumulative.index[index]
 
@@ -37,26 +37,26 @@ def _cut_at(cumulative: pd.Series, target: float) -> pd.Timestamp:
 def _validate_ratios(ratios: tuple[float, float, float]) -> None:
     """Require three positive ratios summing to 1."""
     if len(ratios) != 3:
-        raise ValueError(f"expected three ratios, got {len(ratios)}")
+        raise ValueError(f'expected three ratios, got {len(ratios)}')
     if not math.isclose(sum(ratios), 1.0, abs_tol=1e-9):
-        raise ValueError(f"ratios must sum to 1, got {sum(ratios)}")
+        raise ValueError(f'ratios must sum to 1, got {sum(ratios)}')
     if any(r <= 0 for r in ratios):
-        raise ValueError(f"ratios must all be positive, got {ratios}")
+        raise ValueError(f'ratios must all be positive, got {ratios}')
 
 
 def _validate_frame(df: pd.DataFrame) -> None:
     """Require a non-empty frame with an `event_time` column and no missing times."""
-    if "event_time" not in df.columns:
+    if 'event_time' not in df.columns:
         raise ValueError("cannot split: frame has no 'event_time' column")
     if len(df) == 0:
-        raise ValueError("cannot split an empty frame")
-    missing = int(df["event_time"].isna().sum())
+        raise ValueError('cannot split an empty frame')
+    missing = int(df['event_time'].isna().sum())
     if missing:
         # NaT compares False against every boundary, so it would land in the
         # last split regardless of when it belongs.
         raise ValueError(
             f"cannot split: 'event_time' has {missing} missing value(s), which would "
-            "be silently assigned to the last split"
+            'be silently assigned to the last split'
         )
 
 
@@ -68,9 +68,9 @@ def _warn_if_any_split_is_empty(
     empty = [name for name in SPLIT_NAMES if int(counts.get(name, 0)) == 0]
     if empty:
         warnings.warn(
-            f"empty split(s): {', '.join(empty)}. Requested ratios {ratios} could not be "
-            f"honoured because the data has only {n_distinct} distinct timestamp(s). "
-            "Splits are cut on timestamp values, so heavily tied data limits granularity.",
+            f'empty split(s): {", ".join(empty)}. Requested ratios {ratios} could not be '
+            f'honoured because the data has only {n_distinct} distinct timestamp(s). '
+            'Splits are cut on timestamp values, so heavily tied data limits granularity.',
             UserWarning,
             stacklevel=3,
         )
@@ -84,8 +84,8 @@ def split_boundaries(
     _validate_frame(df)
     cumulative = _cumulative_fraction(df)
     return {
-        "train_end": _cut_at(cumulative, ratios[0]),
-        "val_end": _cut_at(cumulative, ratios[0] + ratios[1]),
+        'train_end': _cut_at(cumulative, ratios[0]),
+        'val_end': _cut_at(cumulative, ratios[0] + ratios[1]),
     }
 
 
@@ -95,7 +95,7 @@ def boundary_at(df: pd.DataFrame, fraction: float) -> pd.Timestamp:
     `fraction` must be strictly between 0 and 1.
     """
     if not 0 < fraction < 1:
-        raise ValueError(f"fraction must be strictly between 0 and 1, got {fraction}")
+        raise ValueError(f'fraction must be strictly between 0 and 1, got {fraction}')
     _validate_frame(df)
     return _cut_at(_cumulative_fraction(df), fraction)
 
@@ -106,13 +106,13 @@ def assign_splits(df: pd.DataFrame, ratios: tuple[float, float, float]) -> pd.Se
     Warns if tied timestamps made any split empty.
     """
     bounds = split_boundaries(df, ratios)
-    times = df["event_time"]
+    times = df['event_time']
 
     labels = np.where(
-        times <= bounds["train_end"],
-        "train",
-        np.where(times <= bounds["val_end"], "val", "test"),
+        times <= bounds['train_end'],
+        'train',
+        np.where(times <= bounds['val_end'], 'val', 'test'),
     )
-    result = pd.Series(pd.Categorical(labels, categories=SPLIT_NAMES), index=df.index, name="split")
-    _warn_if_any_split_is_empty(result, ratios, df["event_time"].nunique())
+    result = pd.Series(pd.Categorical(labels, categories=SPLIT_NAMES), index=df.index, name='split')
+    _warn_if_any_split_is_empty(result, ratios, df['event_time'].nunique())
     return result
