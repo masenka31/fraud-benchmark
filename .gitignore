@@ -19,3 +19,9 @@ access_token
 
 # Agent working notes: specs and implementation plans, kept local.
 docs/superpowers/
+
+# Local research material that must not be published. This includes private data,
+# exploratory diagnostics, intermediate predictions, and manuscript working files.
+.private/
+AGENTS.md
+CLAUDE.md
