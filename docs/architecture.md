@@ -85,28 +85,23 @@ Sparkov's three label regimes — no delay, delay, slow delay — are a choice o
 not of file: the parquet carries `reported_at` and `reported_at_slow`, and ignoring both
 is the no-delay regime.
 
-### Running an experiment — `experiment.py`, `grid.py`, `estimators/`
+### Running the paper protocols — `experiment.py`, `splits.py`, `causal_encoding.py`
 
 Where the split is chosen and everything is fitted. Fitting inside a feature build would
 tie the parquet to one split, and two are in use.
 
 | module | does |
 |---|---|
-| `experiment.py` | the pipeline: parquet → artifact group → history window → label regime → split → design matrix. Everything a comparison must agree on |
-| `grid.py` | which cells the study contains, read by the job generator *and* the summary so neither can invent one |
-| `estimators/` | one module per model — `xgboost.py`, `mlp.py`, `logistic.py` — behind one interface, `(Prepared, seed) -> record` |
-| `history.py` | per-entity lagged copies of a narrow column subset, concatenated onto the target row |
-| `splits.py` | `standard_split` and `italy_holdout_split` on an already-prepared frame |
+| `experiment.py` | paper-protocol preparation: parquet → artifact exclusion → label regime → split → train-fitted design matrix |
+| `splits.py` | temporal, transaction-IID, customer-IID, and shared pre-Italy split assignment on an already-prepared frame |
+| `causal_encoding.py` | chronological label-rate features that use training labels only and score before updating |
 | `encoding.py` | categorical vocabularies and scaling, fitted on train only |
-| `models.py` | the shared fit primitives and the trivial-rule reference |
+| `models.py` | the fixed XGBoost parameters and fit primitive shared by both protocols |
 | `metrics.py` | average precision, plus precision/recall/F1 at a validation-chosen threshold |
 | `columns.py` | what no model may ever see, whatever the experiment — the label part read from the adapter registry |
-| `summary.py` | `results/experiments/` → rows, deltas and the markdown table, including the σ rule that decides whether a delta was measured at all |
-| `slurm.py` | what each job asks the cluster for, and the dependency chaining that lets the study be submitted before any feature parquet exists |
 
-An estimator sees a matrix, labels and split indices, and none of the decisions above.
-That is the point of the boundary: a gap between two rows of a results table is
-attributable to the model, because nothing else could have differed.
+Each runner receives the same prepared matrix, labels, and split indices for every model
+seed. The protocol fixes every comparison axis except the one named by its table.
 
 ## 3. Runners — `scripts/`
 
@@ -114,18 +109,16 @@ attributable to the model, because nothing else could have differed.
 in the installed package, so nothing importable lives outside `src/` and a test never
 has to reach into `scripts/` to get at a decision.
 
-The four stages of the study are the first four rows, in order. Each takes `--dataset`
-or `--all`.
+The preparation stages are the first three rows, in order. Each takes `--dataset` or
+`--all`. The final two runners reproduce the public paper experiments.
 
 | script | over | does |
 |---|---|---|
 | `download.py` | `data.pipeline.download` | **1.** raw files → `data/raw/<name>/`, and stops |
 | `prepare.py` | `data.pipeline.prepare` | **2.** raw files → `data/processed/<name>/` on the shared schema |
 | `features.py` | `experiments.features` | **3.** a prepared dataset → `data/features/<name>.parquet` |
-| `run_experiment.py` | `experiments.experiment` | **4.** one experiment: a dataset, a model, and the four axes → one JSONL record |
-| `summarize.py` | `experiments.summary` | `results/experiments/` → terminal table, `results/experiments.md`, or JSON |
-| `slurm/generate.py` | `experiments.slurm` | every sbatch file → `scripts/slurm/jobs/`, plus `submit_all.sh` |
-| `figures/plot_experiments.py` | `experiments.summary` | the study's results, both themes |
+| `ibm_split_protocol.py` | `experiments` | pre-Italy temporal/IID comparison → three JSON records and one readable table |
+| `sparkov_delay_protocol.py` | `experiments` | synthetic training-label-delay comparison → JSONL records and one readable table |
 | `figures/plot_monthly_fraud.py` | — | IBM CCF's regime shift, from its feature parquet |
 | `figures/plot_dataset_caveats.py` | — | the three dataset caveats that are a shape rather than a number |
 
@@ -134,28 +127,22 @@ download|prepare` serves someone who wants prepared datasets, these scripts serv
 someone working on the study. Neither owns the behaviour — both call the same function
 in `data/pipeline.py` and take their `--all` semantics from `data/selection.py`, and
 `tests/test_scripts.py` asserts the identity of what each door calls rather than trusting
-the two to stay similar. Stage 4 has no console command on purpose: it needs the `dev`
-extras, so a subcommand for it would make `fraud-benchmark list` fail on a base install.
+the two to stay similar. Paper protocols have no console command: they need the `dev`
+extras, so adding them would make `fraud-benchmark list` fail on a base install.
 
-The three figure scripts share one palette, `fraud_benchmark.figures`, so the figures
-read as one system and a colour is defined once. All six outputs land in
-`results/figures/`, including the ones the dataset pages embed.
-
-`slurm/generate.py` emits **every** sbatch file, so `scripts/slurm/jobs/` can stay
-gitignored: three feature builds sized from measurement, plus one job per grid cell
-chained behind its dataset's build, so `submit_all.sh` runs the study from cold. Add a
-job by declaring it in `grid.py` or `slurm.py`'s feature table, never by hand-writing a
-file into that directory.
+The public figure scripts share one palette, `fraud_benchmark.figures`, so the figures
+read as one system and a colour is defined once. Outputs land in `results/figures/`.
 
 ## Results — `results/`
 
 | path | holds |
 |---|---|
-| `experiments/*.jsonl` | one file per grid cell, one JSON record per run. A shared file would race |
-| `experiments.md` | the summary table, regenerated by `scripts/summarize.py` |
+| `paper.md` | index of the two public paper experiments and their records |
+| `paper/*.json` | the three IBM pre-Italy split records |
+| `paper/sparkov_delay_*.json` | the three Sparkov training-label-delay records |
+| `ibm_split_protocol.md` | readable IBM paper table |
+| `sparkov_label_delay.md` | readable Sparkov paper table |
 | `figures/` | generated plots, light and dark per figure |
-| `archive/` | everything the retired pipeline measured, with a README on what produced each file. Not comparable to the above |
-| `logs/` | SLURM stdout and stderr, gitignored |
 
 ## Conventions worth knowing before changing anything
 

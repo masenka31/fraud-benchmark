@@ -36,8 +36,8 @@ recording provenance, counts, split strategy, delay parameters and caveats.
 raw files already there and skips it. Both take `--all`, and one unavailable dataset
 fails on its own without stopping the rest.
 
-Every stage is also a script under `scripts/`, which is the surface the study uses —
-see **[Running the four stages](#running-the-four-stages)** below.
+Every preparation stage is also a script under `scripts/`; the two paper experiments
+have dedicated reproducible runners described below.
 
 ## Datasets
 
@@ -118,49 +118,35 @@ than tuned. Every `reported_at` in this repository is synthetic; no public datas
 ships a real one. Full picture, including the two datasets whose spans cannot carry a
 realistic clock: **[`docs/label-delay.md`](docs/label-delay.md)**.
 
-## Beyond the pipeline
+## Paper experiments
 
 `src/fraud_benchmark/experiments/` holds everything that happens after a dataset is
 prepared, and reads the pipeline's output without ever writing to it.
 
-Three of the eight datasets are run experimentally — **IBM CCF**, **SAML-D** and
-**Sparkov**, the last under three label-delay regimes. Each has one module in
-`experiments/features/` that names every feature it produces and writes
-`data/features/<dataset>.parquet`; reading that one file is meant to be the whole answer
-to what its model sees. The encoding, model and metric stack sits alongside, and is where
-a split is chosen and anything is fitted.
-
-## Running the four stages
-
-Four stages, one script each. The first two are the same code the `fraud-benchmark`
-commands run — that CLI is for someone who wants prepared datasets, these scripts are
-for someone working on the study, and neither owns the behaviour.
+The public supplementary material contains two experiments: IBM CCF temporal versus IID
+evaluation over a shared pre-Italy population, and Sparkov under three synthetic
+training-label-delay regimes. Build the required inputs with the same download, prepare,
+and feature stages used by the dataset pipeline:
 
 ```bash
-python scripts/download.py --dataset sparkov     # 1. raw files    -> data/raw/
-python scripts/prepare.py  --dataset sparkov     # 2. shared schema, splits, reported_at
-python scripts/features.py --dataset sparkov     # 3. features     -> data/features/
-python scripts/run_experiment.py --dataset sparkov \
-    --model xgboost --history 10 --label-delay slow    # 4. one cell -> results/experiments/
+.venv/bin/python scripts/download.py --dataset sparkov
+.venv/bin/python scripts/prepare.py --dataset sparkov
+.venv/bin/python scripts/features.py --dataset sparkov
 ```
 
-Stages 1 and 2 take `--all` over all eight datasets; stage 3 takes `--all` over the
-three that have a feature module. Stage 4 is the additional one: it needs the `dev`
-extras, has no `fraud-benchmark` command, and is the only stage that fits a model.
+Then reproduce the paper tables:
 
 ```bash
-python scripts/summarize.py --write                  # -> results/experiments.md
-python scripts/figures/plot_experiments.py           # -> results/figures/
+.venv/bin/python scripts/ibm_split_protocol.py
+.venv/bin/python scripts/sparkov_delay_protocol.py
 ```
 
-An experiment picks a dataset, a model (`xgboost`, `mlp`, `logistic`), how many previous
-transactions to concatenate, and which labels *training* is allowed to see — `off`, `on`
-or `slow`, the last being Sparkov's harsher reporting regime. Validation and test always
-use true labels. `scripts/slurm/jobs/submit_all.sh` runs the whole 25-cell grid from
-cold.
+The runners write readable tables to `results/ibm_split_protocol.md` and
+`results/sparkov_label_delay.md`; [`results/paper.md`](results/paper.md) indexes the
+machine-readable records and states exactly which rows and regimes each experiment uses.
 
 See [`docs/architecture.md`](docs/architecture.md) for the layout,
-[`docs/experiments.md`](docs/experiments.md) for what each axis measures, and
+[`docs/experiments.md`](docs/experiments.md) for the complete protocols, and
 [`docs/README.md`](docs/README.md) for everything else.
 
 ## Tests

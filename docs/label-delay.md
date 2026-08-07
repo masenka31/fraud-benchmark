@@ -28,18 +28,28 @@ model training at that moment would get wrong.
 
 | dataset | domain | median | sigma | cap | train window | **censored** | campaigns | observed p50 |
 |---|---|---:|---:|---:|---:|---:|---:|---:|
+| `sparkov` | card | 7d | 1.0 | — | 487d | **2.2%** | 1,005 | 7.3d |
+| `sparkov_slow` | card, stress | 15d | 1.665 | 365d | 487d | **8.9%** | 1,005 | 13.9d |
 | `saml_d` | AML | 30d | 1.0 | — | 255d | **20.0%** | 7,887 | 29.6d |
+| `ieee_cis` | card | 7d | 1.0 | — | 140d | **7.1%** | 16,170 | 7.0d |
+
+### Other datasets
+
+The other datasets included in this repository also have synthetic label delay generated,
+but they are not used in the paper's paired Sparkov label-delay experiment.
+
+| dataset | domain | median | sigma | cap | train window | **censored** | campaigns | observed p50 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
 | `amaretto` | AML ⚠ | 7d | 1.0 | — | 65d | **17.5%** | 1,852 | 6.9d |
 | `paysim` | card ⚠ | 1d | 1.0 | — | 14d | **10.1%** | 8,213 | 1.0d |
-| `sparkov_slow` | card, stress | 15d | 1.665 | 365d | 487d | **8.9%** | 1,005 | 13.9d |
 | `banksim` | card | 7d | 1.0 | — | 147d | **8.1%** | 5,551 | 7.5d |
-| `ieee_cis` | card | 7d | 1.0 | — | 140d | **7.1%** | 16,170 | 7.0d |
-| `sparkov` | card | 7d | 1.0 | — | 487d | **2.2%** | 1,005 | 7.3d |
 | `ibm_ccf` | card | 7d | 1.0 | — | 9,629d | **0.0%** | 9,769 | 7.3d |
 
 Campaign gap is `1d` everywhere except `amaretto`, which uses `1h` — its anomalies
 have a 0.7-minute median inter-arrival, three orders of magnitude burstier than card
 fraud, and a 1-day gap would fuse them into a few huge episodes.
+
+### Config change
 
 To regenerate this table after a config change:
 

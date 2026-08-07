@@ -21,11 +21,11 @@ it. Everything else lives here.
 
 | doc | answers |
 |---|---|
-| [`architecture.md`](architecture.md) | Repository layout: the preparation stages and modules in `data/`, the per-dataset feature modules and the model stack in `experiments/`, what `scripts/` is for, where results go, and the conventions to respect before changing anything. |
+| [`architecture.md`](architecture.md) | Repository layout: dataset preparation, per-dataset feature modules, the two paper protocols, public scripts and results, and the conventions to respect before changing anything. |
 
 ## Findings
 
 | doc | answers |
 |---|---|
-| [`experiments.md`](experiments.md) | Two halves: the closed record of the retired IBM CCF experiments — every result with its seed spread, what closed the 0.041-vs-0.764 gap and what did not — and the current experimental surface, being the three feature parquets and the three axes chosen at fit time. |
-| [`../results/summary.md`](../results/summary.md) | The leakage ablation table. The grid that produced it has since been retired; the numbers stand as a record. |
+| [`experiments.md`](experiments.md) | Exact protocols for the paper's pre-Italy IBM split comparison and synthetic Sparkov label-delay comparison. |
+| [`../results/paper.md`](../results/paper.md) | Index of the two paper experiments, their runners, readable tables, and machine-readable records. |
