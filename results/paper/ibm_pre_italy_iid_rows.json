@@ -1,0 +1,85 @@
+{
+  "dataset": "ibm_ccf",
+  "population": "event_time < 2017-11-19T12:06:00",
+  "split": "pre_italy_iid_rows",
+  "label_delay": "off",
+  "artifacts": "drop",
+  "feature_semantics": "chronological; score before training-label update",
+  "engineered_features": [
+    "state_prior_rarity",
+    "state_not_seen_previously",
+    "foreign_state_rarity",
+    "causal_target_rate_artifact_merchant_state",
+    "causal_target_rate_artifact_merchant_city",
+    "causal_target_rate_artifact_merchant_name",
+    "causal_target_rate_artifact_mcc",
+    "causal_target_rate_artifact_error_type"
+  ],
+  "rows": {
+    "train": 16323199,
+    "validation": 2040400,
+    "test": 2040400
+  },
+  "seeds": [
+    {
+      "seed": 0,
+      "fit_seconds": 529.0,
+      "validation": {
+        "average_precision": 0.8751477213110932,
+        "roc_auc": 0.9988408918442365
+      },
+      "test": {
+        "average_precision": 0.870301210959667,
+        "roc_auc": 0.9988014510236701
+      }
+    },
+    {
+      "seed": 1,
+      "fit_seconds": 538.0,
+      "validation": {
+        "average_precision": 0.8692452753992997,
+        "roc_auc": 0.9987279714971935
+      },
+      "test": {
+        "average_precision": 0.8641846948012614,
+        "roc_auc": 0.9988104011633518
+      }
+    },
+    {
+      "seed": 2,
+      "fit_seconds": 537.6,
+      "validation": {
+        "average_precision": 0.870676646686205,
+        "roc_auc": 0.9985909959171166
+      },
+      "test": {
+        "average_precision": 0.8657164687942722,
+        "roc_auc": 0.9988062666058934
+      }
+    },
+    {
+      "seed": 3,
+      "fit_seconds": 536.4,
+      "validation": {
+        "average_precision": 0.8702680059157886,
+        "roc_auc": 0.9986320268292519
+      },
+      "test": {
+        "average_precision": 0.8678930694808901,
+        "roc_auc": 0.9988107222221704
+      }
+    },
+    {
+      "seed": 4,
+      "fit_seconds": 537.6,
+      "validation": {
+        "average_precision": 0.8659489026857901,
+        "roc_auc": 0.9986458200870727
+      },
+      "test": {
+        "average_precision": 0.8611792442696946,
+        "roc_auc": 0.998651118482478
+      }
+    }
+  ]
+}

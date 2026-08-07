@@ -38,8 +38,8 @@ def add_selection_arguments(parser, verb: str, *, positional: bool = False) -> N
     """The flags every per-dataset stage takes, on either surface.
 
     The console script names its dataset positionally (`fraud-benchmark prepare
-    sparkov`) and the scripts name it with a flag (`--dataset sparkov`, as
-    `run_experiment.py` already does); that is the only difference between the two, and
+    sparkov`) and the scripts name it with a flag (`--dataset sparkov`); that is the
+    only difference between the two, and
     the rest -- `--all`, `--config`, `--force`, `--exclude-noncommercial` -- is shared
     so no stage can drift from another about what they mean.
     """

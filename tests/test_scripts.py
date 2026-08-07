@@ -1,4 +1,4 @@
-"""The `scripts/` surface: four stages, and its overlap with the console script.
+"""The public `scripts/` surface: three preparation stages and two paper protocols.
 
 Stages 1 to 3 are reachable two ways -- `fraud-benchmark download|prepare` for someone
 who wants prepared data, and `scripts/*.py` for someone working on the study. That is
@@ -47,10 +47,11 @@ def config_file(tmp_path):
     return path
 
 
-# --- the four stages exist, and each is a runner ------------------------------
+# --- the three preparation stages and paper protocols exist ------------------
 
 
-STAGES = ('download', 'prepare', 'features', 'run_experiment')
+STAGES = ('download', 'prepare', 'features')
+PROTOCOLS = ('ibm_split_protocol', 'sparkov_delay_protocol')
 
 
 @pytest.mark.parametrize('name', STAGES)
@@ -65,24 +66,10 @@ def test_a_stage_script_returns_an_exit_code_rather_than_calling_exit(name):
     assert callable(module.main)
 
 
-@pytest.mark.parametrize('name', STAGES + ('summarize', 'slurm/generate'))
-def test_a_runner_defines_nothing_but_its_command_line(name):
-    """A runner that grows a helper is a runner a test has to reach into `scripts/` to
-    exercise, which is how this repository ended up with two sys.path hacks. Counting
-    lines would only measure the docstring; what matters is that no name defined here
-    is worth importing.
-
-    `build_parser` is allowed: it is the command line, and a test that wants to assert
-    a flag exists should not have to run the stage to find out.
-    """
-    body = (SCRIPTS / f'{name}.py').read_text()
-    assert 'sys.path' not in body
-    defined = {
-        line.split('(')[0].removeprefix('def ').removeprefix('class ')
-        for line in body.splitlines()
-        if line.startswith(('def ', 'class '))
-    }
-    assert defined <= {'main', 'build_parser'}, f'{name} defines {defined - {"main"}}'
+@pytest.mark.parametrize('name', PROTOCOLS)
+def test_every_paper_protocol_has_a_callable_runner(name):
+    assert (SCRIPTS / f'{name}.py').exists()
+    assert callable(load(name).main)
 
 
 # --- stages 1-3 are one function behind two doors -----------------------------
@@ -110,7 +97,7 @@ def test_both_doors_agree_on_what_all_means():
 
 
 def test_the_experiment_has_no_console_command():
-    """It needs the dev extras (sklearn, xgboost, torch), so a subcommand for it would
+    """It needs the dev extras (scikit-learn and XGBoost), so a subcommand for it would
     make `fraud-benchmark list` fail on a base install."""
     commands = cli.build_parser()._subparsers._group_actions[0].choices
     assert set(commands) == {'list', 'download', 'prepare', 'info'}

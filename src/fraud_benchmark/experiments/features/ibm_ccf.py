@@ -67,29 +67,6 @@ from fraud_benchmark.experiments.features.util import write_features
 DATASET = 'ibm_ccf'
 DEFAULT_PROCESSED = Path('data/processed')
 
-#: What "what the previous transaction looked like" means here, for the flattened
-#: history in `experiments.history`. Deliberately short: all 82 features at 10 lags
-#: would be 902 columns over 24.4M rows. These are the ones whose *previous value*
-#: says something the current row does not -- where it was, what it cost, whether it
-#: was declined -- rather than a static cardholder attribute, which is identical on
-#: every lag and so pure waste in a lagged copy.
-HISTORY_COLUMNS = (
-    'amount_log1p',
-    'seconds_since_prev_txn',
-    'hour',
-    'same_state',
-    'same_city',
-    'merchant_is_online',
-    'merchant_is_foreign',
-    'amount_over_credit_limit',
-    'amount_over_entity_mean',
-    'txn_count_24h',
-    'errors_24h',
-    'first_merchant_for_entity',
-    'mcc_group',
-    'use_chip',
-)
-
 #: "MM/YYYY" in `Acct Open Date` and `Expires`.
 _MONTH_YEAR = '%m/%Y'
 

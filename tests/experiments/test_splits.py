@@ -9,7 +9,12 @@ import pytest
 
 from fraud_benchmark.experiments.splits import FIRST_ITALY_FRAUD
 from fraud_benchmark.experiments.splits import LAST_LABELLED_FRAUD
+from fraud_benchmark.experiments.splits import iid_customer_split
+from fraud_benchmark.experiments.splits import iid_row_split
 from fraud_benchmark.experiments.splits import italy_holdout_split
+from fraud_benchmark.experiments.splits import pre_italy_iid_customer_split
+from fraud_benchmark.experiments.splits import pre_italy_iid_row_split
+from fraud_benchmark.experiments.splits import pre_italy_split
 from fraud_benchmark.experiments.splits import standard_split
 
 
@@ -72,3 +77,70 @@ def test_italy_holdout_drops_rows_after_the_last_labelled_fraud():
 
     out = italy_holdout_split(frame)
     assert out['event_time'].max() <= LAST_LABELLED_FRAUD
+
+
+def test_pre_italy_split_right_crops_and_resplits():
+    frame = pd.DataFrame(
+        {
+            'event_time': pd.date_range('2017-01-01', periods=4000, freq='6h'),
+            'is_fraud': [False] * 4000,
+            'amount': [1.0] * 4000,
+            'artifact_merchant_state': ['Italy' if i == 100 else 'CA' for i in range(4000)],
+        }
+    )
+    out = pre_italy_split(frame)
+    assert out['event_time'].max() < FIRST_ITALY_FRAUD
+    assert out['artifact_merchant_state'].eq('Italy').sum() == 1
+    assert out['split'].value_counts(normalize=True).to_dict() == pytest.approx(
+        {'train': 0.8, 'val': 0.1, 'test': 0.1}, abs=0.001
+    )
+
+
+def test_pre_italy_regimes_use_the_same_right_cropped_rows():
+    frame = pd.DataFrame(
+        {
+            'event_time': pd.date_range('2017-01-01', periods=4000, freq='6h'),
+            'entity_id': [f'user-{i % 40}' for i in range(4000)],
+            'is_fraud': [False] * 4000,
+            'amount': [1.0] * 4000,
+            'artifact_merchant_state': ['Italy' if i == 100 else 'CA' for i in range(4000)],
+        }
+    )
+    regimes = (
+        pre_italy_split(frame),
+        pre_italy_iid_row_split(frame),
+        pre_italy_iid_customer_split(frame),
+    )
+    expected_times = regimes[0]['event_time'].tolist()
+    for regime in regimes:
+        assert regime['event_time'].tolist() == expected_times
+        assert regime['artifact_merchant_state'].eq('Italy').sum() == 1
+
+
+def test_iid_row_split_is_exact_disjoint_and_deterministic():
+    frame = _frame(1000).assign(entity_id=[f'user-{i % 37}' for i in range(1000)])
+    first = iid_row_split(frame)
+    second = iid_row_split(frame.sample(frac=1, random_state=9))
+    assert first['split'].value_counts().to_dict() == {'train': 800, 'val': 100, 'test': 100}
+    pd.testing.assert_series_equal(first['split'], second['split'])
+
+
+def test_iid_customer_split_keeps_customers_whole_and_balances_rows():
+    sizes = [240, 180, 130, 100, 80, 70, 60, 50, 40, 30, 20, 10, 10, 10, 10, 10]
+    entity = [f'user-{i}' for i, size in enumerate(sizes) for _ in range(size)]
+    frame = _frame(len(entity)).assign(entity_id=entity)
+    out = iid_customer_split(frame)
+
+    assert out.groupby('entity_id')['split'].nunique().eq(1).all()
+    assert out.groupby('split')['entity_id'].nunique().to_dict() == {
+        'train': 12,
+        'val': 1,
+        'test': 3,
+    }
+    shares = out['split'].value_counts(normalize=True)
+    # With indivisible groups the largest customer bounds the possible error.
+    max_share = max(sizes) / len(entity)
+    assert shares['train'] == pytest.approx(0.8, abs=max_share)
+    assert shares['val'] == pytest.approx(0.1, abs=max_share)
+    assert shares['test'] == pytest.approx(0.1, abs=max_share)
+    pd.testing.assert_series_equal(out['split'], iid_customer_split(frame)['split'])

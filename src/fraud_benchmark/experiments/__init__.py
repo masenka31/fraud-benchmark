@@ -11,10 +11,9 @@ experimental dataset -- `ibm_ccf`, `sparkov`, `saml_d`. Everything it produces i
 *unfitted*: engineered, but with no vocabulary capped, no ordinal code assigned and
 nothing scaled, so a parquet is valid under any split.
 
-`encoding`, `splits`, `models`, `mlp` and `metrics` are the model side, and they
-are where the split is chosen and the fitting happens. Fitting inside a feature
-build would tie the parquet to one split, and there are two in use -- the standard
-temporal 80/10/10 and the Italy holdout, which cuts elsewhere on purpose.
+`encoding`, `splits`, `causal_encoding`, `experiment`, `models` and `metrics` are
+the protocol side. They contain only the preparation and fixed XGBoost fitting needed
+by the paper's pre-Italy IBM and synthetic-delay Sparkov experiments.
 
 Four of the seven registered datasets (paysim, banksim, ieee_cis, amaretto) are
 prepared and documented by `fraud_benchmark.data` but not run experimentally, so

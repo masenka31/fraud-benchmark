@@ -78,8 +78,7 @@ from fraud_benchmark.experiments.features.util import feature_columns
 from fraud_benchmark.experiments.features.util import write_features
 
 #: The datasets with a module here, in descending build cost. `scripts/features.py
-#: --all` walks this, and `experiments.slurm` sizes one job per entry -- so a fourth
-#: dataset becomes buildable by adding its module and its name, in one place each.
+#: --all` walks this, so a fourth dataset becomes buildable by adding it here.
 DATASETS = ('ibm_ccf', 'saml_d', 'sparkov')
 
 

@@ -5,7 +5,7 @@ study built on them: `list`, `download`, `prepare`, `info`. Every one of them ne
 only the base dependencies.
 
 The experiment side has no command here on purpose. It needs the `dev` extras
-(scikit-learn, xgboost, torch), so a subcommand for it would make `fraud-benchmark
+(scikit-learn and xgboost), so a subcommand for it would make `fraud-benchmark
 list` fail on a base install -- and `scripts/` is its surface. Stages 1 to 3 are
 reachable from both this script and `scripts/`, which is deliberate: the two doors call
 the same functions, and `data/selection.py` answers what `--all` means for both.

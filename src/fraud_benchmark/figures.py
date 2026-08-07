@@ -41,7 +41,7 @@ def _theme(
         positive=series[2],
         negative=series[1],
         #: A delta smaller than its own sigma is drawn in this rather than by sign --
-        #: see `experiments.summary.is_measured`. Chrome, deliberately not a slot: it
+        #: Chrome, deliberately not a slot: it
         #: has to read as "no measured effect" beside two saturated bars.
         noise=noise,
     )

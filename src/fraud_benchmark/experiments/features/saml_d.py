@@ -106,23 +106,6 @@ from fraud_benchmark.experiments.features.util import write_features
 DATASET = 'saml_d'
 DEFAULT_PROCESSED = Path('data/processed')
 
-#: The lagged history for `experiments.history`. Both sides are represented: a
-#: sequence of transfers is a laundering pattern only in terms of who received the
-#: previous ones and how concentrated they were.
-HISTORY_COLUMNS = (
-    'amount_log1p',
-    'seconds_since_prev_txn',
-    'hour',
-    'distinct_receivers_7d',
-    'new_receiver_rate_7d',
-    'receiver_distinct_senders_7d',
-    'receiver_sender_concentration_7d',
-    'is_cross_border',
-    'is_currency_conversion',
-    'first_receiver_for_entity',
-    'payment_type',
-)
-
 #: The currency-transaction reporting threshold structuring is sized against, and
 #: the band below it that counts as "just under". Stated in one currency; see the
 #: module docstring for what that costs on the other twelve.

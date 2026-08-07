@@ -26,7 +26,7 @@ import pandas as pd
 
 from fraud_benchmark.experiments.columns import assert_no_excluded
 
-#: Where feature parquets are written, and where the model side reads them.
+#: Where feature parquets are written, and where the paper protocols read them.
 FEATURE_DIR = Path('data/features')
 
 #: Carried by every feature parquet, in this order, ahead of the features.
@@ -478,9 +478,8 @@ def write_features(
 
     # Written beside the destination and renamed into place, the way the preparation
     # pipeline swaps a processed directory. A 2.5 GB parquet takes long enough to write
-    # that a reader arriving mid-write gets a truncated file, and the reader here is a
-    # 25-cell grid: the job dependencies order the first build against them, but a
-    # rebuild while any of them is reading would otherwise corrupt that run silently.
+    # that a reader arriving mid-write gets a truncated file. A rebuild while a paper
+    # protocol is reading would otherwise corrupt that run silently.
     # os.replace is atomic within a filesystem, and the temp file is in the same
     # directory so it always is one.
     temporary = destination.with_suffix('.parquet.tmp')
