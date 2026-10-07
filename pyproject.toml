@@ -32,6 +32,12 @@ dev = [
     # tree dirty without a commit touching it. Raise the bound deliberately.
     "ruff>=0.15.1,<0.16",
 ]
+# Install separately on the compute node with a PyTorch build matching its CUDA driver.
+lstm = [
+    "torch>=2.4",
+    "scikit-learn>=1.4",
+    "xgboost>=2.0",
+]
 
 [project.scripts]
 fraud-benchmark = "fraud_benchmark.data.cli:main"

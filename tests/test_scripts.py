@@ -51,7 +51,7 @@ def config_file(tmp_path):
 
 
 STAGES = ('download', 'prepare', 'features')
-PROTOCOLS = ('ibm_split_protocol', 'sparkov_delay_protocol')
+PROTOCOLS = ('ibm_split_protocol', 'sparkov_delay_protocol', 'lstm_protocol')
 
 
 @pytest.mark.parametrize('name', STAGES)
