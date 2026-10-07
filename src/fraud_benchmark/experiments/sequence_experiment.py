@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import xgboost
 from sklearn.metrics import average_precision_score
 from sklearn.metrics import roc_auc_score
 
@@ -18,11 +19,13 @@ from fraud_benchmark.experiments.experiment import ExperimentError
 from fraud_benchmark.experiments.features.util import ARTIFACT_PREFIX
 from fraud_benchmark.experiments.features.util import FEATURE_DIR
 from fraud_benchmark.experiments.features.util import feature_columns
+from fraud_benchmark.experiments.lstm import MODEL_SETTINGS
 from fraud_benchmark.experiments.lstm import EncodedFeatures
 from fraud_benchmark.experiments.lstm import encode_features
 from fraud_benchmark.experiments.lstm import train_and_predict
 from fraud_benchmark.experiments.metrics import best_f1_threshold
 from fraud_benchmark.experiments.metrics import score
+from fraud_benchmark.experiments.models import XGB_PARAMS
 from fraud_benchmark.experiments.models import fit_xgboost
 from fraud_benchmark.experiments.sequence import Chunks
 from fraud_benchmark.experiments.sequence import WindowIndex
@@ -95,20 +98,31 @@ def _ibm_rarity(df: pd.DataFrame, train_mask: np.ndarray) -> None:
 
 
 def prepare_ibm(
-    regime: str, features_dir: Path | str = FEATURE_DIR, *,
-    source: pd.DataFrame | None = None, chunks: Chunks | None = None,
+    regime: str,
+    features_dir: Path | str = FEATURE_DIR,
+    *,
+    source: pd.DataFrame | None = None,
+    chunks: Chunks | None = None,
+    source_prepared: bool = False,
 ) -> PreparedSequence:
     """One fixed IBM endpoint population, with split-specific train encoding."""
     if regime not in IBM_REGIMES:
         raise ValueError(f'unknown IBM regime {regime!r}')
-    df = pre_italy_split(_source(Path(features_dir), 'ibm_ccf') if source is None else source)
+    if source_prepared and source is None:
+        raise ValueError('source_prepared requires source')
+    df = (
+        source.copy(deep=False)
+        if source_prepared
+        else pre_italy_split(_source(Path(features_dir), 'ibm_ccf') if source is None else source)
+    )
     if chunks is None:
         chunks = complete_chunks(df['entity_id'], df['event_time'])
     target_split, source_split = _ibm_split(df, chunks, regime)
     train_mask = source_split == 0
     _ibm_rarity(df, train_mask)
     names = [name for name in feature_columns(df) if not name.startswith(ARTIFACT_PREFIX)]
-    assert len(names) == 77, f'expected 77 IBM LSTM features, got {len(names)}'
+    if len(names) != 77:
+        raise ExperimentError(f'expected 77 IBM LSTM features, got {len(names)}')
     features = encode_features(df, names, train_mask)
     targets = chunks.targets
     y_true = df['is_fraud'].to_numpy(dtype='int64')[targets]
@@ -120,7 +134,13 @@ def prepare_ibm(
         return chunks.rows[ids], np.full(len(ids), 30, dtype='int32')
 
     return PreparedSequence(
-        features, positions_for, train, validation, test, y_true.copy(), y_true,
+        features,
+        positions_for,
+        train,
+        validation,
+        test,
+        y_true.copy(),
+        y_true,
         {
             'dataset': 'ibm_ccf',
             'regime': regime,
@@ -130,27 +150,45 @@ def prepare_ibm(
             'dropped_incomplete_rows': chunks.n_dropped,
             'chunk_length': 30,
             'target': 'last transaction of each complete entity chunk',
+            'tie_policy': 'source row order within equal entity timestamps',
             'split_seed': IID_SPLIT_SEED if regime == 'pre_italy_iid_chunks' else None,
             'features': names,
-            'rows': {name: len(rows) for name, rows in zip(('train', 'val', 'test'), (train, validation, test))},
-            'positives': {name: int(y_true[rows].sum()) for name, rows in zip(('train', 'val', 'test'), (train, validation, test))},
+            'rows': {
+                name: len(rows)
+                for name, rows in zip(('train', 'val', 'test'), (train, validation, test))
+            },
+            'positives': {
+                name: int(y_true[rows].sum())
+                for name, rows in zip(('train', 'val', 'test'), (train, validation, test))
+            },
         },
     )
 
 
 def prepare_sparkov(
-    regime: str, features_dir: Path | str = FEATURE_DIR, *,
-    source: pd.DataFrame | None = None, encoded: EncodedFeatures | None = None,
+    regime: str,
+    features_dir: Path | str = FEATURE_DIR,
+    *,
+    source: pd.DataFrame | None = None,
+    encoded: EncodedFeatures | None = None,
     index: WindowIndex | None = None,
+    source_prepared: bool = False,
 ) -> PreparedSequence:
     """Same rows, split, and inputs in all three synthetic delay regimes."""
     if regime not in SPARKOV_REGIMES:
         raise ValueError(f'unknown Sparkov regime {regime!r}')
-    df = standard_split(_source(Path(features_dir), 'sparkov') if source is None else source)
+    if source_prepared and source is None:
+        raise ValueError('source_prepared requires source')
+    df = (
+        source.copy(deep=False)
+        if source_prepared
+        else standard_split(_source(Path(features_dir), 'sparkov') if source is None else source)
+    )
     split = df['split'].map(SPLIT_CODE).to_numpy(dtype='int8')
     train_mask = split == 0
     names = [name for name in feature_columns(df) if not name.startswith(ARTIFACT_PREFIX)]
-    assert len(names) == 46, f'expected 46 Sparkov LSTM features, got {len(names)}'
+    if len(names) != 46:
+        raise ExperimentError(f'expected 46 Sparkov LSTM features, got {len(names)}')
     if index is None:
         index = window_index(df['entity_id'], df['event_time'])
     if encoded is None:
@@ -170,7 +208,13 @@ def prepare_sparkov(
     if any(y_true[part].sum() == 0 for part in (validation, test)):
         raise ExperimentError('a Sparkov evaluation partition contains no fraud targets')
     return PreparedSequence(
-        encoded, index.batch, train, validation, test, y_fit, y_true,
+        encoded,
+        index.batch,
+        train,
+        validation,
+        test,
+        y_fit,
+        y_true,
         {
             'dataset': 'sparkov',
             'regime': regime,
@@ -178,10 +222,17 @@ def prepare_sparkov(
             'target_rows': len(df),
             'window_length': 30,
             'target': 'each transaction',
+            'tie_policy': 'exclude equal-timestamp predecessor rows',
             'censored_train_labels': int(y_true[train].sum() - y_fit[train].sum()),
             'features': names,
-            'rows': {name: len(rows) for name, rows in zip(('train', 'val', 'test'), (train, validation, test))},
-            'positives': {name: int(y_true[rows].sum()) for name, rows in zip(('train', 'val', 'test'), (train, validation, test))},
+            'rows': {
+                name: len(rows)
+                for name, rows in zip(('train', 'val', 'test'), (train, validation, test))
+            },
+            'positives': {
+                name: int(y_true[rows].sum())
+                for name, rows in zip(('train', 'val', 'test'), (train, validation, test))
+            },
         },
     )
 
@@ -192,9 +243,15 @@ def run_lstm(prepared: PreparedSequence, seeds: tuple[int, ...], device: str) ->
     for seed in seeds:
         started = time.monotonic()
         val_scores, test_scores, details = train_and_predict(
-            prepared.features, prepared.positions_for,
-            prepared.train, prepared.validation, prepared.test,
-            prepared.y_fit, prepared.y_true, seed, device,
+            prepared.features,
+            prepared.positions_for,
+            prepared.train,
+            prepared.validation,
+            prepared.test,
+            prepared.y_fit,
+            prepared.y_true,
+            seed,
+            device,
         )
         threshold = best_f1_threshold(prepared.y_true[prepared.validation], val_scores)
         seed_records.append(
@@ -211,6 +268,10 @@ def run_lstm(prepared: PreparedSequence, seeds: tuple[int, ...], device: str) ->
     return {
         **prepared.metadata,
         'model': 'lstm',
+        'model_settings': MODEL_SETTINGS,
+        'categorical_cardinalities': dict(
+            zip(prepared.features.categorical_names, prepared.features.cardinalities)
+        ),
         'seeds': seed_records,
         'python': platform.python_version(),
     }
@@ -218,11 +279,11 @@ def run_lstm(prepared: PreparedSequence, seeds: tuple[int, ...], device: str) ->
 
 def run_ibm_xgboost(prepared: PreparedSequence, seeds: tuple[int, ...]) -> dict:
     """Endpoint-matched, label-free XGBoost comparator for the new IBM study."""
-    x = prepared.features.tree_matrix()
     # Each target id points to the final source row of one chunk.
     chunks = prepared.positions_for(np.arange(len(prepared.y_true), dtype='int32'))[0]
     endpoints = chunks[:, -1]
-    train, validation, test = (endpoints[part] for part in (prepared.train, prepared.validation, prepared.test))
+    x = prepared.features.tree_matrix(endpoints)
+    train, validation, test = prepared.train, prepared.validation, prepared.test
     seed_records = []
     for seed in seeds:
         started = time.monotonic()
@@ -234,13 +295,26 @@ def run_ibm_xgboost(prepared: PreparedSequence, seeds: tuple[int, ...]) -> dict:
                 'seed': seed,
                 'fit_seconds': round(time.monotonic() - started, 1),
                 'validation': {
-                    'average_precision': float(average_precision_score(prepared.y_true[prepared.validation], val_scores)),
-                    'roc_auc': float(roc_auc_score(prepared.y_true[prepared.validation], val_scores)),
+                    'average_precision': float(
+                        average_precision_score(prepared.y_true[prepared.validation], val_scores)
+                    ),
+                    'roc_auc': float(
+                        roc_auc_score(prepared.y_true[prepared.validation], val_scores)
+                    ),
                 },
                 'test': {
-                    'average_precision': float(average_precision_score(prepared.y_true[prepared.test], test_scores)),
+                    'average_precision': float(
+                        average_precision_score(prepared.y_true[prepared.test], test_scores)
+                    ),
                     'roc_auc': float(roc_auc_score(prepared.y_true[prepared.test], test_scores)),
                 },
             }
         )
-    return {**prepared.metadata, 'model': 'xgboost', 'seeds': seed_records}
+    return {
+        **prepared.metadata,
+        'model': 'xgboost',
+        'model_settings': XGB_PARAMS,
+        'xgboost': xgboost.__version__,
+        'python': platform.python_version(),
+        'seeds': seed_records,
+    }

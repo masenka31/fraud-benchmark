@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import copy
-import random
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -22,6 +21,19 @@ BATCH_SIZE = 1024
 MAX_EPOCHS = 8
 PATIENCE = 2
 GRADIENT_CLIP = 1.0
+MODEL_SETTINGS = {
+    'architecture': 'one-layer unidirectional sequence-to-one LSTM',
+    'hidden_size': HIDDEN_SIZE,
+    'embedding_size': EMBEDDING_SIZE,
+    'dropout': DROPOUT,
+    'learning_rate': LEARNING_RATE,
+    'weight_decay': WEIGHT_DECAY,
+    'batch_size': BATCH_SIZE,
+    'max_epochs': MAX_EPOCHS,
+    'patience': PATIENCE,
+    'gradient_clip': GRADIENT_CLIP,
+    'loss': 'binary cross entropy with visible-label negative/positive weight',
+}
 
 
 @dataclass
@@ -45,28 +57,26 @@ class EncodedFeatures:
             self.cardinalities,
         )
 
-    def tree_matrix(self) -> np.ndarray:
-        """The same information as the LSTM receives, one row per transaction."""
+    def tree_matrix(self, rows: np.ndarray) -> np.ndarray:
+        """The same current-event information as the LSTM, at selected targets."""
         values: dict[str, np.ndarray] = {}
         for index, name in enumerate(self.numeric_names):
-            column = self.numeric[:, index].copy()
-            column[self.missing[:, index].astype(bool)] = np.nan
+            column = self.numeric[rows, index].copy()
+            column[self.missing[rows, index].astype(bool)] = np.nan
             values[name] = column
         for index, name in enumerate(self.categorical_names):
-            values[name] = self.categorical[:, index].astype('float32')
+            values[name] = self.categorical[rows, index].astype('float32')
         return np.column_stack([values[name] for name in self.names]).astype('float32')
 
 
-def encode_features(
-    df: pd.DataFrame, names: list[str], train_mask: np.ndarray
-) -> EncodedFeatures:
+def encode_features(df: pd.DataFrame, names: list[str], train_mask: np.ndarray) -> EncodedFeatures:
     """Fit vocabulary and numeric scaling on train source rows only."""
     train_mask = np.asarray(train_mask, dtype=bool)
     if len(train_mask) != len(df) or not train_mask.any():
         raise ValueError('train_mask must cover the frame and contain training rows')
     categorical_names = [name for name in names if isinstance(df[name].dtype, pd.CategoricalDtype)]
     numeric_names = [name for name in names if name not in categorical_names]
-    encoder = CappedOrdinalEncoder().fit(df.loc[train_mask], categorical_names)
+    encoder = CappedOrdinalEncoder().fit(df.loc[train_mask, categorical_names], categorical_names)
     numeric = np.empty((len(df), len(numeric_names)), dtype='float32')
     missing = np.empty((len(df), len(numeric_names)), dtype='uint8')
     for index, name in enumerate(numeric_names):
@@ -176,16 +186,17 @@ def train_and_predict(
 ) -> tuple[np.ndarray, np.ndarray, dict]:
     """Fit on visible train labels; checkpoint by validation AP only."""
     torch = _torch()
-    random.seed(seed)
-    np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
         torch.backends.cudnn.benchmark = False
         torch.backends.cudnn.deterministic = True
     device = torch.device(
-        'cuda' if device_name == 'auto' and torch.cuda.is_available() else
-        'cpu' if device_name == 'auto' else device_name
+        'cuda'
+        if device_name == 'auto' and torch.cuda.is_available()
+        else 'cpu'
+        if device_name == 'auto'
+        else device_name
     )
     model = _model(features.numeric.shape[1], features.cardinalities).to(device)
     positives = int(y_fit[train].sum())
@@ -205,7 +216,9 @@ def train_and_predict(
     for epoch in range(1, MAX_EPOCHS + 1):
         model.train()
         total_loss = 0.0
-        for batch_ids in np.array_split(rng.permutation(train), max(1, int(np.ceil(len(train) / BATCH_SIZE)))):
+        for batch_ids in np.array_split(
+            rng.permutation(train), max(1, int(np.ceil(len(train) / BATCH_SIZE)))
+        ):
             positions, lengths = positions_for(batch_ids)
             batch = _tensor_batch(features, positions, lengths, device)
             labels = torch.as_tensor(y_fit[batch_ids], dtype=torch.float32, device=device)
@@ -227,12 +240,14 @@ def train_and_predict(
             epochs_without_gain += 1
             if epochs_without_gain >= PATIENCE:
                 break
-    assert best_state is not None
+    if best_state is None:
+        raise RuntimeError('LSTM training did not produce a validation checkpoint')
     model.load_state_dict(best_state)
     validation_scores = _predict(model, features, validation, positions_for, device)
     test_scores = _predict(model, features, test, positions_for, device)
     details = {
         'device': str(device),
+        'hardware': torch.cuda.get_device_name(device) if device.type == 'cuda' else 'CPU',
         'torch': torch.__version__,
         'positive_weight': float(weight),
         'best_epoch': best_epoch,

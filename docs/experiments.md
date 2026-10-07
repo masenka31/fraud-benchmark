@@ -140,3 +140,68 @@ The public code under `src/fraud_benchmark/experiments/` contains the feature bu
 split functions, causal encoders, model preparation, and fixed XGBoost fitting required by the
 two protocols. It fits preprocessing on training rows only and keeps evaluation labels
 uncensored.
+
+## LSTM sequence extension
+
+The LSTM runner adds a sequence classifier to both studies without changing the
+recorded XGBoost protocols above. Install the optional `lstm` dependencies with a
+PyTorch build appropriate for the compute node's GPU. The runner uses a one-layer,
+one-way LSTM with 64 hidden units; numeric features and missingness indicators are
+projected with the categorical embeddings (8 dimensions each) to width 64. It uses
+0.2 dropout, weighted binary cross entropy, AdamW with learning rate 0.001 and
+weight decay 0.0001, gradient clipping at 1, batch size 1,024, and at most eight
+epochs. The best checkpoint is selected by validation average precision, with
+patience two. Seeds 0--4 are fixed. No transaction label, reporting timestamp,
+or label-availability flag is an LSTM input.
+
+### IBM endpoint experiment
+
+The IBM extension sorts each entity's transactions chronologically and forms
+disjoint, complete 30-transaction chunks. It predicts **only the final transaction
+in each chunk** from that transaction and its 29 predecessors. Incomplete trailing
+chunks have no target. Chunk membership and endpoint selection are fixed before
+the split is assigned, so every IBM cell uses the same targets. This is a
+reduced-target experiment, roughly one target per 30 source transactions. Its
+average precision must not be compared with the full-row IBM table above. On
+the shipped feature parquet, 20,403,999 source rows yield 679,372 endpoints
+with 854 frauds. The temporal validation and test endpoint sets have 189 and
+36 frauds respectively, so test AP may be sensitive to a few predictions.
+Transactions from the same entity with identical minute timestamps retain their
+source row order inside a chunk; that order is deterministic but does not prove
+their true within-minute order.
+
+The temporal cell uses each endpoint's original pre-Italy temporal assignment.
+The customer-IID cell uses the original customer assignment. The new chunk-IID
+cell assigns whole chunks with one fixed seed; it is not the original
+transaction-IID cell. It still trains on some labels from dates later than
+scored dates, so it measures an optimistic split rather than chronological
+deployment. A new XGBoost comparator uses the **same endpoints, split assignment,
+and 77 label-free features** as the LSTM. Those features are the 74 non-artifact
+IBM columns listed above plus `state_prior_rarity`,
+`state_not_seen_previously`, and `foreign_state_rarity`. The five
+`causal_target_rate_*` features are excluded because they summarize prior labels.
+
+### Sparkov sequence experiment
+
+Sparkov retains every transaction as a target under the existing temporal split.
+For each target, the runner gathers that transaction and up to 29 strictly
+earlier-time transactions from the same entity. It uses the 46 non-artifact
+Sparkov features listed above. The `off`, `on`, and `slow` runs share those
+windows and differ only in synthetic training-label availability. A delayed
+fraud stays in training with provisional label 0; validation and test use the
+true labels.
+
+```bash
+.venv/bin/python scripts/lstm_protocol.py --dataset ibm
+.venv/bin/python scripts/lstm_protocol.py --dataset sparkov
+```
+
+The runner writes separate JSON records under `results/paper/` and, after all
+cells are available, generates `results/ibm_lstm_protocol.md` and
+`results/sparkov_lstm_delay.md`. Noncanonical seed runs require a separate
+`--results-dir` and are diagnostics, not paper results. The default `auto`
+device uses CUDA when the installed PyTorch build provides it; verify the
+selected device in each result record. On this host, the available
+`PyTorch/2.13.0-foss-2025b-CUDA-12.9.1` module can be loaded before invoking
+the project virtual environment on an A100 or H200 node; its cuDNN version does
+not support the V100 nodes.
