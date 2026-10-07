@@ -38,14 +38,14 @@ def complete_chunks(entity: pd.Series, event_time: pd.Series) -> Chunks:
     """Keep one final-row target per complete 30-transaction entity chunk."""
     order, codes = _entity_order(entity, event_time)
     boundaries = np.r_[0, np.flatnonzero(np.diff(codes)) + 1, len(order)]
-    n_chunks = int(sum((end - start) // WINDOW for start, end in zip(boundaries[:-1], boundaries[1:])))
+    n_chunks = int(
+        sum((end - start) // WINDOW for start, end in zip(boundaries[:-1], boundaries[1:]))
+    )
     rows = np.empty((n_chunks, WINDOW), dtype='int32')
     cursor = 0
     for start, end in zip(boundaries[:-1], boundaries[1:]):
         count = (end - start) // WINDOW
-        rows[cursor : cursor + count] = order[start : start + count * WINDOW].reshape(
-            count, WINDOW
-        )
+        rows[cursor : cursor + count] = order[start : start + count * WINDOW].reshape(count, WINDOW)
         cursor += count
     return Chunks(rows=rows, n_dropped=len(order) - n_chunks * WINDOW)
 
@@ -92,9 +92,7 @@ def window_index(entity: pd.Series, event_time: pd.Series) -> WindowIndex:
     pos[order] = np.arange(n, dtype='int32')
     times = pd.to_datetime(event_time).to_numpy(dtype='datetime64[ns]')[order]
     group_start = np.r_[True, codes[1:] != codes[:-1]]
-    entity_start = np.maximum.accumulate(
-        np.where(group_start, np.arange(n, dtype='int32'), 0)
-    )
+    entity_start = np.maximum.accumulate(np.where(group_start, np.arange(n, dtype='int32'), 0))
     tie_start = np.maximum.accumulate(
         np.where(
             np.r_[True, (codes[1:] != codes[:-1]) | (times[1:] != times[:-1])],
