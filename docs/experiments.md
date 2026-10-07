@@ -192,8 +192,10 @@ fraud stays in training with provisional label 0; validation and test use the
 true labels.
 
 ```bash
-.venv/bin/python scripts/lstm_protocol.py --dataset ibm
-.venv/bin/python scripts/lstm_protocol.py --dataset sparkov
+module purge
+module load PyTorch/2.13.0-foss-2025b-CUDA-12.9.1
+.venv/bin/python scripts/lstm_protocol.py --dataset ibm --device cuda
+.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --device cuda
 ```
 
 The runner writes separate JSON records under `results/paper/` and, after all
@@ -201,7 +203,7 @@ cells are available, generates `results/ibm_lstm_protocol.md` and
 `results/sparkov_lstm_delay.md`. Noncanonical seed runs require a separate
 `--results-dir` and are diagnostics, not paper results. The default `auto`
 device uses CUDA when the installed PyTorch build provides it; verify the
-selected device in each result record. On this host, the available
-`PyTorch/2.13.0-foss-2025b-CUDA-12.9.1` module can be loaded before invoking
-the project virtual environment on an A100 or H200 node; its cuDNN version does
-not support the V100 nodes.
+selected device in each result record. On this host, the
+`PyTorch/2.13.0-foss-2025b-CUDA-12.9.1` module was verified on an A100 node;
+its cuDNN version does not support the V100 nodes. Use `--regime` and `--resume`
+to schedule or restart cells independently.
