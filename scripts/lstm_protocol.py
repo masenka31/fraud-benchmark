@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -118,7 +119,9 @@ def render_sparkov(records: dict) -> str:
 
 def _write(path: Path, record: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(record, indent=2, allow_nan=False) + '\n')
+    temporary = path.with_suffix(f'{path.suffix}.{os.getpid()}.tmp')
+    temporary.write_text(json.dumps(record, indent=2, allow_nan=False) + '\n')
+    temporary.replace(path)
     print(f'Wrote {path}', flush=True)
 
 
