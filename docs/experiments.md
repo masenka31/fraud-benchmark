@@ -312,3 +312,16 @@ ordinals, first-occurrence and distinct-count flags, rarity scores, and every
 label-derived field. No entity ID, absolute timestamp, report timestamp,
 or label is an input. The earlier length-10 runs use their full current feature
 sets; these Sparkov cells change the feature axis separately.
+
+At length 10, raw-ish LSTM test AP is 0.9807 (off), 0.9798 (on), and 0.9787
+(slow), with changes from off of -0.0010 and -0.0020. At length 30, test AP
+is 0.9794, 0.9786, and 0.9772, with changes of -0.0008 and -0.0022. The
+[`length-10 raw-ish table`](../results/sparkov_lstm_delay_rawish_len10.md)
+and [`length-30 raw-ish table`](../results/sparkov_lstm_delay_rawish_len30.md)
+record validation AP, seed variation, and test-minus-validation gaps. Removing
+engineered history features did not increase the measured synthetic-delay
+effect in these runs. The raw-ish no-delay test AP remains near 0.98, so the
+current-event/static inputs alone already support strong discrimination in
+this dataset. This observation does not identify why the LSTM is less
+sensitive than the original XGBoost protocol; model architecture and training
+selection still differ.
