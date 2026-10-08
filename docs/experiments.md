@@ -213,6 +213,16 @@ selected device in each result record. On this host, the
 its cuDNN version does not support the V100 nodes. Use `--regime` and `--resume`
 to schedule or restart cells independently.
 
+To repeat the protocols with a 10-transaction sequence, pass
+`--window-length 10` to each runner command. The 10-transaction records have
+`_len10` suffixes and generate `results/ibm_lstm_protocol_len10.md` and
+`results/sparkov_lstm_delay_len10.md`, leaving the 30-transaction records
+unchanged. This length comparison retains the original feature sets and all
+other model settings. IBM gets more final-transaction targets because its
+chunks are disjoint; those targets differ from the length-30 endpoints, so an
+IBM AP difference between lengths is not a pure sequence-length effect.
+Sparkov keeps every transaction as a target at both lengths.
+
 ### Recorded sequence results
 
 The IBM endpoint LSTM has mean test average precision of 0.4370 (temporal),
@@ -232,3 +242,44 @@ no-delay differences are -0.0026 and -0.0078. See the
 [`Sparkov delay table`](../results/sparkov_lstm_delay.md) for validation scores
 and test-minus-validation AP gaps. These synthetic regimes show sensitivity to the
 specified reporting delays; they do not estimate real-world delay behavior.
+
+### Proposed raw-ish feature ablation
+
+For a separate feature ablation, retain only values from the current event,
+its timestamp, and static cardholder/card attributes. Deterministic transforms
+of those values are included; entity transaction-history summaries are excluded.
+The selected names are already present in the feature parquet files, so this
+ablation can select columns without rebuilding source data.
+
+**Shared by IBM and Sparkov (15):**
+
+```text
+hour, minute, weekday, day, month, is_weekend, hour_sin, hour_cos
+amount, amount_log1p, amount_is_refund, amount_cents,
+amount_is_round_10, amount_is_round_100, amount_is_micro
+```
+
+**IBM only (26; 41 total):**
+
+```text
+same_state, same_city, merchant_is_online, merchant_state_missing,
+merchant_is_foreign, mcc_group, use_chip
+card_brand, card_type, has_chip, card_on_dark_web, cards_issued,
+days_since_acct_open, days_to_expiry, days_since_pin_change
+age, years_to_retirement, gender, fico, num_cards, credit_limit,
+total_debt, income_person, income_zip, debt_to_income,
+amount_over_credit_limit
+```
+
+**Sparkov only (6; 21 total):**
+
+```text
+distance_from_home_km, category, job, gender, age_at_txn, city_pop_log
+```
+
+This removes rolling counts, sums, means, z-scores, recency gaps, entity
+ordinals, first-occurrence and distinct-count flags, rarity scores, and every
+label-derived field. No entity ID, absolute timestamp, report timestamp,
+or label is an input. These lists are a proposed *future* feature ablation;
+the length-10 runs above use the full current feature sets to isolate the
+requested sequence-length change as far as the IBM endpoint protocol allows.
