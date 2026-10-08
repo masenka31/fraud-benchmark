@@ -58,7 +58,7 @@ def complete_chunks(
     cursor = 0
     n_dropped = 0
     for start, end in zip(boundaries[:-1], boundaries[1:]):
-        size = end - start
+        size = int(end - start)
         if size < length:
             n_dropped += size
             continue
@@ -68,7 +68,7 @@ def complete_chunks(
         rows[cursor : cursor + count] = order[positions]
         n_dropped += size - ((count - 1) * stride + length)
         cursor += count
-    return Chunks(rows=rows, n_dropped=n_dropped, stride=stride)
+    return Chunks(rows=rows, n_dropped=int(n_dropped), stride=stride)
 
 
 def iid_chunk_split(n_chunks: int, seed: int) -> np.ndarray:
