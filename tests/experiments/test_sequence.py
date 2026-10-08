@@ -12,6 +12,7 @@ from fraud_benchmark.experiments.sequence import complete_chunks
 from fraud_benchmark.experiments.sequence import iid_chunk_split
 from fraud_benchmark.experiments.sequence import window_index
 from fraud_benchmark.experiments.sequence_experiment import IBM_REGIMES
+from fraud_benchmark.experiments.sequence_experiment import SPARKOV_RAWISH_FEATURES
 from fraud_benchmark.experiments.sequence_experiment import prepare_ibm
 from fraud_benchmark.experiments.sequence_experiment import prepare_sparkov
 from fraud_benchmark.experiments.sequence_experiment import run_ibm_xgboost
@@ -128,6 +129,16 @@ def test_sparkov_delay_changes_training_targets_but_not_windows():
     short = prepare_sparkov('off', source=frame, window_length=10)
     assert short.metadata['window_length'] == 10
     assert short.positions_for(targets)[0].shape == (3, 10)
+    rawish_source = frame.copy()
+    for name in SPARKOV_RAWISH_FEATURES:
+        rawish_source[name] = (
+            pd.Categorical(['x'] * n) if name in ('category', 'job', 'gender') else 1.0
+        )
+    rawish = prepare_sparkov('on', source=rawish_source, window_length=10, feature_set='rawish')
+    assert rawish.metadata['feature_set'] == 'rawish'
+    assert rawish.metadata['censored_train_labels'] == on.metadata['censored_train_labels']
+    assert rawish.features.names == list(SPARKOV_RAWISH_FEATURES)
+    assert rawish.positions_for(targets)[0].shape == (3, 10)
 
 
 def test_ibm_regimes_keep_the_same_endpoints_and_no_label_derived_inputs():

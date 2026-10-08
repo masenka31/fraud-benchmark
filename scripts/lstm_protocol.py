@@ -28,18 +28,24 @@ SPARKOV_TABLE = Path('results/sparkov_lstm_delay.md')
 
 
 def _path(
-    dataset: str, model: str, regime: str, results_dir: Path, window_length: int = 30
+    dataset: str, model: str, regime: str, results_dir: Path,
+    window_length: int = 30, feature_set: str = 'full',
 ) -> Path:
-    suffix = '' if window_length == 30 else f'_len{window_length}'
+    if feature_set == 'rawish':
+        suffix = f'_rawish_len{window_length}'
+    else:
+        suffix = '' if window_length == 30 else f'_len{window_length}'
     return results_dir / f'{dataset}_{model}_{regime}{suffix}.json'
 
 
 def _read(
     dataset: str, model: str, regimes: tuple[str, ...], results_dir: Path,
-    window_length: int = 30,
+    window_length: int = 30, feature_set: str = 'full',
 ) -> dict:
     return {
-        regime: json.loads(_path(dataset, model, regime, results_dir, window_length).read_text())
+        regime: json.loads(
+            _path(dataset, model, regime, results_dir, window_length, feature_set).read_text()
+        )
         for regime in regimes
     }
 
@@ -116,6 +122,7 @@ def render_sparkov(records: dict) -> str:
         [row['scores']['test']['average_precision'] for row in records['off']['seeds']]
     )
     length = records['off']['window_length']
+    feature_set = records['off'].get('feature_set', 'full')
     for regime in SPARKOV_REGIMES:
         record = records[regime]
         ap = np.mean([row['scores']['test']['average_precision'] for row in record['seeds']])
@@ -134,6 +141,11 @@ def render_sparkov(records: dict) -> str:
             'All three regimes score every Sparkov row with true evaluation labels.',
             f'The {length}-transaction windows, split, features, settings, and seeds are fixed;',
             'only synthetic training-label availability changes.',
+            *(
+                ['Inputs are 21 raw-ish current-event/static features; '
+                 'no entity-history statistics are model inputs.']
+                if feature_set == 'rawish' else []
+            ),
             'Entries are mean ± population standard deviation over seeds 0–4.',
             'Test − validation AP is the mean within-seed difference; '
             'negative means lower test AP.',
@@ -164,6 +176,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--seeds', type=int, nargs='+', default=[0, 1, 2, 3, 4])
     parser.add_argument('--model', choices=('lstm', 'xgboost', 'both'))
     parser.add_argument('--window-length', type=int, default=30)
+    parser.add_argument('--feature-set', choices=('full', 'rawish'), default='full')
     parser.add_argument('--render-only', action='store_true')
     parser.add_argument('--prepare-only', action='store_true')
     parser.add_argument('--resume', action='store_true', help='skip result files already present')
@@ -174,6 +187,8 @@ def main(argv: list[str] | None = None) -> int:
     seeds = tuple(args.seeds)
     if args.dataset == 'sparkov' and args.model != 'lstm':
         parser.error('Sparkov XGBoost already has its own paper protocol')
+    if args.dataset == 'ibm' and args.feature_set != 'full':
+        parser.error('the raw-ish feature set is currently defined for Sparkov only')
     if args.regime and args.regime not in (
         IBM_REGIMES if args.dataset == 'ibm' else SPARKOV_REGIMES
     ):
@@ -212,13 +227,17 @@ def main(argv: list[str] | None = None) -> int:
         else:
             source = standard_split(pd.read_parquet(args.features_dir / 'sparkov.parquet'))
             for regime in (args.regime,) if args.regime else SPARKOV_REGIMES:
-                path = _path('sparkov', 'lstm', regime, args.results_dir, args.window_length)
+                path = _path(
+                    'sparkov', 'lstm', regime, args.results_dir,
+                    args.window_length, args.feature_set
+                )
                 if args.resume and path.exists():
                     print(f'Skipping completed Sparkov {regime}', flush=True)
                     continue
                 prepared = prepare_sparkov(
                     regime, args.features_dir, source=source,
-                    source_prepared=True, window_length=args.window_length
+                    source_prepared=True, window_length=args.window_length,
+                    feature_set=args.feature_set
                 )
                 print(f'Sparkov {regime}: {prepared.metadata["positives"]}', flush=True)
                 if not args.prepare_only:
@@ -244,15 +263,25 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f'Wrote {table}', flush=True)
     elif all(
-        _path('sparkov', 'lstm', regime, args.results_dir, args.window_length).exists()
+        _path(
+            'sparkov', 'lstm', regime, args.results_dir, args.window_length, args.feature_set
+        ).exists()
         for regime in SPARKOV_REGIMES
     ):
-        table = SPARKOV_TABLE if args.window_length == 30 else SPARKOV_TABLE.with_stem(
-            f'{SPARKOV_TABLE.stem}_len{args.window_length}'
-        )
+        if args.feature_set == 'rawish':
+            table = SPARKOV_TABLE.with_stem(
+                f'{SPARKOV_TABLE.stem}_rawish_len{args.window_length}'
+            )
+        elif args.window_length == 30:
+            table = SPARKOV_TABLE
+        else:
+            table = SPARKOV_TABLE.with_stem(f'{SPARKOV_TABLE.stem}_len{args.window_length}')
         table.write_text(
             render_sparkov(
-                _read('sparkov', 'lstm', SPARKOV_REGIMES, args.results_dir, args.window_length)
+                _read(
+                    'sparkov', 'lstm', SPARKOV_REGIMES, args.results_dir,
+                    args.window_length, args.feature_set
+                )
             ) + '\n'
         )
         print(f'Wrote {table}', flush=True)
