@@ -24,34 +24,51 @@ def _entity_order(entity: pd.Series, event_time: pd.Series) -> tuple[np.ndarray,
 
 @dataclass(frozen=True)
 class Chunks:
-    """Disjoint, complete IBM chunks in source-row coordinates."""
+    """Complete IBM windows in source-row coordinates."""
 
     rows: np.ndarray
     n_dropped: int
+    stride: int
 
     @property
     def targets(self) -> np.ndarray:
         return self.rows[:, -1]
 
 
-def complete_chunks(entity: pd.Series, event_time: pd.Series, length: int = WINDOW) -> Chunks:
-    """Keep one final-row target per complete entity chunk of the requested length."""
+def complete_chunks(
+    entity: pd.Series, event_time: pd.Series, length: int = WINDOW,
+    stride: int | None = None,
+) -> Chunks:
+    """Keep one final-row target per complete entity window."""
     if length < 2:
         raise ValueError('sequence length must be at least 2')
+    stride = length if stride is None else stride
+    if not 1 <= stride <= length:
+        raise ValueError('window stride must be between 1 and sequence length')
     order, codes = _entity_order(entity, event_time)
     boundaries = np.r_[0, np.flatnonzero(np.diff(codes)) + 1, len(order)]
     n_chunks = int(
-        sum((end - start) // length for start, end in zip(boundaries[:-1], boundaries[1:]))
+        sum(
+            1 + (end - start - length) // stride
+            for start, end in zip(boundaries[:-1], boundaries[1:])
+            if end - start >= length
+        )
     )
     rows = np.empty((n_chunks, length), dtype='int32')
     cursor = 0
+    n_dropped = 0
     for start, end in zip(boundaries[:-1], boundaries[1:]):
-        count = (end - start) // length
-        rows[cursor : cursor + count] = order[start : start + count * length].reshape(
-            count, length
-        )
+        size = end - start
+        if size < length:
+            n_dropped += size
+            continue
+        count = 1 + (size - length) // stride
+        offsets = np.arange(length, dtype='int32')
+        positions = start + np.arange(count, dtype='int32')[:, None] * stride + offsets
+        rows[cursor : cursor + count] = order[positions]
+        n_dropped += size - ((count - 1) * stride + length)
         cursor += count
-    return Chunks(rows=rows, n_dropped=len(order) - n_chunks * length)
+    return Chunks(rows=rows, n_dropped=n_dropped, stride=stride)
 
 
 def iid_chunk_split(n_chunks: int, seed: int) -> np.ndarray:

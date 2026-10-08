@@ -187,8 +187,11 @@ The exploratory 68/16/16 temporal split is also available for the same disjoint
 IBM endpoints with `scripts/lstm_protocol.py --dataset ibm --regime
 pre_italy_68_16_16`. It runs both the LSTM and matched XGBoost comparator by
 default and writes separate JSON records. It does not change the original
-three-regime sequence table. A stride-5 window protocol would be a separate
-change; this option retains the existing disjoint chunks.
+three-regime sequence table. To score complete 10-transaction windows every five
+transactions instead, pass `--window-length 10 --window-stride 5` with an explicit
+IBM regime. This keeps one endpoint target per window, permits shared history
+between adjacent temporal windows, and records results separately with a
+`_len10_stride5` suffix. The chunk-IID regime requires disjoint windows.
 
 The temporal cell uses each endpoint's original pre-Italy temporal assignment.
 The customer-IID cell uses the original customer assignment. The new chunk-IID

@@ -95,6 +95,8 @@ def _ibm_split(df: pd.DataFrame, chunks: Chunks, regime: str) -> tuple[np.ndarra
         source = df['entity_id'].map(mapping).map(SPLIT_CODE).to_numpy(dtype='int8')
         return source[chunks.targets], source
     if regime == 'pre_italy_iid_chunks':
+        if chunks.stride != chunks.rows.shape[1]:
+            raise ValueError('chunk-IID requires disjoint windows')
         target = iid_chunk_split(len(chunks.rows), IID_SPLIT_SEED)
         source = np.full(len(df), -1, dtype='int8')
         source[chunks.rows] = target[:, None]
@@ -119,6 +121,7 @@ def prepare_ibm(
     chunks: Chunks | None = None,
     source_prepared: bool = False,
     window_length: int = 30,
+    window_stride: int | None = None,
 ) -> PreparedSequence:
     """One fixed IBM endpoint population, with split-specific train encoding."""
     if regime not in IBM_REGIMES:
@@ -131,9 +134,11 @@ def prepare_ibm(
         else pre_italy_split(_source(Path(features_dir), 'ibm_ccf') if source is None else source)
     )
     if chunks is None:
-        chunks = complete_chunks(df['entity_id'], df['event_time'], window_length)
+        chunks = complete_chunks(df['entity_id'], df['event_time'], window_length, window_stride)
     elif chunks.rows.shape[1] != window_length:
         raise ValueError('chunk width does not match window_length')
+    elif window_stride is not None and chunks.stride != window_stride:
+        raise ValueError('chunk stride does not match window_stride')
     target_split, source_split = _ibm_split(df, chunks, regime)
     train_mask = source_split == 0
     _ibm_rarity(df, train_mask)
@@ -166,6 +171,7 @@ def prepare_ibm(
             'target_rows': len(targets),
             'dropped_incomplete_rows': chunks.n_dropped,
             'chunk_length': window_length,
+            'window_stride': chunks.stride,
             'target': 'last transaction of each complete entity chunk',
             'tie_policy': 'source row order within equal entity timestamps',
             'split_seed': IID_SPLIT_SEED if regime == 'pre_italy_iid_chunks' else None,

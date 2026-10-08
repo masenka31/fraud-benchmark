@@ -30,12 +30,14 @@ SPARKOV_TABLE = Path('results/sparkov_lstm_delay.md')
 
 def _path(
     dataset: str, model: str, regime: str, results_dir: Path,
-    window_length: int = 30, feature_set: str = 'full',
+    window_length: int = 30, feature_set: str = 'full', window_stride: int | None = None,
 ) -> Path:
     if feature_set == 'rawish':
         suffix = f'_rawish_len{window_length}'
     else:
         suffix = '' if window_length == 30 else f'_len{window_length}'
+    if dataset == 'ibm' and window_stride is not None and window_stride != window_length:
+        suffix += f'_stride{window_stride}'
     return results_dir / f'{dataset}_{model}_{regime}{suffix}.json'
 
 
@@ -177,6 +179,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--seeds', type=int, nargs='+', default=[0, 1, 2, 3, 4])
     parser.add_argument('--model', choices=('lstm', 'xgboost', 'both'))
     parser.add_argument('--window-length', type=int, default=30)
+    parser.add_argument('--window-stride', type=int, help='IBM window step; defaults to length')
     parser.add_argument('--feature-set', choices=('full', 'rawish'), default='full')
     parser.add_argument('--render-only', action='store_true')
     parser.add_argument('--prepare-only', action='store_true')
@@ -185,6 +188,15 @@ def main(argv: list[str] | None = None) -> int:
     args.model = args.model or ('both' if args.dataset == 'ibm' else 'lstm')
     if args.window_length < 2:
         parser.error('window length must be at least 2')
+    if args.window_stride is not None:
+        if args.dataset != 'ibm':
+            parser.error('--window-stride is defined only for IBM')
+        if not 1 <= args.window_stride <= args.window_length:
+            parser.error('window stride must be between 1 and window length')
+        if args.window_stride < args.window_length and args.regime == 'pre_italy_iid_chunks':
+            parser.error('chunk-IID requires disjoint windows')
+        if args.window_stride < args.window_length and args.regime is None:
+            parser.error('overlapping IBM windows require an explicit --regime')
     seeds = tuple(args.seeds)
     if args.dataset == 'sparkov' and args.model != 'lstm':
         parser.error('Sparkov XGBoost already has its own paper protocol')
@@ -200,29 +212,42 @@ def main(argv: list[str] | None = None) -> int:
     if not args.render_only:
         if args.dataset == 'ibm':
             source = pre_italy_split(pd.read_parquet(args.features_dir / 'ibm_ccf.parquet'))
-            chunks = complete_chunks(source['entity_id'], source['event_time'], args.window_length)
-            print(f'IBM: {len(chunks.rows):,} complete endpoint chunks', flush=True)
+            chunks = complete_chunks(
+                source['entity_id'], source['event_time'], args.window_length,
+                args.window_stride,
+            )
+            print(f'IBM: {len(chunks.rows):,} complete endpoint windows', flush=True)
             for regime in (args.regime,) if args.regime else IBM_PAPER_REGIMES:
                 wanted = ('lstm', 'xgboost') if args.model == 'both' else (args.model,)
                 if args.resume and all(
-                    _path('ibm', model, regime, args.results_dir, args.window_length).exists()
+                    _path(
+                        'ibm', model, regime, args.results_dir,
+                        args.window_length, window_stride=args.window_stride,
+                    ).exists()
                     for model in wanted
                 ):
                     print(f'Skipping completed IBM {regime}', flush=True)
                     continue
                 prepared = prepare_ibm(
                     regime, args.features_dir, source=source, chunks=chunks,
-                    source_prepared=True, window_length=args.window_length
+                    source_prepared=True, window_length=args.window_length,
+                    window_stride=args.window_stride,
                 )
                 print(f'IBM {regime}: {prepared.metadata["positives"]}', flush=True)
                 if args.prepare_only:
                     continue
                 if args.model in ('lstm', 'both'):
-                    path = _path('ibm', 'lstm', regime, args.results_dir, args.window_length)
+                    path = _path(
+                        'ibm', 'lstm', regime, args.results_dir,
+                        args.window_length, window_stride=args.window_stride,
+                    )
                     if not (args.resume and path.exists()):
                         _write(path, run_lstm(prepared, seeds, args.device))
                 if args.model in ('xgboost', 'both'):
-                    path = _path('ibm', 'xgboost', regime, args.results_dir, args.window_length)
+                    path = _path(
+                        'ibm', 'xgboost', regime, args.results_dir,
+                        args.window_length, window_stride=args.window_stride,
+                    )
                     if not (args.resume and path.exists()):
                         _write(path, run_ibm_xgboost(prepared, seeds))
         else:
@@ -244,7 +269,10 @@ def main(argv: list[str] | None = None) -> int:
                 if not args.prepare_only:
                     _write(path, run_lstm(prepared, seeds, args.device))
 
-    if args.prepare_only or args.results_dir != RESULTS or args.regime == 'pre_italy_68_16_16':
+    if (
+        args.prepare_only or args.results_dir != RESULTS or args.regime == 'pre_italy_68_16_16'
+        or (args.window_stride is not None and args.window_stride != args.window_length)
+    ):
         return 0
     if args.dataset == 'ibm':
         if all(
