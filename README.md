@@ -145,6 +145,13 @@ The runners write readable tables to `results/ibm_split_protocol.md` and
 `results/sparkov_label_delay.md`; [`results/paper.md`](results/paper.md) indexes the
 machine-readable records and states exactly which rows and regimes each experiment uses.
 
+An optional LSTM sequence extension runs the IBM study on the final transaction
+of disjoint 30-transaction chunks and the Sparkov study on every transaction.
+Run it with `scripts/lstm_protocol.py --dataset ibm` or `--dataset sparkov` after
+installing the optional `lstm` dependencies. The reduced-target IBM results
+have a matching XGBoost comparator and are separate from the full-row table above.
+See [`docs/experiments.md`](docs/experiments.md) for the input and split rules.
+
 See [`docs/architecture.md`](docs/architecture.md) for the layout,
 [`docs/experiments.md`](docs/experiments.md) for the complete protocols, and
 [`docs/README.md`](docs/README.md) for everything else.

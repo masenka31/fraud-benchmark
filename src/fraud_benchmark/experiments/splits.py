@@ -32,7 +32,6 @@ TRAIN_ROWS = 13_350_884
 IID_SPLIT_SEED = 20260806
 
 _SPLIT_NAMES = np.asarray(('train', 'val', 'test'))
-_SPLIT_RATIOS = np.asarray((0.8, 0.1, 0.1), dtype='float64')
 
 
 def standard_split(df: pd.DataFrame) -> pd.DataFrame:
@@ -73,6 +72,34 @@ def pre_italy_split(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def pre_italy_68_16_16_split(df: pd.DataFrame) -> pd.DataFrame:
+    """Exploratory chronological 68/16/16 split of the same pre-Italy rows.
+
+    Cut at the first timestamp at or beyond each target row position, assigning
+    all rows tied at a boundary to the later partition.
+    """
+    out = _pre_italy_rows(df)
+    times = out['event_time']
+    val_start, test_start = pre_italy_68_16_16_boundaries(times)
+    out['split'] = np.where(
+        times < val_start, 'train', np.where(times < test_start, 'val', 'test')
+    )
+    return out
+
+
+def pre_italy_68_16_16_boundaries(
+    sorted_times: pd.Series,
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Return the first validation and test timestamps on sorted pre-Italy rows."""
+    if len(sorted_times) < 4:
+        raise ValueError('pre-Italy 68/16/16 split needs at least four rows')
+    val_start = sorted_times.iloc[int(0.68 * len(sorted_times))]
+    test_start = sorted_times.iloc[int(0.84 * len(sorted_times))]
+    if val_start == sorted_times.iloc[0] or val_start == test_start:
+        raise ValueError('timestamp ties leave a 68/16/16 partition empty')
+    return val_start, test_start
+
+
 def _pre_italy_rows(df: pd.DataFrame) -> pd.DataFrame:
     """Return the shared chronological population for the pre-Italy paper study."""
     out = df.sort_values('event_time', kind='mergesort').reset_index(drop=True)
@@ -98,16 +125,21 @@ def iid_row_split(df: pd.DataFrame, seed: int = IID_SPLIT_SEED) -> pd.DataFrame:
     return out
 
 
-def iid_customer_split(df: pd.DataFrame, seed: int = IID_SPLIT_SEED) -> pd.DataFrame:
+def iid_customer_split(
+    df: pd.DataFrame, seed: int = IID_SPLIT_SEED,
+    ratios: tuple[float, float, float] = (0.8, 0.1, 0.1),
+) -> pd.DataFrame:
     """Deterministic customer-disjoint split balanced on transaction counts.
 
     Customers are assigned whole.  Largest histories are placed first into the
-    split that yields the smallest squared deviation from the 80/10/10 transaction
+    split that yields the smallest squared deviation from the requested transaction
     targets.  A seeded random key resolves equal-size customers and equivalent
     destinations, retaining a random IID allocation while preventing one unusually
     long history from dominating a small split.
     """
     out = df.sort_values(['event_time', 'entity_id'], kind='mergesort').reset_index(drop=True)
+    if len(ratios) != 3 or any(ratio <= 0 for ratio in ratios) or not np.isclose(sum(ratios), 1.0):
+        raise ValueError('IID split ratios must be positive and sum to one')
     sizes = out.groupby('entity_id', observed=True, sort=False).size()
     rng = np.random.default_rng(seed)
     customers = pd.DataFrame(
@@ -118,9 +150,9 @@ def iid_customer_split(df: pd.DataFrame, seed: int = IID_SPLIT_SEED) -> pd.DataF
         }
     ).sort_values(['rows', 'tie'], ascending=[False, True], kind='mergesort')
 
-    targets = _SPLIT_RATIOS * len(out)
+    targets = np.asarray(ratios, dtype='float64') * len(out)
     customer_targets = np.asarray(
-        (int(0.8 * len(customers)), int(0.1 * len(customers)), 0), dtype='int64'
+        (int(ratios[0] * len(customers)), int(ratios[1] * len(customers)), 0), dtype='int64'
     )
     customer_targets[2] = len(customers) - customer_targets[:2].sum()
     assigned = np.zeros(3, dtype='int64')

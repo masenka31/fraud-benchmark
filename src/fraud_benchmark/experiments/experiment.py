@@ -19,6 +19,7 @@ from fraud_benchmark.experiments.encoding import CappedOrdinalEncoder
 from fraud_benchmark.experiments.features.util import ARTIFACT_PREFIX
 from fraud_benchmark.experiments.features.util import FEATURE_DIR
 from fraud_benchmark.experiments.features.util import feature_columns
+from fraud_benchmark.experiments.splits import pre_italy_68_16_16_split
 from fraud_benchmark.experiments.splits import pre_italy_iid_customer_split
 from fraud_benchmark.experiments.splits import pre_italy_iid_row_split
 from fraud_benchmark.experiments.splits import pre_italy_split
@@ -26,7 +27,10 @@ from fraud_benchmark.experiments.splits import standard_split
 
 DATASETS = ('ibm_ccf', 'sparkov')
 LABEL_DELAYS = ('off', 'on', 'slow')
-SPLITS = ('standard', 'pre_italy', 'pre_italy_iid_rows', 'pre_italy_iid_customers')
+SPLITS = (
+    'standard', 'pre_italy', 'pre_italy_68_16_16',
+    'pre_italy_iid_rows', 'pre_italy_iid_customers',
+)
 SLOW_DELAY_COLUMN = 'reported_at_slow'
 
 
@@ -77,6 +81,8 @@ def _apply_split(df: pd.DataFrame, split: str) -> pd.DataFrame:
         return standard_split(df)
     if split == 'pre_italy':
         return pre_italy_split(df)
+    if split == 'pre_italy_68_16_16':
+        return pre_italy_68_16_16_split(df)
     if split == 'pre_italy_iid_rows':
         return pre_italy_iid_row_split(df)
     return pre_italy_iid_customer_split(df)
