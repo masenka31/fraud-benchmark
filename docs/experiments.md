@@ -57,6 +57,19 @@ XGBoost settings, and model seeds 0--4. Only split assignment changes. Label-der
 features use training labels only, are computed chronologically, and score a training row
 before incorporating that row's label.
 
+An opt-in exploratory temporal split, `pre_italy_68_16_16`, uses the same pre-Italy
+rows with chronological 68/16/16 train/validation/test partitions. It assigns all
+transactions with the same timestamp to one partition. On the feature parquet,
+the partitions contain 13,874,719 / 3,264,640 / 3,264,640 transactions and
+17,170 / 4,020 / 3,734 frauds. The two cutoffs are 2014-01-17 13:39:00 and
+2015-12-25 02:37:00; each cutoff timestamp belongs to the later partition.
+These ratios were chosen after inspecting the true labels, so this is a separate
+diagnostic protocol rather than a replacement for the recorded 80/10/10 table.
+Run its full-row XGBoost cell with
+`.venv/bin/python scripts/ibm_split_protocol.py --regime pre_italy_68_16_16`.
+The runner writes `results/paper/ibm_pre_italy_temporal_68_16_16.json` without
+changing the original three-regime table.
+
 **IBM model inputs (82):** the 31 shared features above, these 43 IBM features,
 and eight causal features added in
 [`ibm_split_protocol.py`](../scripts/ibm_split_protocol.py):
@@ -169,6 +182,13 @@ with 854 frauds. The temporal validation and test endpoint sets have 189 and
 Transactions from the same entity with identical minute timestamps retain their
 source row order inside a chunk; that order is deterministic but does not prove
 their true within-minute order.
+
+The exploratory 68/16/16 temporal split is also available for the same disjoint
+IBM endpoints with `scripts/lstm_protocol.py --dataset ibm --regime
+pre_italy_68_16_16`. It runs both the LSTM and matched XGBoost comparator by
+default and writes separate JSON records. It does not change the original
+three-regime sequence table. A stride-5 window protocol would be a separate
+change; this option retains the existing disjoint chunks.
 
 The temporal cell uses each endpoint's original pre-Italy temporal assignment.
 The customer-IID cell uses the original customer assignment. The new chunk-IID

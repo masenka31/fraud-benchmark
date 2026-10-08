@@ -73,6 +73,34 @@ def pre_italy_split(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def pre_italy_68_16_16_split(df: pd.DataFrame) -> pd.DataFrame:
+    """Exploratory chronological 68/16/16 split of the same pre-Italy rows.
+
+    Cut at the first timestamp at or beyond each target row position, assigning
+    all rows tied at a boundary to the later partition.
+    """
+    out = _pre_italy_rows(df)
+    times = out['event_time']
+    val_start, test_start = pre_italy_68_16_16_boundaries(times)
+    out['split'] = np.where(
+        times < val_start, 'train', np.where(times < test_start, 'val', 'test')
+    )
+    return out
+
+
+def pre_italy_68_16_16_boundaries(
+    sorted_times: pd.Series,
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """Return the first validation and test timestamps on sorted pre-Italy rows."""
+    if len(sorted_times) < 4:
+        raise ValueError('pre-Italy 68/16/16 split needs at least four rows')
+    val_start = sorted_times.iloc[int(0.68 * len(sorted_times))]
+    test_start = sorted_times.iloc[int(0.84 * len(sorted_times))]
+    if val_start == sorted_times.iloc[0] or val_start == test_start:
+        raise ValueError('timestamp ties leave a 68/16/16 partition empty')
+    return val_start, test_start
+
+
 def _pre_italy_rows(df: pd.DataFrame) -> pd.DataFrame:
     """Return the shared chronological population for the pre-Italy paper study."""
     out = df.sort_values('event_time', kind='mergesort').reset_index(drop=True)

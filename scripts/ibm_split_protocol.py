@@ -20,6 +20,7 @@ from fraud_benchmark.experiments.experiment import prepare
 from fraud_benchmark.experiments.features.util import FEATURE_DIR
 from fraud_benchmark.experiments.models import fit_xgboost
 from fraud_benchmark.experiments.splits import FIRST_ITALY_FRAUD
+from fraud_benchmark.experiments.splits import pre_italy_68_16_16_split
 from fraud_benchmark.experiments.splits import pre_italy_iid_customer_split
 from fraud_benchmark.experiments.splits import pre_italy_iid_row_split
 from fraud_benchmark.experiments.splits import pre_italy_split
@@ -34,6 +35,7 @@ RESULTS = {
     'pre_italy': Path('results/paper/ibm_pre_italy_temporal.json'),
     'pre_italy_iid_rows': Path('results/paper/ibm_pre_italy_iid_rows.json'),
     'pre_italy_iid_customers': Path('results/paper/ibm_pre_italy_iid_customers.json'),
+    'pre_italy_68_16_16': Path('results/paper/ibm_pre_italy_temporal_68_16_16.json'),
 }
 DEFAULT_TABLE = Path('results/ibm_split_protocol.md')
 CATEGORICAL = (
@@ -48,6 +50,8 @@ CATEGORICAL = (
 def _split(df: pd.DataFrame, regime: str) -> pd.DataFrame:
     if regime == 'pre_italy':
         return pre_italy_split(df)
+    if regime == 'pre_italy_68_16_16':
+        return pre_italy_68_16_16_split(df)
     if regime == 'pre_italy_iid_rows':
         return pre_italy_iid_row_split(df)
     return pre_italy_iid_customer_split(df)
@@ -167,6 +171,7 @@ def render_markdown(records: dict[str, dict]) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--features-dir', type=Path, default=FEATURE_DIR)
+    parser.add_argument('--regime', choices=(*REGIMES, 'pre_italy_68_16_16'))
     parser.add_argument('--table-out', type=Path, default=DEFAULT_TABLE)
     parser.add_argument(
         '--render-only',
@@ -174,17 +179,22 @@ def main(argv: list[str] | None = None) -> int:
         help='regenerate the Markdown table from the recorded JSON without fitting',
     )
     args = parser.parse_args(argv)
+    if args.render_only and args.regime:
+        parser.error('--render-only renders the original three-regime table only')
 
     if args.render_only:
-        records = {regime: json.loads(path.read_text()) for regime, path in RESULTS.items()}
+        records = {regime: json.loads(RESULTS[regime].read_text()) for regime in REGIMES}
     else:
         records = {}
-        for regime in REGIMES:
+        for regime in (args.regime,) if args.regime else REGIMES:
             print(f'Running IBM pre-Italy split regime: {regime}', flush=True)
             record = run_regime(regime, args.features_dir)
             RESULTS[regime].parent.mkdir(parents=True, exist_ok=True)
             RESULTS[regime].write_text(json.dumps(record, indent=2) + '\n')
             records[regime] = record
+
+    if args.regime:
+        return 0
 
     args.table_out.parent.mkdir(parents=True, exist_ok=True)
     args.table_out.write_text(render_markdown(records) + '\n')

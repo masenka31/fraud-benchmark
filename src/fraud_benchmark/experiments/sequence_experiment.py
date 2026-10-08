@@ -34,11 +34,13 @@ from fraud_benchmark.experiments.sequence import iid_chunk_split
 from fraud_benchmark.experiments.sequence import window_index
 from fraud_benchmark.experiments.splits import FIRST_ITALY_FRAUD
 from fraud_benchmark.experiments.splits import IID_SPLIT_SEED
+from fraud_benchmark.experiments.splits import pre_italy_68_16_16_boundaries
 from fraud_benchmark.experiments.splits import pre_italy_iid_customer_split
 from fraud_benchmark.experiments.splits import pre_italy_split
 from fraud_benchmark.experiments.splits import standard_split
 
-IBM_REGIMES = ('pre_italy', 'pre_italy_iid_chunks', 'pre_italy_iid_customers')
+IBM_PAPER_REGIMES = ('pre_italy', 'pre_italy_iid_chunks', 'pre_italy_iid_customers')
+IBM_REGIMES = (*IBM_PAPER_REGIMES, 'pre_italy_68_16_16')
 SPARKOV_REGIMES = ('off', 'on', 'slow')
 SPLIT_CODE = {'train': 0, 'val': 1, 'test': 2}
 RARITY_NAMES = ['state_prior_rarity', 'state_not_seen_previously', 'foreign_state_rarity']
@@ -80,6 +82,12 @@ def _ibm_split(df: pd.DataFrame, chunks: Chunks, regime: str) -> tuple[np.ndarra
     """Return target and source split codes. Context rows have no targets."""
     if regime == 'pre_italy':
         source = df['split'].map(SPLIT_CODE).to_numpy(dtype='int8')
+        return source[chunks.targets], source
+    if regime == 'pre_italy_68_16_16':
+        times = df['event_time']
+        val_start, test_start = pre_italy_68_16_16_boundaries(times)
+        source = np.where(times < val_start, 0, np.where(times < test_start, 1, 2))
+        source = source.astype('int8')
         return source[chunks.targets], source
     if regime == 'pre_italy_iid_customers':
         assignment = pre_italy_iid_customer_split(df[['entity_id', 'event_time']])
