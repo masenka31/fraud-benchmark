@@ -176,7 +176,12 @@ cell assigns whole chunks with one fixed seed; it is not the original
 transaction-IID cell. It still trains on some labels from dates later than
 scored dates, so it measures an optimistic split rather than chronological
 deployment. A new XGBoost comparator uses the **same endpoints, split assignment,
-and 77 label-free features** as the LSTM. Those features are the 74 non-artifact
+and 77 label-free feature names** as the LSTM. XGBoost receives only the final
+transaction's feature values, while the LSTM receives those features for all
+30 transactions in the chunk. Both use numeric values scaled from the training
+split. The LSTM also receives missingness indicators and category embeddings;
+XGBoost receives missing numeric values and ordinal-encoded categories. Those
+77 feature names are the 74 non-artifact
 IBM columns listed above plus `state_prior_rarity`,
 `state_not_seen_previously`, and `foreign_state_rarity`. The five
 `causal_target_rate_*` features are excluded because they summarize prior labels.
@@ -214,7 +219,8 @@ The IBM endpoint LSTM has mean test average precision of 0.4370 (temporal),
 0.6779 (chunk IID), and 0.7138 (customer IID) over seeds 0--4. The matched
 XGBoost values are 0.3672, 0.5896, and 0.6499 respectively. See the
 [`IBM endpoint table`](../results/ibm_lstm_protocol.md) for validation scores,
-variation across seeds, and target counts. The temporal test set has only 36
+test-minus-validation AP gaps, variation across seeds, and target counts.
+The temporal test set has only 36
 fraud endpoints; its AP difference is descriptive and should not be treated as
 precise evidence of a model advantage. The IID regimes also use different
 assignments, so their AP difference combines split semantics with population
@@ -224,5 +230,5 @@ On Sparkov, mean LSTM test AP is 0.9800 with no delay, 0.9774 with the default
 synthetic delay, and 0.9722 with the slow synthetic delay. The matched
 no-delay differences are -0.0026 and -0.0078. See the
 [`Sparkov delay table`](../results/sparkov_lstm_delay.md) for validation scores
-and variation across seeds. These synthetic regimes show sensitivity to the
+and test-minus-validation AP gaps. These synthetic regimes show sensitivity to the
 specified reporting delays; they do not estimate real-world delay behavior.
