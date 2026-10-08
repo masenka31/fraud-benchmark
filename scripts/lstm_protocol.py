@@ -38,13 +38,25 @@ def _read(dataset: str, model: str, regimes: tuple[str, ...], results_dir: Path)
     }
 
 
-def _mean_sd(record: dict, partition: str, metric: str) -> str:
+def _values(record: dict, partition: str, metric: str) -> np.ndarray:
     if record['model'] == 'lstm':
         values = [row['scores'][partition][metric] for row in record['seeds']]
     else:
         name = 'validation' if partition == 'val' else partition
         values = [row[name][metric] for row in record['seeds']]
+    return np.asarray(values)
+
+
+def _mean_sd(record: dict, partition: str, metric: str) -> str:
+    values = _values(record, partition, metric)
     return f'{np.mean(values):.4f} ± {np.std(values):.4f}'
+
+
+def _test_minus_validation_ap(record: dict) -> str:
+    difference = _values(record, 'test', 'average_precision') - _values(
+        record, 'val', 'average_precision'
+    )
+    return f'{np.mean(difference):+.4f}'
 
 
 def render_ibm(lstm: dict, xgboost: dict) -> str:
@@ -61,6 +73,7 @@ def render_ibm(lstm: dict, xgboost: dict) -> str:
                 f'| {labels[regime]} | {model} | '
                 f'{_mean_sd(record, "val", "average_precision")} | '
                 f'{_mean_sd(record, "test", "average_precision")} | '
+                f'{_test_minus_validation_ap(record)} | '
                 f'{record["rows"]["test"]:,} | {record["positives"]["test"]:,} |'
             )
     population = lstm['pre_italy']['source_rows']
@@ -73,13 +86,17 @@ def render_ibm(lstm: dict, xgboost: dict) -> str:
             '',
             f'The source has {population:,} pre-Italy transactions. Exactly {targets:,} '
             'complete entity chunks contribute one final-transaction target each.',
-            'All cells use the same endpoint targets and 77 label-free features.',
+            'All cells use the same endpoint targets and 77 label-free feature names.',
+            'XGBoost receives only the endpoint feature row; the LSTM receives all 30 rows.',
             'Chunk IID is a different split from the original transaction-IID protocol.',
             'These AP values are not comparable to the original full-row IBM table.',
             'Entries are mean ± population standard deviation over seeds 0–4.',
+            'Test − validation AP is the mean within-seed difference; '
+            'negative means lower test AP.',
             '',
-            '| Split | Model | Validation AP | Test AP | Test targets | Test fraud targets |',
-            '|---|---|---:|---:|---:|---:|',
+            '| Split | Model | Validation AP | Test AP | Test − validation AP | '
+            'Test targets | Test fraud targets |',
+            '|---|---|---:|---:|---:|---:|---:|',
             *rows,
         ]
     )
@@ -97,7 +114,8 @@ def render_sparkov(records: dict) -> str:
         rows.append(
             f'| {labels[regime]} | {record["censored_train_labels"]:,} | '
             f'{_mean_sd(record, "val", "average_precision")} | '
-            f'{_mean_sd(record, "test", "average_precision")} | {ap - baseline:+.4f} |'
+            f'{_mean_sd(record, "test", "average_precision")} | '
+            f'{_test_minus_validation_ap(record)} | {ap - baseline:+.4f} |'
         )
     return '\n'.join(
         [
@@ -109,9 +127,12 @@ def render_sparkov(records: dict) -> str:
             'The 30-transaction windows, split, features, settings, and seeds are fixed;',
             'only synthetic training-label availability changes.',
             'Entries are mean ± population standard deviation over seeds 0–4.',
+            'Test − validation AP is the mean within-seed difference; '
+            'negative means lower test AP.',
             '',
-            '| Training labels | Hidden train frauds | Validation AP | Test AP | Δ test AP |',
-            '|---|---:|---:|---:|---:|',
+            '| Training labels | Hidden train frauds | Validation AP | Test AP | '
+            'Test − validation AP | Δ test AP vs off |',
+            '|---|---:|---:|---:|---:|---:|',
             *rows,
         ]
     )

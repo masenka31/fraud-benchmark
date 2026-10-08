@@ -29,8 +29,9 @@ regime. Only training-label availability changes. Validation and test use true l
 
 Each entity contributes one target per complete, disjoint 30-transaction chunk:
 the final transaction. The temporal, chunk-IID, and customer-IID splits share the
-same 679,372 endpoints and 77 label-free inputs. Both LSTM and XGBoost score only
-those endpoints. These reduced-target AP values are not comparable to the original
+same 679,372 endpoints and 77 label-free feature names. XGBoost receives the
+endpoint's feature row; the LSTM receives all 30 rows in its chunk. Both score only
+the endpoint. These reduced-target AP values are not comparable to the original
 full-row IBM protocol above. The temporal test set contains only 36 fraud targets,
 so its AP is sensitive to a few predictions.
 
