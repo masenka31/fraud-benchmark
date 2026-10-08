@@ -71,11 +71,15 @@ def complete_chunks(
     return Chunks(rows=rows, n_dropped=int(n_dropped), stride=stride)
 
 
-def iid_chunk_split(n_chunks: int, seed: int) -> np.ndarray:
-    """One deterministic 80/10/10 draw, independent of estimator seeds."""
+def iid_chunk_split(
+    n_chunks: int, seed: int, ratios: tuple[float, float, float] = (0.8, 0.1, 0.1)
+) -> np.ndarray:
+    """One deterministic window draw, independent of estimator seeds."""
+    if len(ratios) != 3 or any(ratio <= 0 for ratio in ratios) or not np.isclose(sum(ratios), 1.0):
+        raise ValueError('IID split ratios must be positive and sum to one')
     order = np.random.default_rng(seed).permutation(n_chunks)
-    train_end = int(0.8 * n_chunks)
-    val_end = int(0.9 * n_chunks)
+    train_end = int(ratios[0] * n_chunks)
+    val_end = int((ratios[0] + ratios[1]) * n_chunks)
     split = np.empty(n_chunks, dtype='int8')
     split[order[:train_end]] = 0
     split[order[train_end:val_end]] = 1
