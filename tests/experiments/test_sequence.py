@@ -65,6 +65,7 @@ def test_stride_five_windows_overlap_and_keep_only_complete_targets():
     assert windows.rows.shape == (3, 10)
     assert windows.targets.tolist() == [9, 14, 19]
     assert windows.n_dropped == 10
+    assert isinstance(windows.n_dropped, int)
     assert np.array_equal(windows.rows[0, 5:], windows.rows[1, :5])
     with pytest.raises(ValueError, match='between 1 and sequence length'):
         complete_chunks(entity, times, length=10, stride=11)
