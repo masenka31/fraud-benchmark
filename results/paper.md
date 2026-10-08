@@ -40,6 +40,14 @@ so its AP is sensitive to a few predictions.
 - Machine-readable records: `results/paper/ibm_lstm_*.json` and
   `results/paper/ibm_xgboost_*.json`
 
+The 10-transaction repeat uses the same model settings and feature names but
+predicts 2,039,680 different chunk endpoints. It is indexed separately:
+
+- Runner: `scripts/lstm_protocol.py --dataset ibm --window-length 10`
+- Readable table: `results/ibm_lstm_protocol_len10.md`
+- Machine-readable records: `results/paper/ibm_lstm_*_len10.json` and
+  `results/paper/ibm_xgboost_*_len10.json`
+
 ## Sparkov: LSTM synthetic training-label delay extension
 
 The LSTM scores every Sparkov transaction using its current features and at most
@@ -51,3 +59,9 @@ labels.
 - Runner: `scripts/lstm_protocol.py --dataset sparkov`
 - Readable table: `results/sparkov_lstm_delay.md`
 - Machine-readable records: `results/paper/sparkov_lstm_*.json`
+
+The 10-transaction repeat keeps the same target rows and split:
+
+- Runner: `scripts/lstm_protocol.py --dataset sparkov --window-length 10`
+- Readable table: `results/sparkov_lstm_delay_len10.md`
+- Machine-readable records: `results/paper/sparkov_lstm_*_len10.json`
