@@ -74,6 +74,7 @@ def test_sparkov_regimes_keep_rows_and_true_evaluation_labels(sparkov_features):
 
 
 def test_public_config_rejects_non_protocol_combinations():
+    ExperimentConfig(dataset='ibm_ccf', split='pre_italy_68_16_16').validate()
     with pytest.raises(ExperimentError, match='pre-Italy'):
         ExperimentConfig(dataset='ibm_ccf').validate()
     with pytest.raises(ExperimentError, match='only for IBM'):

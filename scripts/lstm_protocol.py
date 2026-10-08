@@ -13,6 +13,7 @@ import pandas as pd
 
 from fraud_benchmark.experiments.features.util import FEATURE_DIR
 from fraud_benchmark.experiments.sequence import complete_chunks
+from fraud_benchmark.experiments.sequence_experiment import IBM_PAPER_REGIMES
 from fraud_benchmark.experiments.sequence_experiment import IBM_REGIMES
 from fraud_benchmark.experiments.sequence_experiment import SPARKOV_REGIMES
 from fraud_benchmark.experiments.sequence_experiment import prepare_ibm
@@ -78,7 +79,7 @@ def render_ibm(lstm: dict, xgboost: dict) -> str:
         'pre_italy_iid_chunks': 'Chunk IID',
         'pre_italy_iid_customers': 'Customer IID',
     }
-    for regime in IBM_REGIMES:
+    for regime in IBM_PAPER_REGIMES:
         for model, records in (('LSTM', lstm), ('XGBoost', xgboost)):
             record = records[regime]
             rows.append(
@@ -201,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
             source = pre_italy_split(pd.read_parquet(args.features_dir / 'ibm_ccf.parquet'))
             chunks = complete_chunks(source['entity_id'], source['event_time'], args.window_length)
             print(f'IBM: {len(chunks.rows):,} complete endpoint chunks', flush=True)
-            for regime in (args.regime,) if args.regime else IBM_REGIMES:
+            for regime in (args.regime,) if args.regime else IBM_PAPER_REGIMES:
                 wanted = ('lstm', 'xgboost') if args.model == 'both' else (args.model,)
                 if args.resume and all(
                     _path('ibm', model, regime, args.results_dir, args.window_length).exists()
@@ -243,21 +244,24 @@ def main(argv: list[str] | None = None) -> int:
                 if not args.prepare_only:
                     _write(path, run_lstm(prepared, seeds, args.device))
 
-    if args.prepare_only or args.results_dir != RESULTS:
+    if args.prepare_only or args.results_dir != RESULTS or args.regime == 'pre_italy_68_16_16':
         return 0
     if args.dataset == 'ibm':
         if all(
             _path('ibm', model, regime, args.results_dir, args.window_length).exists()
             for model in ('lstm', 'xgboost')
-            for regime in IBM_REGIMES
+            for regime in IBM_PAPER_REGIMES
         ):
             table = IBM_TABLE if args.window_length == 30 else IBM_TABLE.with_stem(
                 f'{IBM_TABLE.stem}_len{args.window_length}'
             )
             table.write_text(
                 render_ibm(
-                    _read('ibm', 'lstm', IBM_REGIMES, args.results_dir, args.window_length),
-                    _read('ibm', 'xgboost', IBM_REGIMES, args.results_dir, args.window_length),
+                    _read('ibm', 'lstm', IBM_PAPER_REGIMES, args.results_dir, args.window_length),
+                    _read(
+                        'ibm', 'xgboost', IBM_PAPER_REGIMES,
+                        args.results_dir, args.window_length,
+                    ),
                 )
                 + '\n'
             )

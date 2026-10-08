@@ -11,8 +11,9 @@ from fraud_benchmark.experiments.lstm import encode_features
 from fraud_benchmark.experiments.sequence import complete_chunks
 from fraud_benchmark.experiments.sequence import iid_chunk_split
 from fraud_benchmark.experiments.sequence import window_index
-from fraud_benchmark.experiments.sequence_experiment import IBM_REGIMES
+from fraud_benchmark.experiments.sequence_experiment import IBM_PAPER_REGIMES
 from fraud_benchmark.experiments.sequence_experiment import SPARKOV_RAWISH_FEATURES
+from fraud_benchmark.experiments.sequence_experiment import _ibm_split
 from fraud_benchmark.experiments.sequence_experiment import prepare_ibm
 from fraud_benchmark.experiments.sequence_experiment import prepare_sparkov
 from fraud_benchmark.experiments.sequence_experiment import run_ibm_xgboost
@@ -54,6 +55,20 @@ def test_ten_transaction_chunks_triple_complete_targets_and_bound_windows():
         complete_chunks(entity, times, length=1)
     with pytest.raises(ValueError, match='at least 2'):
         window_index(entity, times, length=1)
+
+
+def test_ibm_68_16_16_assigns_chunk_targets_by_endpoint_time():
+    frame = pd.DataFrame(
+        {
+            'entity_id': ['a'] * 100,
+            'event_time': pd.date_range('2010-01-01', periods=100, freq='min'),
+            'split': ['train'] * 100,
+        }
+    )
+    chunks = complete_chunks(frame['entity_id'], frame['event_time'], length=10)
+    targets, source = _ibm_split(frame, chunks, 'pre_italy_68_16_16')
+    assert np.bincount(source).tolist() == [68, 16, 16]
+    assert np.bincount(targets).tolist() == [6, 2, 2]
 
 
 def test_chunk_iid_assignment_is_fixed_and_whole_chunk():
@@ -161,7 +176,7 @@ def test_ibm_regimes_keep_the_same_endpoints_and_no_label_derived_inputs():
     )
     for index in range(73):
         frame[f'feature_{index}'] = np.ones(len(frame), dtype='float32')
-    prepared = [prepare_ibm(regime, source=frame) for regime in IBM_REGIMES]
+    prepared = [prepare_ibm(regime, source=frame) for regime in IBM_PAPER_REGIMES]
     endpoints = [
         item.positions_for(np.arange(len(item.y_true), dtype='int32'))[0][:, -1]
         for item in prepared
