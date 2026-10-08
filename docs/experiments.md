@@ -243,6 +243,22 @@ no-delay differences are -0.0026 and -0.0078. See the
 and test-minus-validation AP gaps. These synthetic regimes show sensitivity to the
 specified reporting delays; they do not estimate real-world delay behavior.
 
+The 10-transaction repeat has 2,039,680 IBM endpoints. Mean test AP is
+0.5853/0.7272/0.7164 for the temporal/chunk-IID/customer-IID LSTM cells and
+0.3939/0.6554/0.6279 for their endpoint-matched XGBoost comparators. The
+[`length-10 IBM table`](../results/ibm_lstm_protocol_len10.md) gives validation
+AP, seed variation, and target counts. Because the shorter chunks select
+different endpoints, the IBM difference from length 30 cannot be attributed
+to sequence length alone. The temporal test set has 95 fraud endpoints at
+length 10, versus 36 at length 30.
+
+Sparkov retains all target rows at length 10. Mean test AP is 0.9786 with no
+delay, 0.9786 with the default synthetic delay, and 0.9739 with the slow
+synthetic delay; the unrounded changes from no delay are -0.0001 and -0.0047.
+The [`length-10 Sparkov table`](../results/sparkov_lstm_delay_len10.md)
+contains validation AP and seed variation. These are five-seed descriptive
+results with the same synthetic-delay caveats as the length-30 protocol.
+
 ### Proposed raw-ish feature ablation
 
 For a separate feature ablation, retain only values from the current event,
