@@ -254,7 +254,7 @@ ablation can select columns without rebuilding source data.
 **Shared by IBM and Sparkov (15):**
 
 ```text
-hour, minute, weekday, day, month, is_weekend, hour_sin, hour_cos
+hour, minute, weekday, day, month, is_weekend, hour_sin, hour_cos,
 amount, amount_log1p, amount_is_refund, amount_cents,
 amount_is_round_10, amount_is_round_100, amount_is_micro
 ```
@@ -263,9 +263,9 @@ amount_is_round_10, amount_is_round_100, amount_is_micro
 
 ```text
 same_state, same_city, merchant_is_online, merchant_state_missing,
-merchant_is_foreign, mcc_group, use_chip
+merchant_is_foreign, mcc_group, use_chip,
 card_brand, card_type, has_chip, card_on_dark_web, cards_issued,
-days_since_acct_open, days_to_expiry, days_since_pin_change
+days_since_acct_open, days_to_expiry, days_since_pin_change,
 age, years_to_retirement, gender, fico, num_cards, credit_limit,
 total_debt, income_person, income_zip, debt_to_income,
 amount_over_credit_limit
