@@ -42,6 +42,12 @@ IBM_REGIMES = ('pre_italy', 'pre_italy_iid_chunks', 'pre_italy_iid_customers')
 SPARKOV_REGIMES = ('off', 'on', 'slow')
 SPLIT_CODE = {'train': 0, 'val': 1, 'test': 2}
 RARITY_NAMES = ['state_prior_rarity', 'state_not_seen_previously', 'foreign_state_rarity']
+SPARKOV_RAWISH_FEATURES = (
+    'hour', 'minute', 'weekday', 'day', 'month', 'is_weekend', 'hour_sin', 'hour_cos',
+    'amount', 'amount_log1p', 'amount_is_refund', 'amount_cents',
+    'amount_is_round_10', 'amount_is_round_100', 'amount_is_micro',
+    'distance_from_home_km', 'category', 'job', 'gender', 'age_at_txn', 'city_pop_log',
+)
 
 
 @dataclass
@@ -177,10 +183,13 @@ def prepare_sparkov(
     index: WindowIndex | None = None,
     source_prepared: bool = False,
     window_length: int = 30,
+    feature_set: str = 'full',
 ) -> PreparedSequence:
     """Same rows, split, and inputs in all three synthetic delay regimes."""
     if regime not in SPARKOV_REGIMES:
         raise ValueError(f'unknown Sparkov regime {regime!r}')
+    if feature_set not in ('full', 'rawish'):
+        raise ValueError(f'unknown Sparkov feature set {feature_set!r}')
     if source_prepared and source is None:
         raise ValueError('source_prepared requires source')
     df = (
@@ -190,9 +199,18 @@ def prepare_sparkov(
     )
     split = df['split'].map(SPLIT_CODE).to_numpy(dtype='int8')
     train_mask = split == 0
-    names = [name for name in feature_columns(df) if not name.startswith(ARTIFACT_PREFIX)]
-    if len(names) != 46:
-        raise ExperimentError(f'expected 46 Sparkov LSTM features, got {len(names)}')
+    available = [name for name in feature_columns(df) if not name.startswith(ARTIFACT_PREFIX)]
+    if feature_set == 'full':
+        names = available
+        if len(names) != 46:
+            raise ExperimentError(f'expected 46 Sparkov LSTM features, got {len(names)}')
+    else:
+        missing = set(SPARKOV_RAWISH_FEATURES) - set(available)
+        if missing:
+            raise ExperimentError(f'missing Sparkov raw-ish features: {sorted(missing)}')
+        names = [name for name in available if name in SPARKOV_RAWISH_FEATURES]
+        if len(names) != len(SPARKOV_RAWISH_FEATURES):
+            raise ExperimentError('Sparkov raw-ish feature selection is not unique')
     if index is None:
         index = window_index(df['entity_id'], df['event_time'], window_length)
     elif index.length != window_length:
@@ -227,6 +245,7 @@ def prepare_sparkov(
             'source_rows': len(df),
             'target_rows': len(df),
             'window_length': window_length,
+            'feature_set': feature_set,
             'target': 'each transaction',
             'tie_policy': 'exclude equal-timestamp predecessor rows',
             'censored_train_labels': int(y_true[train].sum() - y_fit[train].sum()),
