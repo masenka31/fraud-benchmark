@@ -57,6 +57,19 @@ def test_ten_transaction_chunks_triple_complete_targets_and_bound_windows():
         window_index(entity, times, length=1)
 
 
+def test_stride_five_windows_overlap_and_keep_only_complete_targets():
+    entity = pd.Series(['a'] * 21 + ['b'] * 9)
+    times = pd.Series(pd.date_range('2010-01-01', periods=30, freq='min'))
+    windows = complete_chunks(entity, times, length=10, stride=5)
+    assert windows.stride == 5
+    assert windows.rows.shape == (3, 10)
+    assert windows.targets.tolist() == [9, 14, 19]
+    assert windows.n_dropped == 10
+    assert np.array_equal(windows.rows[0, 5:], windows.rows[1, :5])
+    with pytest.raises(ValueError, match='between 1 and sequence length'):
+        complete_chunks(entity, times, length=10, stride=11)
+
+
 def test_ibm_68_16_16_assigns_chunk_targets_by_endpoint_time():
     frame = pd.DataFrame(
         {
@@ -69,6 +82,12 @@ def test_ibm_68_16_16_assigns_chunk_targets_by_endpoint_time():
     targets, source = _ibm_split(frame, chunks, 'pre_italy_68_16_16')
     assert np.bincount(source).tolist() == [68, 16, 16]
     assert np.bincount(targets).tolist() == [6, 2, 2]
+    overlapping = complete_chunks(frame['entity_id'], frame['event_time'], length=10, stride=5)
+    targets, source = _ibm_split(frame, overlapping, 'pre_italy_68_16_16')
+    assert np.bincount(source).tolist() == [68, 16, 16]
+    assert np.bincount(targets).tolist() == [12, 3, 4]
+    with pytest.raises(ValueError, match='disjoint'):
+        _ibm_split(frame, overlapping, 'pre_italy_iid_chunks')
 
 
 def test_chunk_iid_assignment_is_fixed_and_whole_chunk():
