@@ -191,10 +191,18 @@ three-regime sequence table. To score complete 10-transaction windows every five
 transactions instead, pass `--window-length 10 --window-stride 5` with an explicit
 IBM regime. This keeps one endpoint target per window, permits shared history
 between adjacent temporal windows, and records results separately with a
-`_len10_stride5` suffix. Once both model records are present, the runner writes
+`_len10_stride5` suffix. For a matched 68/16/16 comparison, run the same command
+with `pre_italy_iid_customers_68_16_16` and
+`pre_italy_iid_chunks_68_16_16`. Both use the exact same complete windows and
+endpoint transactions as `pre_italy_68_16_16`; only the assignment to train,
+validation, and test changes. The customer-IID assignment keeps all windows for
+a customer together and balances endpoint counts. The window-IID assignment
+draws each window independently, so overlapping windows can share context rows
+across partitions. That cell is optimistic and should be read as a split
+diagnostic. Once all six model records are present, the runner writes
 `results/ibm_lstm_pre_italy_68_16_16_len10_stride5.md`; it can regenerate the
 table with `--render-only` and the same dataset, regime, length, and stride.
-The chunk-IID regime requires disjoint windows.
+The original `pre_italy_iid_chunks` regime still requires disjoint windows.
 
 The temporal cell uses each endpoint's original pre-Italy temporal assignment.
 The customer-IID cell uses the original customer assignment. The new chunk-IID

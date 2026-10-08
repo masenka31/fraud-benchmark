@@ -91,6 +91,37 @@ def test_ibm_68_16_16_assigns_chunk_targets_by_endpoint_time():
         _ibm_split(frame, overlapping, 'pre_italy_iid_chunks')
 
 
+def test_stride_five_iid_cells_share_endpoints_and_use_68_16_16_shares():
+    frame = pd.DataFrame(
+        {
+            'entity_id': np.repeat(np.arange(20), 20),
+            'event_time': pd.date_range('2010-01-01', periods=400, freq='min'),
+            'split': ['train'] * 400,
+        }
+    )
+    windows = complete_chunks(frame['entity_id'], frame['event_time'], length=10, stride=5)
+    window_split, window_source = _ibm_split(
+        frame, windows, 'pre_italy_iid_chunks_68_16_16'
+    )
+    customer_split, customer_source = _ibm_split(
+        frame, windows, 'pre_italy_iid_customers_68_16_16'
+    )
+    assert windows.targets.shape == (60,)
+    assert np.bincount(window_split).tolist() == [40, 10, 10]
+    assert np.bincount(customer_split).tolist() == [39, 9, 12]
+    assert np.bincount(window_source + 1).tolist() == [340, 40, 10, 10]
+    assert frame.assign(split=customer_source).groupby('entity_id')['split'].nunique().eq(1).all()
+
+    short_customer = pd.DataFrame(
+        {'entity_id': [20], 'event_time': [pd.Timestamp('2010-01-02')], 'split': ['train']}
+    )
+    with_short_customer = pd.concat([frame, short_customer], ignore_index=True)
+    _, source_with_short_customer = _ibm_split(
+        with_short_customer, windows, 'pre_italy_iid_customers_68_16_16'
+    )
+    assert source_with_short_customer[-1] == -1
+
+
 def test_chunk_iid_assignment_is_fixed_and_whole_chunk():
     first = iid_chunk_split(101, seed=20260806)
     assert np.array_equal(first, iid_chunk_split(101, seed=20260806))

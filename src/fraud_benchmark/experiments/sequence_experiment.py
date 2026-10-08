@@ -34,13 +34,20 @@ from fraud_benchmark.experiments.sequence import iid_chunk_split
 from fraud_benchmark.experiments.sequence import window_index
 from fraud_benchmark.experiments.splits import FIRST_ITALY_FRAUD
 from fraud_benchmark.experiments.splits import IID_SPLIT_SEED
+from fraud_benchmark.experiments.splits import iid_customer_split
 from fraud_benchmark.experiments.splits import pre_italy_68_16_16_boundaries
 from fraud_benchmark.experiments.splits import pre_italy_iid_customer_split
 from fraud_benchmark.experiments.splits import pre_italy_split
 from fraud_benchmark.experiments.splits import standard_split
 
 IBM_PAPER_REGIMES = ('pre_italy', 'pre_italy_iid_chunks', 'pre_italy_iid_customers')
-IBM_REGIMES = (*IBM_PAPER_REGIMES, 'pre_italy_68_16_16')
+IBM_DIAGNOSTIC_REGIMES = (
+    'pre_italy_68_16_16',
+    'pre_italy_iid_chunks_68_16_16',
+    'pre_italy_iid_customers_68_16_16',
+)
+IBM_REGIMES = (*IBM_PAPER_REGIMES, *IBM_DIAGNOSTIC_REGIMES)
+IBM_DIAGNOSTIC_RATIOS = (0.68, 0.16, 0.16)
 SPARKOV_REGIMES = ('off', 'on', 'slow')
 SPLIT_CODE = {'train': 0, 'val': 1, 'test': 2}
 RARITY_NAMES = ['state_prior_rarity', 'state_not_seen_previously', 'foreign_state_rarity']
@@ -94,6 +101,19 @@ def _ibm_split(df: pd.DataFrame, chunks: Chunks, regime: str) -> tuple[np.ndarra
         mapping = assignment.drop_duplicates('entity_id').set_index('entity_id')['split']
         source = df['entity_id'].map(mapping).map(SPLIT_CODE).to_numpy(dtype='int8')
         return source[chunks.targets], source
+    if regime == 'pre_italy_iid_customers_68_16_16':
+        endpoints = df[['entity_id', 'event_time']].iloc[chunks.targets]
+        assignment = iid_customer_split(
+            endpoints, seed=IID_SPLIT_SEED, ratios=IBM_DIAGNOSTIC_RATIOS
+        )
+        mapping = assignment.drop_duplicates('entity_id').set_index('entity_id')['split']
+        source = df['entity_id'].map(mapping).map(SPLIT_CODE).fillna(-1).to_numpy(dtype='int8')
+        return source[chunks.targets], source
+    if regime == 'pre_italy_iid_chunks_68_16_16':
+        target = iid_chunk_split(len(chunks.rows), IID_SPLIT_SEED, IBM_DIAGNOSTIC_RATIOS)
+        source = np.full(len(df), -1, dtype='int8')
+        source[chunks.targets] = target
+        return target, source
     if regime == 'pre_italy_iid_chunks':
         if chunks.stride != chunks.rows.shape[1]:
             raise ValueError('chunk-IID requires disjoint windows')
@@ -174,7 +194,12 @@ def prepare_ibm(
             'window_stride': chunks.stride,
             'target': 'last transaction of each complete entity chunk',
             'tie_policy': 'source row order within equal entity timestamps',
-            'split_seed': IID_SPLIT_SEED if regime == 'pre_italy_iid_chunks' else None,
+            'split_seed': IID_SPLIT_SEED if 'iid' in regime else None,
+            'split_unit': (
+                'overlapping windows' if regime == 'pre_italy_iid_chunks_68_16_16'
+                else 'customers' if regime == 'pre_italy_iid_customers_68_16_16'
+                else 'source transactions'
+            ),
             'features': names,
             'rows': {
                 name: len(rows)
