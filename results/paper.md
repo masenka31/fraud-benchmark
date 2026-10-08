@@ -65,3 +65,15 @@ The 10-transaction repeat keeps the same target rows and split:
 - Runner: `scripts/lstm_protocol.py --dataset sparkov --window-length 10`
 - Readable table: `results/sparkov_lstm_delay_len10.md`
 - Machine-readable records: `results/paper/sparkov_lstm_*_len10.json`
+
+The raw-ish input ablation uses 21 current-event/static features and no
+entity-history statistics, at both maximum sequence lengths. It keeps the
+same target rows, split, delay regimes, architecture, and seeds as the
+corresponding full-feature LSTM cells:
+
+- Runner: `scripts/lstm_protocol.py --dataset sparkov --feature-set rawish`,
+  with `--window-length 10` or `--window-length 30`
+- Readable tables: `results/sparkov_lstm_delay_rawish_len10.md` and
+  `results/sparkov_lstm_delay_rawish_len30.md`
+- Machine-readable records: `results/paper/sparkov_lstm_*_rawish_len10.json` and
+  `results/paper/sparkov_lstm_*_rawish_len30.json`
