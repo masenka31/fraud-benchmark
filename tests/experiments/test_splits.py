@@ -12,6 +12,7 @@ from fraud_benchmark.experiments.splits import LAST_LABELLED_FRAUD
 from fraud_benchmark.experiments.splits import iid_customer_split
 from fraud_benchmark.experiments.splits import iid_row_split
 from fraud_benchmark.experiments.splits import italy_holdout_split
+from fraud_benchmark.experiments.splits import pre_italy_68_16_16_split
 from fraud_benchmark.experiments.splits import pre_italy_iid_customer_split
 from fraud_benchmark.experiments.splits import pre_italy_iid_row_split
 from fraud_benchmark.experiments.splits import pre_italy_split
@@ -94,6 +95,18 @@ def test_pre_italy_split_right_crops_and_resplits():
     assert out['split'].value_counts(normalize=True).to_dict() == pytest.approx(
         {'train': 0.8, 'val': 0.1, 'test': 0.1}, abs=0.001
     )
+
+
+def test_pre_italy_68_16_16_split_keeps_time_ties_and_population():
+    frame = _frame(100).assign(
+        event_time=pd.to_datetime(
+            ['2010-01-01'] * 68 + ['2011-01-01'] * 16 + ['2012-01-01'] * 16
+        )
+    )
+    out = pre_italy_68_16_16_split(frame.sample(frac=1, random_state=4))
+    assert out['split'].value_counts().to_dict() == {'train': 68, 'val': 16, 'test': 16}
+    assert out.groupby('event_time')['split'].nunique().eq(1).all()
+    assert out['event_time'].max() < FIRST_ITALY_FRAUD
 
 
 def test_pre_italy_regimes_use_the_same_right_cropped_rows():
