@@ -1,0 +1,176 @@
+{
+  "dataset": "ibm_ccf",
+  "regime": "pre_italy_iid_chunks",
+  "population": "event_time < 2017-11-19T12:06:00",
+  "source_rows": 20403999,
+  "target_rows": 2039680,
+  "dropped_incomplete_rows": 7199,
+  "chunk_length": 10,
+  "target": "last transaction of each complete entity chunk",
+  "tie_policy": "source row order within equal entity timestamps",
+  "split_seed": 20260806,
+  "features": [
+    "hour",
+    "minute",
+    "weekday",
+    "day",
+    "month",
+    "is_weekend",
+    "hour_sin",
+    "hour_cos",
+    "amount",
+    "amount_log1p",
+    "amount_is_refund",
+    "amount_cents",
+    "amount_is_round_10",
+    "amount_is_round_100",
+    "amount_is_micro",
+    "txn_count_1h",
+    "txn_count_24h",
+    "txn_count_7d",
+    "txn_count_30d",
+    "amount_sum_24h",
+    "amount_sum_7d",
+    "amount_sum_30d",
+    "amount_mean_7d",
+    "amount_zscore_vs_7d",
+    "seconds_since_prev_txn",
+    "burst_1h_over_24h",
+    "burst_24h_over_7d",
+    "amount_24h_over_7d",
+    "amount_over_entity_mean",
+    "amount_over_entity_max",
+    "entity_txn_ordinal",
+    "first_merchant_for_entity",
+    "first_mcc_for_entity",
+    "first_state_for_entity",
+    "first_city_for_entity",
+    "first_channel_for_entity",
+    "first_card_for_entity",
+    "first_foreign_for_entity",
+    "secs_since_same_merchant",
+    "secs_since_same_mcc",
+    "secs_since_same_state",
+    "secs_since_same_channel",
+    "secs_since_same_card",
+    "distinct_merchants_24h",
+    "prior_distinct_merchants",
+    "errors_1h",
+    "errors_24h",
+    "errors_7d",
+    "same_state",
+    "same_city",
+    "merchant_is_online",
+    "merchant_state_missing",
+    "merchant_is_foreign",
+    "mcc_group",
+    "use_chip",
+    "card_brand",
+    "card_type",
+    "has_chip",
+    "card_on_dark_web",
+    "cards_issued",
+    "days_since_acct_open",
+    "days_to_expiry",
+    "days_since_pin_change",
+    "age",
+    "years_to_retirement",
+    "gender",
+    "fico",
+    "num_cards",
+    "credit_limit",
+    "total_debt",
+    "income_person",
+    "income_zip",
+    "debt_to_income",
+    "amount_over_credit_limit",
+    "state_prior_rarity",
+    "state_not_seen_previously",
+    "foreign_state_rarity"
+  ],
+  "rows": {
+    "train": 1631744,
+    "val": 203968,
+    "test": 203968
+  },
+  "positives": {
+    "train": 1985,
+    "val": 247,
+    "test": 265
+  },
+  "model": "xgboost",
+  "model_settings": {
+    "n_estimators": 300,
+    "max_depth": 6,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "tree_method": "hist",
+    "n_jobs": 4,
+    "eval_metric": "aucpr"
+  },
+  "xgboost": "3.3.0",
+  "python": "3.13.5",
+  "seeds": [
+    {
+      "seed": 0,
+      "fit_seconds": 33.7,
+      "validation": {
+        "average_precision": 0.6864215442299902,
+        "roc_auc": 0.9970091865935485
+      },
+      "test": {
+        "average_precision": 0.6585841628946922,
+        "roc_auc": 0.9931482562617292
+      }
+    },
+    {
+      "seed": 1,
+      "fit_seconds": 33.4,
+      "validation": {
+        "average_precision": 0.6967398282049985,
+        "roc_auc": 0.9964128721174929
+      },
+      "test": {
+        "average_precision": 0.6577196384630811,
+        "roc_auc": 0.9932229488010615
+      }
+    },
+    {
+      "seed": 2,
+      "fit_seconds": 33.7,
+      "validation": {
+        "average_precision": 0.6943002149051876,
+        "roc_auc": 0.9966343189016924
+      },
+      "test": {
+        "average_precision": 0.6490270095783212,
+        "roc_auc": 0.9932745036961415
+      }
+    },
+    {
+      "seed": 3,
+      "fit_seconds": 32.8,
+      "validation": {
+        "average_precision": 0.6783992058756446,
+        "roc_auc": 0.9971392763942637
+      },
+      "test": {
+        "average_precision": 0.6537712030401966,
+        "roc_auc": 0.9927273141557644
+      }
+    },
+    {
+      "seed": 4,
+      "fit_seconds": 33.0,
+      "validation": {
+        "average_precision": 0.6753508376209759,
+        "roc_auc": 0.996418376986848
+      },
+      "test": {
+        "average_precision": 0.6578264882211475,
+        "roc_auc": 0.9922487595008604
+      }
+    }
+  ]
+}
