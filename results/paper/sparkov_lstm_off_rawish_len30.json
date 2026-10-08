@@ -1,0 +1,416 @@
+{
+  "dataset": "sparkov",
+  "regime": "off",
+  "source_rows": 1852394,
+  "target_rows": 1852394,
+  "window_length": 30,
+  "feature_set": "rawish",
+  "target": "each transaction",
+  "tie_policy": "exclude equal-timestamp predecessor rows",
+  "censored_train_labels": 0,
+  "features": [
+    "hour",
+    "minute",
+    "weekday",
+    "day",
+    "month",
+    "is_weekend",
+    "hour_sin",
+    "hour_cos",
+    "amount",
+    "amount_log1p",
+    "amount_is_refund",
+    "amount_cents",
+    "amount_is_round_10",
+    "amount_is_round_100",
+    "amount_is_micro",
+    "distance_from_home_km",
+    "category",
+    "job",
+    "gender",
+    "age_at_txn",
+    "city_pop_log"
+  ],
+  "rows": {
+    "train": 1481915,
+    "val": 185239,
+    "test": 185240
+  },
+  "positives": {
+    "train": 8302,
+    "val": 910,
+    "test": 439
+  },
+  "model": "lstm",
+  "model_settings": {
+    "architecture": "one-layer unidirectional sequence-to-one LSTM",
+    "hidden_size": 64,
+    "embedding_size": 8,
+    "dropout": 0.2,
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "batch_size": 1024,
+    "max_epochs": 8,
+    "patience": 2,
+    "gradient_clip": 1.0,
+    "loss": "binary cross entropy with visible-label negative/positive weight"
+  },
+  "categorical_cardinalities": {
+    "category": 15,
+    "job": 257,
+    "gender": 3
+  },
+  "seeds": [
+    {
+      "seed": 0,
+      "fit_seconds": 62.9,
+      "training": {
+        "device": "cuda",
+        "hardware": "NVIDIA A100-SXM4-40GB",
+        "torch": "2.13.0",
+        "positive_weight": 177.50096362322333,
+        "best_epoch": 6,
+        "history": [
+          {
+            "epoch": 1,
+            "train_loss": 0.23491578779541233,
+            "val_ap": 0.9185154810654741
+          },
+          {
+            "epoch": 2,
+            "train_loss": 0.08391263571788159,
+            "val_ap": 0.9537047955285449
+          },
+          {
+            "epoch": 3,
+            "train_loss": 0.055013623278792674,
+            "val_ap": 0.9713662502828265
+          },
+          {
+            "epoch": 4,
+            "train_loss": 0.045418816604995305,
+            "val_ap": 0.9721330611620016
+          },
+          {
+            "epoch": 5,
+            "train_loss": 0.036392780428385035,
+            "val_ap": 0.9713511508082671
+          },
+          {
+            "epoch": 6,
+            "train_loss": 0.030349119385485308,
+            "val_ap": 0.9811288752907995
+          },
+          {
+            "epoch": 7,
+            "train_loss": 0.02495658968260118,
+            "val_ap": 0.9777887017341841
+          },
+          {
+            "epoch": 8,
+            "train_loss": 0.02267527973301392,
+            "val_ap": 0.9791705060465509
+          }
+        ]
+      },
+      "scores": {
+        "val": {
+          "average_precision": 0.9811288752907995,
+          "precision": 0.9671201814058957,
+          "recall": 0.9373626373626374,
+          "f1": 0.9520089285714285,
+          "threshold": 0.9885687828063965,
+          "n_rows": 185239,
+          "n_positive": 910
+        },
+        "test": {
+          "average_precision": 0.9809272260350683,
+          "precision": 0.9452054794520548,
+          "recall": 0.9430523917995444,
+          "f1": 0.944127708095781,
+          "threshold": 0.9885687828063965,
+          "n_rows": 185240,
+          "n_positive": 439
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "fit_seconds": 57.3,
+      "training": {
+        "device": "cuda",
+        "hardware": "NVIDIA A100-SXM4-40GB",
+        "torch": "2.13.0",
+        "positive_weight": 177.50096362322333,
+        "best_epoch": 6,
+        "history": [
+          {
+            "epoch": 1,
+            "train_loss": 0.22810347989190052,
+            "val_ap": 0.9298063761364613
+          },
+          {
+            "epoch": 2,
+            "train_loss": 0.07976439178961978,
+            "val_ap": 0.9622486932156528
+          },
+          {
+            "epoch": 3,
+            "train_loss": 0.05407877200416007,
+            "val_ap": 0.9678046738201296
+          },
+          {
+            "epoch": 4,
+            "train_loss": 0.04182898024555571,
+            "val_ap": 0.9745556436213754
+          },
+          {
+            "epoch": 5,
+            "train_loss": 0.03513071704131476,
+            "val_ap": 0.9764819377421393
+          },
+          {
+            "epoch": 6,
+            "train_loss": 0.02962398142504259,
+            "val_ap": 0.9782416667878961
+          },
+          {
+            "epoch": 7,
+            "train_loss": 0.024523674356093407,
+            "val_ap": 0.96905487991769
+          },
+          {
+            "epoch": 8,
+            "train_loss": 0.021416906024574228,
+            "val_ap": 0.976134392119943
+          }
+        ]
+      },
+      "scores": {
+        "val": {
+          "average_precision": 0.9782416667878961,
+          "precision": 0.984936268829664,
+          "recall": 0.9340659340659341,
+          "f1": 0.9588268471517203,
+          "threshold": 0.9960671067237854,
+          "n_rows": 185239,
+          "n_positive": 910
+        },
+        "test": {
+          "average_precision": 0.979316639305169,
+          "precision": 0.988009592326139,
+          "recall": 0.9384965831435079,
+          "f1": 0.9626168224299064,
+          "threshold": 0.9960671067237854,
+          "n_rows": 185240,
+          "n_positive": 439
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "fit_seconds": 50.4,
+      "training": {
+        "device": "cuda",
+        "hardware": "NVIDIA A100-SXM4-40GB",
+        "torch": "2.13.0",
+        "positive_weight": 177.50096362322333,
+        "best_epoch": 5,
+        "history": [
+          {
+            "epoch": 1,
+            "train_loss": 0.23275946952701085,
+            "val_ap": 0.9231717252027959
+          },
+          {
+            "epoch": 2,
+            "train_loss": 0.08088932517631248,
+            "val_ap": 0.9632995657951486
+          },
+          {
+            "epoch": 3,
+            "train_loss": 0.05584628600773473,
+            "val_ap": 0.9739589309780301
+          },
+          {
+            "epoch": 4,
+            "train_loss": 0.043739846863551216,
+            "val_ap": 0.9693454989537371
+          },
+          {
+            "epoch": 5,
+            "train_loss": 0.03775706806287205,
+            "val_ap": 0.9781690421400193
+          },
+          {
+            "epoch": 6,
+            "train_loss": 0.031491921269849704,
+            "val_ap": 0.9763552088421156
+          },
+          {
+            "epoch": 7,
+            "train_loss": 0.027137624991182902,
+            "val_ap": 0.9735507284647229
+          }
+        ]
+      },
+      "scores": {
+        "val": {
+          "average_precision": 0.9781690421400193,
+          "precision": 0.9681456200227532,
+          "recall": 0.9351648351648352,
+          "f1": 0.9513694801565121,
+          "threshold": 0.9901183247566223,
+          "n_rows": 185239,
+          "n_positive": 910
+        },
+        "test": {
+          "average_precision": 0.9779309196528326,
+          "precision": 0.9603729603729604,
+          "recall": 0.9384965831435079,
+          "f1": 0.9493087557603687,
+          "threshold": 0.9901183247566223,
+          "n_rows": 185240,
+          "n_positive": 439
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "fit_seconds": 50.2,
+      "training": {
+        "device": "cuda",
+        "hardware": "NVIDIA A100-SXM4-40GB",
+        "torch": "2.13.0",
+        "positive_weight": 177.50096362322333,
+        "best_epoch": 5,
+        "history": [
+          {
+            "epoch": 1,
+            "train_loss": 0.24345903103795408,
+            "val_ap": 0.9132199663613597
+          },
+          {
+            "epoch": 2,
+            "train_loss": 0.08247003935954803,
+            "val_ap": 0.962394206479836
+          },
+          {
+            "epoch": 3,
+            "train_loss": 0.05456191206472548,
+            "val_ap": 0.9712397093776365
+          },
+          {
+            "epoch": 4,
+            "train_loss": 0.04586771125643475,
+            "val_ap": 0.9744333286799769
+          },
+          {
+            "epoch": 5,
+            "train_loss": 0.03627976765758845,
+            "val_ap": 0.9797882433392573
+          },
+          {
+            "epoch": 6,
+            "train_loss": 0.030871994160927185,
+            "val_ap": 0.9776602642341892
+          },
+          {
+            "epoch": 7,
+            "train_loss": 0.02964602029132269,
+            "val_ap": 0.9789384549351448
+          }
+        ]
+      },
+      "scores": {
+        "val": {
+          "average_precision": 0.9797882433392573,
+          "precision": 0.9622641509433962,
+          "recall": 0.9527472527472527,
+          "f1": 0.9574820541137493,
+          "threshold": 0.9676856994628906,
+          "n_rows": 185239,
+          "n_positive": 910
+        },
+        "test": {
+          "average_precision": 0.9823402694589232,
+          "precision": 0.9354120267260579,
+          "recall": 0.9567198177676538,
+          "f1": 0.9459459459459459,
+          "threshold": 0.9676856994628906,
+          "n_rows": 185240,
+          "n_positive": 439
+        }
+      }
+    },
+    {
+      "seed": 4,
+      "fit_seconds": 50.4,
+      "training": {
+        "device": "cuda",
+        "hardware": "NVIDIA A100-SXM4-40GB",
+        "torch": "2.13.0",
+        "positive_weight": 177.50096362322333,
+        "best_epoch": 5,
+        "history": [
+          {
+            "epoch": 1,
+            "train_loss": 0.23651413413951658,
+            "val_ap": 0.9243737129051403
+          },
+          {
+            "epoch": 2,
+            "train_loss": 0.08507002978134034,
+            "val_ap": 0.958877768931531
+          },
+          {
+            "epoch": 3,
+            "train_loss": 0.05652484219243661,
+            "val_ap": 0.9751680904337201
+          },
+          {
+            "epoch": 4,
+            "train_loss": 0.04188553273007882,
+            "val_ap": 0.9761121224033744
+          },
+          {
+            "epoch": 5,
+            "train_loss": 0.03650299375356578,
+            "val_ap": 0.9789428486342309
+          },
+          {
+            "epoch": 6,
+            "train_loss": 0.030305345804181524,
+            "val_ap": 0.9761586877363635
+          },
+          {
+            "epoch": 7,
+            "train_loss": 0.02698082742263005,
+            "val_ap": 0.9787087429240044
+          }
+        ]
+      },
+      "scores": {
+        "val": {
+          "average_precision": 0.9789428486342309,
+          "precision": 0.9716874292185731,
+          "recall": 0.9428571428571428,
+          "f1": 0.9570552147239263,
+          "threshold": 0.9793368577957153,
+          "n_rows": 185239,
+          "n_positive": 910
+        },
+        "test": {
+          "average_precision": 0.9764561805493029,
+          "precision": 0.9604651162790697,
+          "recall": 0.9407744874715261,
+          "f1": 0.9505178365937859,
+          "threshold": 0.9793368577957153,
+          "n_rows": 185240,
+          "n_positive": 439
+        }
+      }
+    }
+  ],
+  "python": "3.13.5"
+}
