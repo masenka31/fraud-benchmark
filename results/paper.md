@@ -1,7 +1,7 @@
 # Paper experiment records
 
-Two supplementary experiments are reported for the paper. These are the only dedicated
-paper protocols in this repository; exploratory ROC/PR and subsampling work is private.
+The original XGBoost protocols and their LSTM sequence extensions are recorded here.
+Exploratory ROC/PR and subsampling work is private.
 
 ## IBM CCF: pre-Italy temporal versus IID splits
 
@@ -24,3 +24,29 @@ regime. Only training-label availability changes. Validation and test use true l
 - Runner: `scripts/sparkov_delay_protocol.py`
 - Readable table: `results/sparkov_label_delay.md`
 - Machine-readable records: `results/paper/sparkov_delay_*.json`
+
+## IBM CCF: 30-transaction endpoint sequence extension
+
+Each entity contributes one target per complete, disjoint 30-transaction chunk:
+the final transaction. The temporal, chunk-IID, and customer-IID splits share the
+same 679,372 endpoints and 77 label-free inputs. Both LSTM and XGBoost score only
+those endpoints. These reduced-target AP values are not comparable to the original
+full-row IBM protocol above. The temporal test set contains only 36 fraud targets,
+so its AP is sensitive to a few predictions.
+
+- Runner: `scripts/lstm_protocol.py --dataset ibm`
+- Readable table: `results/ibm_lstm_protocol.md`
+- Machine-readable records: `results/paper/ibm_lstm_*.json` and
+  `results/paper/ibm_xgboost_*.json`
+
+## Sparkov: LSTM synthetic training-label delay extension
+
+The LSTM scores every Sparkov transaction using its current features and at most
+29 strictly earlier-time transactions from the same entity. The no-delay,
+default-delay, and slow-delay regimes use the same rows, split, inputs, and five
+seeds. Only synthetic training-label availability changes; evaluation uses true
+labels.
+
+- Runner: `scripts/lstm_protocol.py --dataset sparkov`
+- Readable table: `results/sparkov_lstm_delay.md`
+- Machine-readable records: `results/paper/sparkov_lstm_*.json`

@@ -207,3 +207,22 @@ selected device in each result record. On this host, the
 `PyTorch/2.13.0-foss-2025b-CUDA-12.9.1` module was verified on an A100 node;
 its cuDNN version does not support the V100 nodes. Use `--regime` and `--resume`
 to schedule or restart cells independently.
+
+### Recorded sequence results
+
+The IBM endpoint LSTM has mean test average precision of 0.4370 (temporal),
+0.6779 (chunk IID), and 0.7138 (customer IID) over seeds 0--4. The matched
+XGBoost values are 0.3672, 0.5896, and 0.6499 respectively. See the
+[`IBM endpoint table`](../results/ibm_lstm_protocol.md) for validation scores,
+variation across seeds, and target counts. The temporal test set has only 36
+fraud endpoints; its AP difference is descriptive and should not be treated as
+precise evidence of a model advantage. The IID regimes also use different
+assignments, so their AP difference combines split semantics with population
+composition and should not be interpreted as a pure leakage effect.
+
+On Sparkov, mean LSTM test AP is 0.9800 with no delay, 0.9774 with the default
+synthetic delay, and 0.9722 with the slow synthetic delay. The matched
+no-delay differences are -0.0026 and -0.0078. See the
+[`Sparkov delay table`](../results/sparkov_lstm_delay.md) for validation scores
+and variation across seeds. These synthetic regimes show sensitivity to the
+specified reporting delays; they do not estimate real-world delay behavior.
