@@ -259,9 +259,9 @@ The [`length-10 Sparkov table`](../results/sparkov_lstm_delay_len10.md)
 contains validation AP and seed variation. These are five-seed descriptive
 results with the same synthetic-delay caveats as the length-30 protocol.
 
-### Proposed raw-ish feature ablation
+### Raw-ish feature ablation
 
-For a separate feature ablation, retain only values from the current event,
+For the Sparkov feature ablation, retain only values from the current event,
 its timestamp, and static cardholder/card attributes. Deterministic transforms
 of those values are included; entity transaction-history summaries are excluded.
 The selected names are already present in the feature parquet files, so this
@@ -293,9 +293,22 @@ amount_over_credit_limit
 distance_from_home_km, category, job, gender, age_at_txn, city_pop_log
 ```
 
+The Sparkov raw-ish protocol uses its 21-feature selection at both sequence
+lengths while keeping the same rows, split, label-delay regimes, architecture,
+and five seeds as the full-feature Sparkov runs:
+
+```bash
+.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --feature-set rawish --window-length 10 --device cuda
+.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --feature-set rawish --window-length 30 --device cuda
+```
+
+Its separate records have `_rawish_len10` or `_rawish_len30` suffixes, and the
+generated tables are `results/sparkov_lstm_delay_rawish_len10.md` and
+`results/sparkov_lstm_delay_rawish_len30.md`. The 41-feature IBM selection above
+is a documented proposal; it is not part of these Sparkov runs.
+
 This removes rolling counts, sums, means, z-scores, recency gaps, entity
 ordinals, first-occurrence and distinct-count flags, rarity scores, and every
 label-derived field. No entity ID, absolute timestamp, report timestamp,
-or label is an input. These lists are a proposed *future* feature ablation;
-the length-10 runs above use the full current feature sets to isolate the
-requested sequence-length change as far as the IBM endpoint protocol allows.
+or label is an input. The earlier length-10 runs use their full current feature
+sets; these Sparkov cells change the feature axis separately.
