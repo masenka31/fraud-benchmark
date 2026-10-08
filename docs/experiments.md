@@ -191,7 +191,10 @@ three-regime sequence table. To score complete 10-transaction windows every five
 transactions instead, pass `--window-length 10 --window-stride 5` with an explicit
 IBM regime. This keeps one endpoint target per window, permits shared history
 between adjacent temporal windows, and records results separately with a
-`_len10_stride5` suffix. The chunk-IID regime requires disjoint windows.
+`_len10_stride5` suffix. Once both model records are present, the runner writes
+`results/ibm_lstm_pre_italy_68_16_16_len10_stride5.md`; it can regenerate the
+table with `--render-only` and the same dataset, regime, length, and stride.
+The chunk-IID regime requires disjoint windows.
 
 The temporal cell uses each endpoint's original pre-Italy temporal assignment.
 The customer-IID cell uses the original customer assignment. The new chunk-IID
