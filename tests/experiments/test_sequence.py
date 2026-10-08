@@ -33,6 +33,28 @@ def test_complete_chunks_use_only_final_targets_and_never_mix_entities():
         assert times.iloc[rows[:-1]].max() <= times.iloc[rows[-1]]
 
 
+def test_ten_transaction_chunks_triple_complete_targets_and_bound_windows():
+    entity = pd.Series(np.repeat(['a', 'b'], 31))
+    times = pd.Series(
+        pd.Timestamp('2024-01-01') + pd.to_timedelta(np.tile(np.arange(31), 2), unit='min')
+    )
+    long = complete_chunks(entity, times, length=30)
+    short = complete_chunks(entity, times, length=10)
+    assert long.rows.shape == (2, 30)
+    assert short.rows.shape == (6, 10)
+    assert short.n_dropped == 2
+    assert np.array_equal(short.targets, [9, 19, 29, 40, 50, 60])
+    index = window_index(entity, times, length=10)
+    positions, lengths = index.batch(np.array([30, 61]))
+    assert positions.shape == (2, 10)
+    assert lengths.tolist() == [10, 10]
+    assert np.array_equal(index.order[positions[:, -1]], [30, 61])
+    with pytest.raises(ValueError, match='at least 2'):
+        complete_chunks(entity, times, length=1)
+    with pytest.raises(ValueError, match='at least 2'):
+        window_index(entity, times, length=1)
+
+
 def test_chunk_iid_assignment_is_fixed_and_whole_chunk():
     first = iid_chunk_split(101, seed=20260806)
     assert np.array_equal(first, iid_chunk_split(101, seed=20260806))
@@ -103,6 +125,9 @@ def test_sparkov_delay_changes_training_targets_but_not_windows():
     assert not {'is_fraud', 'reported_at', 'reported_at_slow'} & set(on.features.names)
     targets = np.array([0, 85, 95])
     assert np.array_equal(off.positions_for(targets)[0], on.positions_for(targets)[0])
+    short = prepare_sparkov('off', source=frame, window_length=10)
+    assert short.metadata['window_length'] == 10
+    assert short.positions_for(targets)[0].shape == (3, 10)
 
 
 def test_ibm_regimes_keep_the_same_endpoints_and_no_label_derived_inputs():
@@ -143,6 +168,10 @@ def test_ibm_regimes_keep_the_same_endpoints_and_no_label_derived_inputs():
     comparator = run_ibm_xgboost(prepared[0], seeds=(0,))
     assert comparator['model'] == 'xgboost'
     assert np.isfinite(comparator['seeds'][0]['test']['average_precision'])
+    short = prepare_ibm('pre_italy', source=frame, window_length=10)
+    assert short.metadata['target_rows'] == 600
+    assert short.metadata['chunk_length'] == 10
+    assert short.positions_for(np.array([0]))[0].shape == (1, 10)
 
 
 def test_lstm_training_scores_the_requested_targets(monkeypatch):

@@ -104,6 +104,7 @@ def prepare_ibm(
     source: pd.DataFrame | None = None,
     chunks: Chunks | None = None,
     source_prepared: bool = False,
+    window_length: int = 30,
 ) -> PreparedSequence:
     """One fixed IBM endpoint population, with split-specific train encoding."""
     if regime not in IBM_REGIMES:
@@ -116,7 +117,9 @@ def prepare_ibm(
         else pre_italy_split(_source(Path(features_dir), 'ibm_ccf') if source is None else source)
     )
     if chunks is None:
-        chunks = complete_chunks(df['entity_id'], df['event_time'])
+        chunks = complete_chunks(df['entity_id'], df['event_time'], window_length)
+    elif chunks.rows.shape[1] != window_length:
+        raise ValueError('chunk width does not match window_length')
     target_split, source_split = _ibm_split(df, chunks, regime)
     train_mask = source_split == 0
     _ibm_rarity(df, train_mask)
@@ -131,7 +134,7 @@ def prepare_ibm(
         raise ExperimentError('an IBM endpoint partition contains no fraud targets')
 
     def positions_for(ids: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        return chunks.rows[ids], np.full(len(ids), 30, dtype='int32')
+        return chunks.rows[ids], np.full(len(ids), window_length, dtype='int32')
 
     return PreparedSequence(
         features,
@@ -148,7 +151,7 @@ def prepare_ibm(
             'source_rows': len(df),
             'target_rows': len(targets),
             'dropped_incomplete_rows': chunks.n_dropped,
-            'chunk_length': 30,
+            'chunk_length': window_length,
             'target': 'last transaction of each complete entity chunk',
             'tie_policy': 'source row order within equal entity timestamps',
             'split_seed': IID_SPLIT_SEED if regime == 'pre_italy_iid_chunks' else None,
@@ -173,6 +176,7 @@ def prepare_sparkov(
     encoded: EncodedFeatures | None = None,
     index: WindowIndex | None = None,
     source_prepared: bool = False,
+    window_length: int = 30,
 ) -> PreparedSequence:
     """Same rows, split, and inputs in all three synthetic delay regimes."""
     if regime not in SPARKOV_REGIMES:
@@ -190,7 +194,9 @@ def prepare_sparkov(
     if len(names) != 46:
         raise ExperimentError(f'expected 46 Sparkov LSTM features, got {len(names)}')
     if index is None:
-        index = window_index(df['entity_id'], df['event_time'])
+        index = window_index(df['entity_id'], df['event_time'], window_length)
+    elif index.length != window_length:
+        raise ValueError('index width does not match window_length')
     if encoded is None:
         encoded = encode_features(df, names, train_mask).reordered(index.order)
     train, validation, test = _partition_ids(split)
@@ -220,7 +226,7 @@ def prepare_sparkov(
             'regime': regime,
             'source_rows': len(df),
             'target_rows': len(df),
-            'window_length': 30,
+            'window_length': window_length,
             'target': 'each transaction',
             'tie_policy': 'exclude equal-timestamp predecessor rows',
             'censored_train_labels': int(y_true[train].sum() - y_fit[train].sum()),
