@@ -168,9 +168,8 @@ patience two. Seeds 0--4 are fixed. No transaction label, reporting timestamp,
 or label-availability flag is an LSTM input.
 For Sparkov LSTM delay runs, checkpoint selection and the F1 threshold use labels
 available at the end of validation: frauds reported later have provisional label
-`0`. Validation and test scores still use true `is_fraud`. Previously saved
-Sparkov LSTM records without `validation_label_policy` used true validation
-labels for selection; rerun those cells to measure the revised protocol.
+`0`. Validation and test scores still use true `is_fraud`. All saved Sparkov
+LSTM records use this policy and carry `validation_label_policy`.
 
 ### IBM endpoint experiment
 
@@ -276,9 +275,14 @@ precise evidence of a model advantage. The IID regimes also use different
 assignments, so their AP difference combines split semantics with population
 composition and should not be interpreted as a pure leakage effect.
 
-On Sparkov, mean LSTM test AP is 0.9800 with no delay, 0.9774 with the default
-synthetic delay, and 0.9722 with the slow synthetic delay. The matched
-no-delay differences are -0.0026 and -0.0078. See the
+On Sparkov, mean LSTM test AP is 0.9764 with no delay, 0.9680 with the default
+synthetic delay, and 0.9544 with the slow synthetic delay. The matched
+no-delay differences are -0.0084 and -0.0220. Most of the change comes from
+selection: delayed validation frauds count as negatives, so the selection AP
+falls to about 0.80 (default) and 0.66 (slow) and early stopping becomes
+erratic; one slow seed stops after its first epoch. GPU training is not
+bitwise deterministic, and reruns of the unchanged no-delay cell moved single
+seeds by up to 0.014 test AP. See the
 [`Sparkov delay table`](../results/sparkov_lstm_delay.md) for validation scores
 and test-minus-validation AP gaps. These synthetic regimes show sensitivity to the
 specified reporting delays; they do not estimate real-world delay behavior.
@@ -292,9 +296,10 @@ different endpoints, the IBM difference from length 30 cannot be attributed
 to sequence length alone. The temporal test set has 95 fraud endpoints at
 length 10, versus 36 at length 30.
 
-Sparkov retains all target rows at length 10. Mean test AP is 0.9786 with no
-delay, 0.9786 with the default synthetic delay, and 0.9739 with the slow
-synthetic delay; the unrounded changes from no delay are -0.0001 and -0.0047.
+Sparkov retains all target rows at length 10. Mean test AP is 0.9781 with no
+delay, 0.9724 with the default synthetic delay, and 0.9487 with the slow
+synthetic delay; the changes from no delay are -0.0057 and -0.0294. Every slow
+seed scores below every no-delay seed.
 The [`length-10 Sparkov table`](../results/sparkov_lstm_delay_len10.md)
 contains validation AP and seed variation. These are five-seed descriptive
 results with the same synthetic-delay caveats as the length-30 protocol.
@@ -353,11 +358,9 @@ label-derived field. No entity ID, absolute timestamp, report timestamp,
 or label is an input. The earlier length-10 runs use their full current feature
 sets; these Sparkov cells change the feature axis separately.
 
-At length 10, raw-ish LSTM test AP is 0.9807 (off), 0.9798 (on), and 0.9787
-(slow), with changes from off of -0.0010 and -0.0020. At length 30, test AP
-is 0.9794, 0.9786, and 0.9772, with changes of -0.0008 and -0.0022. The
-saved numbers here used true validation labels for checkpoint and threshold
-selection; they need a rerun under the available-label validation protocol. The
+At length 10, raw-ish LSTM test AP is 0.9818 (off), 0.9793 (on), and 0.9761
+(slow), with changes from off of -0.0026 and -0.0058. At length 30, test AP
+is 0.9790, 0.9767, and 0.9739, with changes of -0.0023 and -0.0051. The
 [`length-10 raw-ish table`](../results/sparkov_lstm_delay_rawish_len10.md)
 and [`length-30 raw-ish table`](../results/sparkov_lstm_delay_rawish_len30.md)
 record validation AP, seed variation, and test-minus-validation gaps. Removing
