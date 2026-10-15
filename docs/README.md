@@ -16,6 +16,7 @@ it. Everything else lives here.
 |---|---|
 | [`datasets/`](datasets/README.md) | **One page per dataset**, indexed by how recoverable the labels are from a single column. Statistics, schema mapping, and the artifacts and disclaimers each one carries. Read the page for a dataset before using it. |
 | [`label-delay.md`](label-delay.md) | How `reported_at` is constructed, the shipped parameters and measured censoring for all eight datasets, which datasets the delay actually bites on, and how to change it. |
+| [`../tools/label_delay/`](../tools/label_delay/README.md) | A standalone script that adds the same synthetic delay to any Parquet or CSV transaction table, with presets matching the Sparkov regimes. |
 
 ## The code
 

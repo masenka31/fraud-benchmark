@@ -8,6 +8,11 @@ that exist in hindsight.
 
 No data is redistributed. Everything is fetched at run time with your own credentials.
 
+**Label delay for your own data.** The synthetic reporting delay is also available as
+one standalone script, which needs only numpy and pandas. It adds `campaign_id` and
+`reported_at` to any Parquet or CSV file of transactions:
+**[`tools/label_delay/`](tools/label_delay/README.md)**.
+
 **Documentation index: [`docs/README.md`](docs/README.md).**
 
 ## Quick start
