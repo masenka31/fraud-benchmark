@@ -1,410 +1,83 @@
 # Paper experiments
 
-This public repository records two supplementary experiments from the paper and their
-LSTM sequence extensions. All use full experimental populations, preserve temporal
-preprocessing semantics, select any thresholds on validation data only, and report
-average precision as the primary metric.
-The exact result locations are indexed in [`results/paper.md`](../results/paper.md).
+Two experiments back the paper's tables. Both report average precision (AP) as the
+primary metric, fit all preprocessing on the training split only, and use five fixed
+seeds (0–4). Generated tables and records are in [`results/`](../results/README.md).
 
-Before running either experiment, build the corresponding feature parquet:
+Build the inputs first (download and prepare as in the [README](../README.md)):
 
 ```bash
 .venv/bin/python scripts/features.py --dataset ibm_ccf
 .venv/bin/python scripts/features.py --dataset sparkov
 ```
 
-## Model and input features
+## IBM CCF: temporal versus iid splits
 
-Both protocols fit an XGBoost `XGBClassifier` with 300 trees, maximum depth 6,
-learning rate 0.1, row and column subsampling of 0.8, histogram tree building,
-four fitting threads, and `aucpr` as the training evaluation metric. Each uses
-seeds 0--4 and sets `scale_pos_weight` to the ratio of negative to positive
-*available training labels*. See
-[`models.py`](../src/fraud_benchmark/experiments/models.py) for the fixed settings.
+Shows that an iid split hides concept drift that a temporal split reveals.
 
-The model receives the feature columns below, not the parquet's key columns
-(`entity_id`, `event_time`, `reported_at`, `reported_at_slow` when present,
-`is_fraud`, and `split`). Columns prefixed `artifact_` are excluded from the
-model matrix. Categorical columns are ordinal-encoded with an encoder fitted on
-the training split only. The feature builders are
-[`ibm_ccf.py`](../src/fraud_benchmark/experiments/features/ibm_ccf.py) and
-[`sparkov.py`](../src/fraud_benchmark/experiments/features/sparkov.py).
-
-**Shared features (31), used by both protocols:**
-
-```text
-hour, minute, weekday, day, month, is_weekend, hour_sin, hour_cos
-amount, amount_log1p, amount_is_refund, amount_cents,
-amount_is_round_10, amount_is_round_100, amount_is_micro
-txn_count_1h, txn_count_24h, txn_count_7d, txn_count_30d
-amount_sum_24h, amount_sum_7d, amount_sum_30d,
-amount_mean_7d, amount_zscore_vs_7d, seconds_since_prev_txn
-burst_1h_over_24h, burst_24h_over_7d, amount_24h_over_7d
-amount_over_entity_mean, amount_over_entity_max, entity_txn_ordinal
-```
-
-## IBM CCF: pre-Italy temporal versus IID splits
-
-The paper's split table now comes from the LSTM 68/16/16 cells described under the
-LSTM sequence extension below. This full-row XGBoost protocol is the earlier version
-of that table; its records are archived in `results/archive/ibm_xgboost_full_rows/`.
-
-The IBM comparison uses every transaction strictly before the first Italy fraud at
-`2017-11-19 12:06:00`, yielding one shared population of 20,403,999 rows. It compares:
-
-- `pre_italy`: chronological 80/10/10;
-- `pre_italy_iid_rows`: deterministic transaction-IID 80/10/10;
-- `pre_italy_iid_customers`: deterministic customer-disjoint IID splitting, balanced
-  against the 80/10/10 transaction-count targets.
-
-All three regimes use the same rows, source features, causal engineered features,
-XGBoost settings, and model seeds 0--4. Only split assignment changes. Label-derived
-features use training labels only, are computed chronologically, and score a training row
-before incorporating that row's label.
-
-An opt-in exploratory temporal split, `pre_italy_68_16_16`, uses the same pre-Italy
-rows with chronological 68/16/16 train/validation/test partitions. It assigns all
-transactions with the same timestamp to one partition. On the feature parquet,
-the partitions contain 13,874,719 / 3,264,640 / 3,264,640 transactions and
-17,170 / 4,020 / 3,734 frauds. The two cutoffs are 2014-01-17 13:39:00 and
-2015-12-25 02:37:00; each cutoff timestamp belongs to the later partition.
-These ratios were chosen after inspecting the true labels, so this is a separate
-diagnostic protocol rather than a replacement for the recorded 80/10/10 table.
-Run its full-row XGBoost cell with
-`.venv/bin/python scripts/ibm_split_protocol.py --regime pre_italy_68_16_16`.
-The runner writes `results/archive/ibm_xgboost_full_rows/ibm_pre_italy_temporal_68_16_16.json` without
-changing the original three-regime table. This full-row cell has not been recorded;
-the recorded 68/16/16 results are the sequence cells described below.
-
-**IBM model inputs (82):** the 31 shared features above, these 43 IBM features,
-and eight causal features added in
-[`ibm_split_protocol.py`](../scripts/ibm_split_protocol.py):
-
-```text
-first_merchant_for_entity, first_mcc_for_entity,
-first_state_for_entity, first_city_for_entity,
-first_channel_for_entity, first_card_for_entity,
-first_foreign_for_entity
-secs_since_same_merchant, secs_since_same_mcc,
-secs_since_same_state, secs_since_same_channel, secs_since_same_card
-distinct_merchants_24h, prior_distinct_merchants
-errors_1h, errors_24h, errors_7d
-same_state, same_city, merchant_is_online,
-merchant_state_missing, merchant_is_foreign
-mcc_group, use_chip
-card_brand, card_type, has_chip, card_on_dark_web,
-cards_issued, days_since_acct_open, days_to_expiry,
-days_since_pin_change
-age, years_to_retirement, gender, fico, num_cards,
-credit_limit, total_debt, income_person, income_zip,
-debt_to_income, amount_over_credit_limit
-
-state_prior_rarity, state_not_seen_previously, foreign_state_rarity
-causal_target_rate_artifact_merchant_state
-causal_target_rate_artifact_merchant_city
-causal_target_rate_artifact_merchant_name
-causal_target_rate_artifact_mcc
-causal_target_rate_artifact_error_type
-```
-
-The five `causal_target_rate_*` columns summarize the named artifact fields
-using chronological, training-only labels; the raw `artifact_` columns are not
-model inputs.
+- **Data:** IBM CCF transactions strictly before the first Italy fraud
+  (`2017-11-19 12:06`), which removes the Italy artifact: 20,403,999 transactions.
+- **Windows:** each card's transactions in time order, cut into complete windows of 10
+  transactions every 5 transactions (4,078,583 windows). A window is labeled by its
+  last transaction.
+- **Splits**, over the same windows:
+  - *temporal*: chronological 68/16/16 (cutoffs `2014-01-17 13:39` and `2015-12-25 02:37`);
+  - *window iid*: windows assigned independently;
+  - *customer iid*: all windows of a user kept together.
+- **Model:** a one-layer LSTM (64 units) over the 10 rows of 77 label-free features,
+  using the `sqrt_weight_slow` preset in [`lstm.py`](../src/fraud_benchmark/experiments/lstm.py):
+  fraud weight √(negatives/positives), AdamW at 3e-4 with one-epoch warmup and cosine
+  decay, at most 15 epochs, checkpoint chosen by validation AP.
 
 ```bash
-.venv/bin/python scripts/ibm_split_protocol.py
+pip install -e ".[lstm]"   # with a PyTorch build that matches your GPU
+for regime in pre_italy_68_16_16 pre_italy_iid_chunks_68_16_16 pre_italy_iid_customers_68_16_16; do
+  .venv/bin/python scripts/lstm_protocol.py --dataset ibm --regime $regime \
+    --window-length 10 --window-stride 5 --model lstm --lstm-config sqrt_weight_slow --device cuda
+done
 ```
 
-The runner writes three JSON records under `results/archive/ibm_xgboost_full_rows/` and the readable table
-[`results/archive/ibm_xgboost_full_rows/ibm_split_protocol.md`](../results/archive/ibm_xgboost_full_rows/ibm_split_protocol.md). Use `--render-only`
-to regenerate the Markdown from the recorded JSON without refitting.
+| | Temporal | Window iid | Customer iid |
+|---|---:|---:|---:|
+| Validation AP | 0.8279 ± 0.0308 | 0.7777 ± 0.0131 | 0.7659 ± 0.0116 |
+| Test AP | 0.6301 ± 0.0670 | 0.7709 ± 0.0092 | 0.7761 ± 0.0102 |
+| Test − validation AP | −0.1978 ± 0.0362 | −0.0068 ± 0.0065 | +0.0102 ± 0.0049 |
 
-## Sparkov: synthetic training-label delay
+Caveats:
 
-The Sparkov comparison uses one `data/features/sparkov.parquet` population under three
-training-label regimes:
+- The 68/16/16 ratio was chosen after looking at the data, so that validation and test
+  have similar fraud rates (0.121% and 0.117%).
+- The LSTM preset was chosen from five candidates on temporal validation AP.
+- Overlapping windows let window-iid share context transactions across partitions.
+- The last fraud in this population is on 2016-12-22, so the 2017 part of the test
+  period contains no fraud.
 
-- `off`: oracle/true training labels;
-- `on`: synthetic default reporting timestamps from `reported_at`;
-- `slow`: synthetic fat-tailed stress timestamps from `reported_at_slow`.
+## Sparkov: synthetic label delay
 
-All regimes use the same rows, split, features, XGBoost settings, and model seeds 0--4.
-A fraud reported after the training cutoff remains in training with provisional label
-`0`; it is not dropped. Validation and test are always scored against true `is_fraud`
-labels. The slow regime is a stress test, not an estimate of real reporting behavior.
+Shows how delayed fraud labels at training time affect a detector.
 
-**Sparkov model inputs (46):** the 31 shared features above plus:
+- **Data:** `data/features/sparkov.parquet` with its temporal split; every transaction is scored.
+- **Regimes**, differing only in which training labels are available at the cutoff:
+  - `off`: true labels;
+  - `on`: synthetic default delay (`reported_at`);
+  - `slow`: synthetic fat-tailed stress delay (`reported_at_slow`).
 
-```text
-first_merchant_for_entity, first_category_for_entity
-secs_since_same_merchant, secs_since_same_category
-distinct_merchants_24h, distinct_categories_7d,
-prior_distinct_merchants
-distance_from_home_km, distance_over_entity_mean,
-distance_over_entity_max
-category, job, gender, age_at_txn, city_pop_log
-```
+  A fraud reported after the cutoff stays in training as a negative. Validation and test
+  always use the true labels. The delays are synthetic, and `slow` is a stress test.
+- **Model:** XGBoost (300 trees, depth 6, learning rate 0.1) on 46 features, with
+  `scale_pos_weight` set from the available training labels. See
+  [`models.py`](../src/fraud_benchmark/experiments/models.py) and
+  [`features/sparkov.py`](../src/fraud_benchmark/experiments/features/sparkov.py).
 
 ```bash
 .venv/bin/python scripts/sparkov_delay_protocol.py
 ```
 
-The runner writes machine-readable records under `results/paper/` and the readable table
-[`results/paper/sparkov_label_delay.md`](../results/paper/sparkov_label_delay.md).
-Use `--render-only` to regenerate the Markdown without refitting.
+| Training labels | Hidden train frauds | Validation AP | Test AP | Δ test AP |
+|---|---:|---:|---:|---:|
+| No delay | 0 | 0.9774 ± 0.0004 | 0.9734 ± 0.0013 | +0.0000 |
+| Default delay | 132 | 0.9713 ± 0.0011 | 0.9504 ± 0.0029 | −0.0230 |
+| Slow delay | 509 | 0.9569 ± 0.0020 | 0.9388 ± 0.0031 | −0.0346 |
 
-## Shared experiment implementation
-
-The public code under `src/fraud_benchmark/experiments/` contains the feature builders,
-split functions, causal encoders, model preparation, and fixed XGBoost fitting required by the
-two protocols. It fits preprocessing on training rows only and keeps evaluation labels
-uncensored.
-
-## LSTM sequence extension
-
-The LSTM runner adds a sequence classifier to both studies without changing the
-recorded XGBoost protocols above. Install the optional `lstm` dependencies with a
-PyTorch build appropriate for the compute node's GPU. The runner uses a one-layer,
-one-way LSTM with 64 hidden units; numeric features and missingness indicators are
-projected with the categorical embeddings (8 dimensions each) to width 64. It uses
-0.2 dropout, weighted binary cross entropy, AdamW with learning rate 0.001 and
-weight decay 0.0001, gradient clipping at 1, batch size 1,024, and at most eight
-epochs. The best checkpoint is selected by validation average precision, with
-patience two. Seeds 0--4 are fixed. No transaction label, reporting timestamp,
-or label-availability flag is an LSTM input.
-These settings are the `default` preset of `--lstm-config`. Other presets exist
-to diagnose seed instability on the exploratory IBM 68/16/16 temporal cell:
-`sqrt_weight` uses the square root of the negative/positive ratio as the fraud
-weight; `full_weight_slow` and `sqrt_weight_slow` lower the learning rate to
-0.0003, warm it up linearly over the first epoch, decay it on a cosine schedule,
-and allow 15 epochs with patience four; `sqrt_weight_slow_ln` adds layer
-normalization after the input projection. A non-default preset writes records with
-a `_cfg-<preset>` suffix and never renders a table. Presets are compared on
-validation AP only; a chosen preset must be rerun on every cell it is compared with.
-Only `default` and `sqrt_weight_slow` are used for the paper. The other three
-presets are archived: they remain runnable, and their records are in
-`results/archive/lstm_presets/`.
-
-On the 68/16/16 length-10 stride-5 temporal cell, `default` validation AP was
-0.6351 ± 0.1826 because two seeds trained badly and stopped by epoch three.
-`sqrt_weight_slow` had the best mean, spread, and worst seed (0.8279 ± 0.0308),
-so it was selected before any test AP was read. It was then rerun on all
-three 68/16/16 cells and all six 80/10/10 cells (lengths 10 and 30):
-
-| Split | 68/16/16 test AP | 80/10/10 length-10 test AP | 80/10/10 length-30 test AP |
-|---|---:|---:|---:|
-| Temporal | 0.6301 ± 0.0670 | 0.5709 ± 0.0179 | 0.4297 ± 0.0270 |
-| Window/chunk IID | 0.7709 ± 0.0092 | 0.7267 ± 0.0110 | 0.6101 ± 0.0109 |
-| Customer IID | 0.7761 ± 0.0102 | 0.7066 ± 0.0205 | 0.7109 ± 0.0208 |
-
-On 68/16/16 the preset fixes the temporal instability (test AP 0.3916 ± 0.2021
-with `default`) and moves the IID cells by at most 0.007. On 80/10/10, where
-`default` was already stable, it lowers validation AP in every cell by
-0.006–0.037; the largest test change is length-30 chunk IID (−0.068). The
-temporal-versus-IID conclusion holds under either preset. The 68/16/16 cutoffs
-and the preset were both chosen after inspecting labels or validation results,
-so these cells remain exploratory. In this pre-Italy population, the last fraud
-is on 2016-12-22, so 2017 test rows contain no fraud.
-
-### IBM endpoint experiment
-
-The IBM extension sorts each entity's transactions chronologically and forms
-disjoint, complete 30-transaction chunks. It predicts **only the final transaction
-in each chunk** from that transaction and its 29 predecessors. Incomplete trailing
-chunks have no target. Chunk membership and endpoint selection are fixed before
-the split is assigned, so every IBM cell uses the same targets. This is a
-reduced-target experiment, roughly one target per 30 source transactions. Its
-average precision must not be compared with the full-row IBM table above. On
-the shipped feature parquet, 20,403,999 source rows yield 679,372 endpoints
-with 854 frauds. The temporal validation and test endpoint sets have 189 and
-36 frauds respectively, so test AP may be sensitive to a few predictions.
-Transactions from the same entity with identical minute timestamps retain their
-source row order inside a chunk; that order is deterministic but does not prove
-their true within-minute order.
-
-The exploratory 68/16/16 temporal split is also available for the same disjoint
-IBM endpoints with `scripts/lstm_protocol.py --dataset ibm --regime
-pre_italy_68_16_16`. It runs both the LSTM and matched XGBoost comparator by
-default and writes separate JSON records. It does not change the original
-three-regime sequence table. To score complete 10-transaction windows every five
-transactions instead, pass `--window-length 10 --window-stride 5` with an explicit
-IBM regime. This keeps one endpoint target per window, permits shared history
-between adjacent temporal windows, and records results separately with a
-`_len10_stride5` suffix. For a matched 68/16/16 comparison, run the same command
-with `pre_italy_iid_customers_68_16_16` and
-`pre_italy_iid_chunks_68_16_16`. Both use the exact same complete windows and
-endpoint transactions as `pre_italy_68_16_16`; only the assignment to train,
-validation, and test changes. The customer-IID assignment keeps all windows for
-a customer together and balances endpoint counts. The window-IID assignment
-draws each window independently, so overlapping windows can share context rows
-across partitions. That cell is optimistic and should be read as a split
-diagnostic. Once all six model records are present, the runner writes
-`results/archive/ibm_sequence/ibm_lstm_pre_italy_68_16_16_len10_stride5.md`; it can regenerate the
-table with `--render-only` and the same dataset, regime, length, and stride.
-The original `pre_italy_iid_chunks` regime still requires disjoint windows.
-
-The temporal cell uses each endpoint's original pre-Italy temporal assignment.
-The customer-IID cell uses the original customer assignment. The new chunk-IID
-cell assigns whole chunks with one fixed seed; it is not the original
-transaction-IID cell. It still trains on some labels from dates later than
-scored dates, so it measures an optimistic split rather than chronological
-deployment. A new XGBoost comparator uses the **same endpoints, split assignment,
-and 77 label-free feature names** as the LSTM. XGBoost receives only the final
-transaction's feature values, while the LSTM receives those features for all
-30 transactions in the chunk. Both use numeric values scaled from the training
-split. The LSTM also receives missingness indicators and category embeddings;
-XGBoost receives missing numeric values and ordinal-encoded categories. Those
-77 feature names are the 74 non-artifact
-IBM columns listed above plus `state_prior_rarity`,
-`state_not_seen_previously`, and `foreign_state_rarity`. The five
-`causal_target_rate_*` features are excluded because they summarize prior labels.
-
-### Sparkov sequence experiment
-
-Sparkov retains every transaction as a target under the existing temporal split.
-For each target, the runner gathers that transaction and up to 29 strictly
-earlier-time transactions from the same entity. It uses the 46 non-artifact
-Sparkov features listed above. The `off`, `on`, and `slow` runs share those
-windows and differ only in synthetic training-label availability. A delayed
-fraud stays in training with provisional label 0; validation and test use the
-true labels.
-
-```bash
-module purge
-module load PyTorch/2.13.0-foss-2025b-CUDA-12.9.1
-.venv/bin/python scripts/lstm_protocol.py --dataset ibm --device cuda
-.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --device cuda
-```
-
-The runner writes each JSON record to its default folder (see
-[`results/paper.md`](../results/paper.md)) and, after all
-cells are available, generates `results/archive/ibm_sequence/ibm_lstm_protocol.md` and
-`results/archive/sparkov_lstm/sparkov_lstm_delay.md`. Noncanonical seed runs require a separate
-`--results-dir` and are diagnostics, not paper results. The default `auto`
-device uses CUDA when the installed PyTorch build provides it; verify the
-selected device in each result record. On this host, the
-`PyTorch/2.13.0-foss-2025b-CUDA-12.9.1` module was verified on an A100 node;
-its cuDNN version does not support the V100 nodes. Use `--regime` and `--resume`
-to schedule or restart cells independently.
-
-To repeat the protocols with a 10-transaction sequence, pass
-`--window-length 10` to each runner command. The 10-transaction records have
-`_len10` suffixes and generate `results/archive/ibm_sequence/ibm_lstm_protocol_len10.md` and
-`results/archive/sparkov_lstm/sparkov_lstm_delay_len10.md`, leaving the 30-transaction records
-unchanged. This length comparison retains the original feature sets and all
-other model settings. IBM gets more final-transaction targets because its
-chunks are disjoint; those targets differ from the length-30 endpoints, so an
-IBM AP difference between lengths is not a pure sequence-length effect.
-Sparkov keeps every transaction as a target at both lengths.
-
-### Recorded sequence results
-
-The IBM endpoint LSTM has mean test average precision of 0.4370 (temporal),
-0.6779 (chunk IID), and 0.7138 (customer IID) over seeds 0--4. The matched
-XGBoost values are 0.3672, 0.5896, and 0.6499 respectively. See the
-[`IBM endpoint table`](../results/archive/ibm_sequence/ibm_lstm_protocol.md) for validation scores,
-test-minus-validation AP gaps, variation across seeds, and target counts.
-The temporal test set has only 36
-fraud endpoints; its AP difference is descriptive and should not be treated as
-precise evidence of a model advantage. The IID regimes also use different
-assignments, so their AP difference combines split semantics with population
-composition and should not be interpreted as a pure leakage effect.
-
-On Sparkov, mean LSTM test AP is 0.9800 with no delay, 0.9774 with the default
-synthetic delay, and 0.9722 with the slow synthetic delay. The matched
-no-delay differences are -0.0026 and -0.0078. See the
-[`Sparkov delay table`](../results/archive/sparkov_lstm/sparkov_lstm_delay.md) for validation scores
-and test-minus-validation AP gaps. These synthetic regimes show sensitivity to the
-specified reporting delays; they do not estimate real-world delay behavior.
-
-The 10-transaction repeat has 2,039,680 IBM endpoints. Mean test AP is
-0.5853/0.7272/0.7164 for the temporal/chunk-IID/customer-IID LSTM cells and
-0.3939/0.6554/0.6279 for their endpoint-matched XGBoost comparators. The
-[`length-10 IBM table`](../results/archive/ibm_sequence/ibm_lstm_protocol_len10.md) gives validation
-AP, seed variation, and target counts. Because the shorter chunks select
-different endpoints, the IBM difference from length 30 cannot be attributed
-to sequence length alone. The temporal test set has 95 fraud endpoints at
-length 10, versus 36 at length 30.
-
-Sparkov retains all target rows at length 10. Mean test AP is 0.9786 with no
-delay, 0.9786 with the default synthetic delay, and 0.9739 with the slow
-synthetic delay; the unrounded changes from no delay are -0.0001 and -0.0047.
-The [`length-10 Sparkov table`](../results/archive/sparkov_lstm/sparkov_lstm_delay_len10.md)
-contains validation AP and seed variation. These are five-seed descriptive
-results with the same synthetic-delay caveats as the length-30 protocol.
-
-The exploratory 68/16/16 IBM cells use complete 10-transaction windows every
-five transactions: 4,078,583 endpoints, with 765 temporal test frauds. With the
-`default` preset, mean LSTM test AP is 0.3916 (temporal), 0.7695 (window IID),
-and 0.7692 (customer IID), and the temporal value varies strongly by seed. The
-[`68/16/16 table`](../results/archive/ibm_sequence/ibm_lstm_pre_italy_68_16_16_len10_stride5.md) also
-gives the matched XGBoost cells. The `sqrt_weight_slow` reruns, which are the
-results used for the paper's split comparison, are summarized under the LSTM
-sequence extension above.
-
-### Raw-ish feature ablation
-
-For the Sparkov feature ablation, retain only values from the current event,
-its timestamp, and static cardholder/card attributes. Deterministic transforms
-of those values are included; entity transaction-history summaries are excluded.
-The selected names are already present in the feature parquet files, so this
-ablation can select columns without rebuilding source data.
-
-**Shared by IBM and Sparkov (15):**
-
-```text
-hour, minute, weekday, day, month, is_weekend, hour_sin, hour_cos,
-amount, amount_log1p, amount_is_refund, amount_cents,
-amount_is_round_10, amount_is_round_100, amount_is_micro
-```
-
-**IBM only (26; 41 total):**
-
-```text
-same_state, same_city, merchant_is_online, merchant_state_missing,
-merchant_is_foreign, mcc_group, use_chip,
-card_brand, card_type, has_chip, card_on_dark_web, cards_issued,
-days_since_acct_open, days_to_expiry, days_since_pin_change,
-age, years_to_retirement, gender, fico, num_cards, credit_limit,
-total_debt, income_person, income_zip, debt_to_income,
-amount_over_credit_limit
-```
-
-**Sparkov only (6; 21 total):**
-
-```text
-distance_from_home_km, category, job, gender, age_at_txn, city_pop_log
-```
-
-The Sparkov raw-ish protocol uses its 21-feature selection at both sequence
-lengths while keeping the same rows, split, label-delay regimes, architecture,
-and five seeds as the full-feature Sparkov runs:
-
-```bash
-.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --feature-set rawish --window-length 10 --device cuda
-.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --feature-set rawish --window-length 30 --device cuda
-```
-
-Its separate records have `_rawish_len10` or `_rawish_len30` suffixes, and the
-generated tables are `results/archive/sparkov_lstm/sparkov_lstm_delay_rawish_len10.md` and
-`results/archive/sparkov_lstm/sparkov_lstm_delay_rawish_len30.md`. The 41-feature IBM selection above
-is a documented proposal; it is not part of these Sparkov runs.
-
-This removes rolling counts, sums, means, z-scores, recency gaps, entity
-ordinals, first-occurrence and distinct-count flags, rarity scores, and every
-label-derived field. No entity ID, absolute timestamp, report timestamp,
-or label is an input. The earlier length-10 runs use their full current feature
-sets; these Sparkov cells change the feature axis separately.
-
-At length 10, raw-ish LSTM test AP is 0.9807 (off), 0.9798 (on), and 0.9787
-(slow), with changes from off of -0.0010 and -0.0020. At length 30, test AP
-is 0.9794, 0.9786, and 0.9772, with changes of -0.0008 and -0.0022. The
-[`length-10 raw-ish table`](../results/archive/sparkov_lstm/sparkov_lstm_delay_rawish_len10.md)
-and [`length-30 raw-ish table`](../results/archive/sparkov_lstm/sparkov_lstm_delay_rawish_len30.md)
-record validation AP, seed variation, and test-minus-validation gaps. Removing
-engineered history features did not increase the measured synthetic-delay
-effect in these runs. The raw-ish no-delay test AP remains near 0.98, so the
-current-event/static inputs alone already support strong discrimination in
-this dataset. This observation does not identify why the LSTM is less
-sensitive than the original XGBoost protocol; model architecture and training
-selection still differ.
+Both runners accept `--render-only` to regenerate their table from the saved records.
+Other experiments from the project are in [`archive.md`](archive.md).
