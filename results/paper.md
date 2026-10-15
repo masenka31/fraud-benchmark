@@ -1,104 +1,89 @@
-# Paper experiment records
+# Experiment records
 
-The original XGBoost protocols and their LSTM sequence extensions are recorded here.
-Exploratory ROC/PR and subsampling work is private.
+`results/paper/` holds only the records behind tables the paper prints.
+`results/archive/` holds everything else: earlier versions of paper tables, sequence
+extensions, and diagnostics. Exploratory ROC/PR and subsampling work is private.
 
-## IBM CCF: pre-Italy temporal versus IID splits
+The runners write each record to its folder by default; `scripts/lstm_protocol.py`
+decides per cell, so rerunning an archived cell never touches `results/paper/`.
 
-The experiment uses the same 20,403,999 transactions strictly before the first Italy
-fraud (`2017-11-19 12:06:00`) in all three regimes. It compares a temporal split,
-transaction-IID split, and customer-disjoint IID split with five fixed XGBoost seeds.
-Only split assignment changes. Label-derived features are chronological and use training
-labels only.
+## Paper
 
-- Runner: `scripts/ibm_split_protocol.py`
-- Readable table: `results/ibm_split_protocol.md`
-- Machine-readable records: `results/paper/ibm_pre_italy_*.json`
+### IBM CCF: temporal versus IID splits (LSTM)
 
-## Sparkov: synthetic training-label delay
+The paper's split table. The pre-Italy rows (20,403,999 transactions strictly before
+the first Italy fraud at `2017-11-19 12:06:00`) are split chronologically 68/16/16,
+with cutoffs chosen after inspecting labels so validation and test have similar fraud
+rates. Each entity contributes complete 10-transaction windows every five transactions
+(4,078,583 endpoints), and the LSTM scores each window's final transaction. The
+temporal, window-IID, and customer-IID cells share those endpoints; window IID can
+share context rows across partitions. The LSTM uses the `sqrt_weight_slow` preset,
+selected from five presets on temporal validation AP.
+
+- Runner: `scripts/lstm_protocol.py --dataset ibm --regime pre_italy_68_16_16 --window-length 10 --window-stride 5 --model lstm --lstm-config sqrt_weight_slow`,
+  repeated with `pre_italy_iid_chunks_68_16_16` and `pre_italy_iid_customers_68_16_16`
+- Readable table: `results/paper/ibm_lstm_split_comparison.md`
+- Machine-readable records: `results/paper/ibm_lstm_pre_italy_*68_16_16_len10_stride5_cfg-sqrt_weight_slow.json`
+
+### Sparkov: synthetic training-label delay (XGBoost)
 
 The experiment uses the same Sparkov rows, split, features, model configuration, and five
 XGBoost seeds under no delay, the default synthetic delay, and the synthetic slow stress
 regime. Only training-label availability changes. Validation and test use true labels.
 
 - Runner: `scripts/sparkov_delay_protocol.py`
-- Readable table: `results/sparkov_label_delay.md`
+- Readable table: `results/paper/sparkov_label_delay.md`
 - Machine-readable records: `results/paper/sparkov_delay_*.json`
 
-## IBM CCF: 30-transaction endpoint sequence extension
+## Archive
 
-Each entity contributes one target per complete, disjoint 30-transaction chunk:
-the final transaction. The temporal, chunk-IID, and customer-IID splits share the
-same 679,372 endpoints and 77 label-free feature names. XGBoost receives the
-endpoint's feature row; the LSTM receives all 30 rows in its chunk. Both score only
-the endpoint. These reduced-target AP values are not comparable to the original
-full-row IBM protocol above. The temporal test set contains only 36 fraud targets,
-so its AP is sensitive to a few predictions.
+### IBM CCF: full-row XGBoost split comparison — `archive/ibm_xgboost_full_rows/`
 
-- Runner: `scripts/lstm_protocol.py --dataset ibm`
-- Readable table: `results/ibm_lstm_protocol.md`
-- Machine-readable records: `results/paper/ibm_lstm_*.json` and
-  `results/paper/ibm_xgboost_*.json`
+The earlier version of the paper's split table. Every pre-Italy transaction is
+scored under chronological 80/10/10, transaction-IID, and customer-disjoint IID
+splits with five fixed XGBoost seeds. Label-derived features are chronological and
+use training labels only.
 
-The 10-transaction repeat uses the same model settings and feature names but
-predicts 2,039,680 different chunk endpoints. It is indexed separately:
+- Runner: `scripts/ibm_split_protocol.py`
+- Readable table: `results/archive/ibm_xgboost_full_rows/ibm_split_protocol.md`
+- Machine-readable records: `results/archive/ibm_xgboost_full_rows/ibm_pre_italy_*.json`
 
-- Runner: `scripts/lstm_protocol.py --dataset ibm --window-length 10`
-- Readable table: `results/ibm_lstm_protocol_len10.md`
-- Machine-readable records: `results/paper/ibm_lstm_*_len10.json` and
-  `results/paper/ibm_xgboost_*_len10.json`
+### IBM CCF: sequence endpoint cells — `archive/ibm_sequence/`
 
-## IBM CCF: exploratory 68/16/16 sequence split
+LSTM cells and endpoint-matched XGBoost comparators that are not in the paper.
+XGBoost receives the endpoint's feature row; the LSTM receives the whole window. These
+reduced-target AP values are not comparable to the full-row protocol.
 
-The same pre-Italy rows split chronologically 68/16/16, with cutoffs chosen after
-inspecting labels so that validation and test have similar fraud rates. Each
-entity contributes complete 10-transaction windows every five transactions
-(4,078,583 endpoints); the temporal, window-IID, and customer-IID cells share
-those endpoints. Window IID can share context rows across partitions.
+- **80/10/10, disjoint 30-transaction chunks** (679,372 endpoints; 36 temporal test
+  frauds): `scripts/lstm_protocol.py --dataset ibm`; table `ibm_lstm_protocol.md`;
+  records `ibm_{lstm,xgboost}_pre_italy*.json` without a length suffix.
+- **80/10/10, disjoint 10-transaction chunks** (2,039,680 endpoints):
+  `--window-length 10`; table `ibm_lstm_protocol_len10.md`; records `*_len10.json`.
+- **68/16/16, length 10, stride 5, `default` preset:** LSTM and XGBoost, `--regime
+  pre_italy_68_16_16 --window-length 10 --window-stride 5` and the two IID regimes;
+  table `ibm_lstm_pre_italy_68_16_16_len10_stride5.md`; records
+  `*68_16_16_len10_stride5.json`.
+- **80/10/10 with `sqrt_weight_slow`:** the selected preset rerun at both lengths, as
+  a check that the split conclusion does not depend on the 68/16/16 cutoffs; records
+  `ibm_lstm_pre_italy*_cfg-sqrt_weight_slow.json`, no readable table. Results are in
+  [`docs/experiments.md`](../docs/experiments.md).
 
-- Runner: `scripts/lstm_protocol.py --dataset ibm --regime pre_italy_68_16_16 --window-length 10 --window-stride 5`,
-  repeated with `pre_italy_iid_chunks_68_16_16` and `pre_italy_iid_customers_68_16_16`
-- Readable table (`default` preset, LSTM and XGBoost): `results/ibm_lstm_pre_italy_68_16_16_len10_stride5.md`
-- Machine-readable records: `results/paper/ibm_{lstm,xgboost}_pre_italy_*68_16_16_len10_stride5.json`
+### LSTM presets — `archive/lstm_presets/`
 
-## IBM CCF: LSTM training presets
+The three presets rejected during selection (`sqrt_weight`, `full_weight_slow`,
+`sqrt_weight_slow_ln`) on the 68/16/16 temporal cell. They remain runnable with
+`--lstm-config`; records only, no readable table.
 
-Non-default `--lstm-config` presets write records with a `_cfg-<preset>` suffix and no
-readable table. `sqrt_weight_slow` was selected from five presets on 68/16/16 temporal
-validation AP and rerun on every 68/16/16 and 80/10/10 cell. Its 68/16/16 records
-back the paper's temporal-versus-IID split table. Results and caveats are in
-[`docs/experiments.md`](../docs/experiments.md) (LSTM sequence extension).
+### Sparkov: LSTM synthetic training-label delay — `archive/sparkov_lstm/`
 
-- Rejected presets (archived): `results/paper/archive/lstm_presets/*.json`
-- Selected preset, 68/16/16: `results/paper/ibm_lstm_pre_italy_*68_16_16_len10_stride5_cfg-sqrt_weight_slow.json`
-- Selected preset, 80/10/10: `results/paper/ibm_lstm_pre_italy*_cfg-sqrt_weight_slow.json` at lengths 30 and 10 (`_len10`)
-
-## Sparkov: LSTM synthetic training-label delay extension
-
-The LSTM scores every Sparkov transaction using its current features and at most
-29 strictly earlier-time transactions from the same entity. The no-delay,
+The LSTM scores every Sparkov transaction using its current features and up to 29
+(or 9) strictly earlier-time transactions from the same entity. The no-delay,
 default-delay, and slow-delay regimes use the same rows, split, inputs, and five
-seeds. Only synthetic training-label availability changes; evaluation uses true
-labels.
+seeds; only synthetic training-label availability changes.
 
-- Runner: `scripts/lstm_protocol.py --dataset sparkov`
-- Readable table: `results/sparkov_lstm_delay.md`
-- Machine-readable records: `results/paper/sparkov_lstm_*.json`
-
-The 10-transaction repeat keeps the same target rows and split:
-
-- Runner: `scripts/lstm_protocol.py --dataset sparkov --window-length 10`
-- Readable table: `results/sparkov_lstm_delay_len10.md`
-- Machine-readable records: `results/paper/sparkov_lstm_*_len10.json`
-
-The raw-ish input ablation uses 21 current-event/static features and no
-entity-history statistics, at both maximum sequence lengths. It keeps the
-same target rows, split, delay regimes, architecture, and seeds as the
-corresponding full-feature LSTM cells:
-
-- Runner: `scripts/lstm_protocol.py --dataset sparkov --feature-set rawish`,
-  with `--window-length 10` or `--window-length 30`
-- Readable tables: `results/sparkov_lstm_delay_rawish_len10.md` and
-  `results/sparkov_lstm_delay_rawish_len30.md`
-- Machine-readable records: `results/paper/sparkov_lstm_*_rawish_len10.json` and
-  `results/paper/sparkov_lstm_*_rawish_len30.json`
+- Length 30: `scripts/lstm_protocol.py --dataset sparkov`; table `sparkov_lstm_delay.md`;
+  records `sparkov_lstm_{off,on,slow}.json`.
+- Length 10: `--window-length 10`; table `sparkov_lstm_delay_len10.md`; records `*_len10.json`.
+- Raw-ish ablation (21 current-event/static features, no entity-history statistics):
+  `--feature-set rawish --window-length 10` or `30`; tables
+  `sparkov_lstm_delay_rawish_len{10,30}.md`; records `*_rawish_len{10,30}.json`.

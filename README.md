@@ -150,9 +150,11 @@ Then reproduce the paper tables:
 .venv/bin/python scripts/sparkov_delay_protocol.py
 ```
 
-The runners write readable tables to `results/ibm_split_protocol.md` and
-`results/sparkov_label_delay.md`; [`results/paper.md`](results/paper.md) indexes the
-machine-readable records and states exactly which rows and regimes each experiment uses.
+`results/paper/` holds only what the paper prints: the Sparkov label-delay records and
+table, and the IBM temporal-versus-IID split from the LSTM sequence extension below.
+Everything else, including the earlier full-row IBM XGBoost split comparison, is in
+`results/archive/`. [`results/paper.md`](results/paper.md) indexes both and states
+exactly which rows and regimes each experiment uses.
 
 An optional LSTM sequence extension runs the IBM study on the final transaction
 of complete same-entity windows and the Sparkov study on every transaction.
