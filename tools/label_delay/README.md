@@ -37,19 +37,21 @@ python add_label_delay.py transactions.parquet \
 
 This writes `transactions.label_delay.parquet`, which is the input plus `campaign_id`
 and `reported_at`, with the row order and other columns unchanged. It also writes
-`transactions.label_delay.json`, which records the parameters, seed, script version
-and the realised delays. CSV works the same way. Use `-o` to choose the output path.
+`transactions.label_delay.parquet.json`, which records the parameters, seed, script
+version and the realised delays. CSV works the same way. Use `-o` to choose the output
+path; it may use a different format from the input but may not overwrite it. The input
+must not already contain the columns being added.
 
 | flag | meaning |
 |---|---|
-| `--entity`, `--time`, `--fraud` | your column names. The fraud column must hold 0/1 or booleans. |
-| `--time-origin`, `--time-unit` | for a numeric time column, e.g. `--time-origin 2017-12-01 --time-unit s` |
+| `--entity`, `--time`, `--fraud` | your column names. The fraud column must hold 0/1, `true`/`false` or booleans, with no missing values. |
+| `--time-origin`, `--time-unit` | only for a numeric time column, e.g. `--time-origin 2017-12-01 --time-unit s` |
 | `--preset` | `card` (default), `card-slow` or `aml`, see below |
 | `--median-days`, `--sigma`, `--max-delay-days` | override the preset. `--max-delay-days 0` removes its cap. |
 | `--regime NAME:MEDIAN,SIGMA[,CAP]` | an extra regime in `reported_at_NAME`. Repeatable. |
 | `--campaign-gap` | longest gap inside one campaign. The default is `1D`. |
 | `--seed` | default `0` |
-| `--cutoff` | your training cutoff. The script then prints how many frauds up to it are still unreported. |
+| `--cutoff` | your training cutoff. The script then prints how many frauds up to it are still unreported. Give it a timezone exactly when the time column has one. |
 
 ### Presets
 
@@ -60,10 +62,14 @@ and the realised delays. CSV works the same way. Use `-o` to choose the output p
 | `aml` | 30 d | 1.0 | none | suspicious-activity investigations run on a ~30-day clock |
 
 The Sparkov study in this repository uses `card` for its `on` regime and `card-slow`
-for its `slow` regime, both with gap `1D` and seed `0`:
+for its `slow` regime, both with gap `1D` and seed `0`. Starting from the two CSVs
+of the [Kaggle dataset](https://www.kaggle.com/datasets/kartik2112/fraud-detection),
+this reproduces the repository's `reported_at` columns exactly:
 
 ```bash
-python add_label_delay.py sparkov.parquet --entity cc_num --time event_time \
+python -c "import pandas as pd; pd.concat([pd.read_csv('fraudTrain.csv'), \
+    pd.read_csv('fraudTest.csv')]).to_csv('sparkov.csv', index=False)"
+python add_label_delay.py sparkov.csv --entity cc_num --time trans_date_trans_time \
     --fraud is_fraud --preset card --regime slow:15,1.665,365
 ```
 
@@ -106,9 +112,14 @@ since both are derived from the labels.
 
 ## Details that affect reproducibility
 
-- Entities are compared as strings, so `123` and `"123"` give the same result.
-  Campaign numbering follows the sorted `(entity, time)` order, and draw *i* goes to
+- Entities are compared as strings, so `123` and `"123"` give the same result. A CSV
+  entity column is read as text, so `0007` and `7` stay different entities, and CSV
+  and Parquet copies of the same data give the same output.
+- Campaign numbering follows the sorted `(entity, time)` order, and draw *i* goes to
   campaign *i*. The same rows, gap and seed therefore always give the same output.
   Changing the rows or the gap reshuffles which campaign receives which draw.
-- Timezone-aware times are converted to UTC and written without a timezone.
+- Timezone-aware times, including CSV strings with mixed UTC offsets, are computed in
+  UTC. `reported_at` is then written as UTC-aware, so it compares directly with your
+  time column and with any timezone-aware cutoff in the snippet above. Naive input
+  gives naive output.
 - Rows with equal timestamps on one entity keep their input order.

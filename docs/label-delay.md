@@ -141,6 +141,7 @@ configured.
 [`tools/label_delay/add_label_delay.py`](../tools/label_delay/README.md) is a
 standalone copy of `campaigns.py` and `delay.py`. It adds `campaign_id` and
 `reported_at` to any Parquet or CSV file of transactions. Parity tests in
-`tests/tools/` keep it identical to the package. Its `card` preset with
+`tests/tools/` keep it identical to the package. Run on the concatenated raw Kaggle
+CSVs (`--entity cc_num --time trans_date_trans_time`), its `card` preset with
 `--regime slow:15,1.665,365` reproduces the shipped `sparkov` and `sparkov_slow`
-columns exactly.
+`reported_at` columns exactly. The tool's README gives the command.
