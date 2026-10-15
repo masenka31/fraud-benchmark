@@ -48,6 +48,31 @@ predicts 2,039,680 different chunk endpoints. It is indexed separately:
 - Machine-readable records: `results/paper/ibm_lstm_*_len10.json` and
   `results/paper/ibm_xgboost_*_len10.json`
 
+## IBM CCF: exploratory 68/16/16 sequence split
+
+The same pre-Italy rows split chronologically 68/16/16, with cutoffs chosen after
+inspecting labels so that validation and test have similar fraud rates. Each
+entity contributes complete 10-transaction windows every five transactions
+(4,078,583 endpoints); the temporal, window-IID, and customer-IID cells share
+those endpoints. Window IID can share context rows across partitions.
+
+- Runner: `scripts/lstm_protocol.py --dataset ibm --regime pre_italy_68_16_16 --window-length 10 --window-stride 5`,
+  repeated with `pre_italy_iid_chunks_68_16_16` and `pre_italy_iid_customers_68_16_16`
+- Readable table (`default` preset, LSTM and XGBoost): `results/ibm_lstm_pre_italy_68_16_16_len10_stride5.md`
+- Machine-readable records: `results/paper/ibm_{lstm,xgboost}_pre_italy_*68_16_16_len10_stride5.json`
+
+## IBM CCF: LSTM training presets
+
+Non-default `--lstm-config` presets write records with a `_cfg-<preset>` suffix and no
+readable table. `sqrt_weight_slow` was selected from five presets on 68/16/16 temporal
+validation AP and rerun on every 68/16/16 and 80/10/10 cell. Its 68/16/16 records
+back the paper's temporal-versus-IID split table. Results and caveats are in
+[`docs/experiments.md`](../docs/experiments.md) (LSTM sequence extension).
+
+- Rejected presets (archived): `results/paper/archive/lstm_presets/*.json`
+- Selected preset, 68/16/16: `results/paper/ibm_lstm_pre_italy_*68_16_16_len10_stride5_cfg-sqrt_weight_slow.json`
+- Selected preset, 80/10/10: `results/paper/ibm_lstm_pre_italy*_cfg-sqrt_weight_slow.json` at lengths 30 and 10 (`_len10`)
+
 ## Sparkov: LSTM synthetic training-label delay extension
 
 The LSTM scores every Sparkov transaction using its current features and at most

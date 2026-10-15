@@ -155,11 +155,15 @@ The runners write readable tables to `results/ibm_split_protocol.md` and
 machine-readable records and states exactly which rows and regimes each experiment uses.
 
 An optional LSTM sequence extension runs the IBM study on the final transaction
-of disjoint 30-transaction chunks and the Sparkov study on every transaction.
+of complete same-entity windows and the Sparkov study on every transaction.
 Run it with `scripts/lstm_protocol.py --dataset ibm` or `--dataset sparkov` after
-installing the optional `lstm` dependencies. The reduced-target IBM results
-have a matching XGBoost comparator and are separate from the full-row table above.
-See [`docs/experiments.md`](docs/experiments.md) for the input and split rules.
+installing the optional `lstm` dependencies. IBM windows default to 30 disjoint
+transactions; `--window-length` and `--window-stride` change that, and the
+exploratory 68/16/16 regimes score overlapping 10-transaction windows. The
+reduced-target IBM results have a matching XGBoost comparator and are separate
+from the full-row table above. `--lstm-config` selects a named LSTM training
+preset; `default` is the recorded protocol. See
+[`docs/experiments.md`](docs/experiments.md) for the input and split rules.
 
 See [`docs/architecture.md`](docs/architecture.md) for the layout,
 [`docs/experiments.md`](docs/experiments.md) for the complete protocols, and

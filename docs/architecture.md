@@ -99,6 +99,9 @@ tie the parquet to one split, and two are in use.
 | `models.py` | the fixed XGBoost parameters and fit primitive shared by both protocols |
 | `metrics.py` | average precision, plus precision/recall/F1 at a validation-chosen threshold |
 | `columns.py` | what no model may ever see, whatever the experiment — the label part read from the adapter registry |
+| `sequence.py` | same-entity windows: complete endpoint chunks (optionally overlapping by stride), window indices that exclude same-time and other-entity rows, and whole-chunk IID assignment |
+| `sequence_experiment.py` | sequence-protocol preparation for IBM endpoints and Sparkov full rows, plus the LSTM and endpoint-matched XGBoost runs |
+| `lstm.py` | the LSTM classifier, train-only feature encoding, and named training presets (`default` is the recorded protocol) |
 
 Each runner receives the same prepared matrix, labels, and split indices for every model
 seed. The protocol fixes every comparison axis except the one named by its table.
@@ -119,6 +122,7 @@ The preparation stages are the first three rows, in order. Each takes `--dataset
 | `features.py` | `experiments.features` | **3.** a prepared dataset → `data/features/<name>.parquet` |
 | `ibm_split_protocol.py` | `experiments` | pre-Italy temporal/IID comparison → three JSON records and one readable table |
 | `sparkov_delay_protocol.py` | `experiments` | synthetic training-label-delay comparison → JSONL records and one readable table |
+| `lstm_protocol.py` | `experiments.sequence_experiment` | LSTM sequence extension of both studies → JSON records per cell and readable tables |
 | `figures/plot_monthly_fraud.py` | — | IBM CCF's regime shift, from its feature parquet |
 | `figures/plot_dataset_caveats.py` | — | the three dataset caveats that are a shape rather than a number |
 

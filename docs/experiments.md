@@ -1,8 +1,9 @@
 # Paper experiments
 
-This public repository records two supplementary experiments from the paper. Both use
-full experimental populations, preserve temporal preprocessing semantics, select any
-thresholds on validation data only, and report average precision as the primary metric.
+This public repository records two supplementary experiments from the paper and their
+LSTM sequence extensions. All use full experimental populations, preserve temporal
+preprocessing semantics, select any thresholds on validation data only, and report
+average precision as the primary metric.
 The exact result locations are indexed in [`results/paper.md`](../results/paper.md).
 
 Before running either experiment, build the corresponding feature parquet:
@@ -68,7 +69,8 @@ diagnostic protocol rather than a replacement for the recorded 80/10/10 table.
 Run its full-row XGBoost cell with
 `.venv/bin/python scripts/ibm_split_protocol.py --regime pre_italy_68_16_16`.
 The runner writes `results/paper/ibm_pre_italy_temporal_68_16_16.json` without
-changing the original three-regime table.
+changing the original three-regime table. This full-row cell has not been recorded;
+the recorded 68/16/16 results are the sequence cells described below.
 
 **IBM model inputs (82):** the 31 shared features above, these 43 IBM features,
 and eight causal features added in
@@ -175,6 +177,9 @@ and allow 15 epochs with patience four; `sqrt_weight_slow_ln` adds layer
 normalization after the input projection. A non-default preset writes records with
 a `_cfg-<preset>` suffix and never renders a table. Presets are compared on
 validation AP only; a chosen preset must be rerun on every cell it is compared with.
+Only `default` and `sqrt_weight_slow` are used for the paper. The other three
+presets are archived: they remain runnable, and their records are in
+`results/paper/archive/lstm_presets/`.
 
 On the 68/16/16 length-10 stride-5 temporal cell, `default` validation AP was
 0.6351 ± 0.1826 because two seeds trained badly and stopped by epoch three.
@@ -322,6 +327,15 @@ synthetic delay; the unrounded changes from no delay are -0.0001 and -0.0047.
 The [`length-10 Sparkov table`](../results/sparkov_lstm_delay_len10.md)
 contains validation AP and seed variation. These are five-seed descriptive
 results with the same synthetic-delay caveats as the length-30 protocol.
+
+The exploratory 68/16/16 IBM cells use complete 10-transaction windows every
+five transactions: 4,078,583 endpoints, with 765 temporal test frauds. With the
+`default` preset, mean LSTM test AP is 0.3916 (temporal), 0.7695 (window IID),
+and 0.7692 (customer IID), and the temporal value varies strongly by seed. The
+[`68/16/16 table`](../results/ibm_lstm_pre_italy_68_16_16_len10_stride5.md) also
+gives the matched XGBoost cells. The `sqrt_weight_slow` reruns, which are the
+results used for the paper's split comparison, are summarized under the LSTM
+sequence extension above.
 
 ### Raw-ish feature ablation
 
