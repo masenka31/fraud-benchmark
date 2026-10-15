@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from fraud_benchmark.experiments import lstm
+from fraud_benchmark.experiments import sequence_experiment
 from fraud_benchmark.experiments.lstm import encode_features
 from fraud_benchmark.experiments.sequence import complete_chunks
 from fraud_benchmark.experiments.sequence import iid_chunk_split
@@ -163,7 +164,7 @@ def test_encoder_fits_train_only_and_keeps_missing_mask():
     assert encoded.tree_matrix(np.array([3])).shape == (1, 2)
 
 
-def test_sparkov_delay_changes_training_targets_but_not_windows():
+def test_sparkov_delay_changes_training_targets_but_not_windows(monkeypatch):
     n = 100
     times = pd.Series(pd.Timestamp('2024-01-01') + pd.to_timedelta(np.arange(n), unit='h'))
     frame = pd.DataFrame(
@@ -176,8 +177,8 @@ def test_sparkov_delay_changes_training_targets_but_not_windows():
             'split': 'train',
         }
     )
-    frame.loc[[0, 70, 85, 95], 'reported_at'] = times.iloc[[1, 90, 86, 96]].to_numpy()
-    frame.loc[[0, 70, 85, 95], 'reported_at_slow'] = times.iloc[[90, 91, 86, 96]].to_numpy()
+    frame.loc[[0, 70, 85, 95], 'reported_at'] = times.iloc[[1, 90, 96, 96]].to_numpy()
+    frame.loc[[0, 70, 85, 95], 'reported_at_slow'] = times.iloc[[90, 91, 96, 96]].to_numpy()
     for index in range(46):
         frame[f'feature_{index}'] = float(index)
     off = prepare_sparkov('off', source=frame)
@@ -187,7 +188,27 @@ def test_sparkov_delay_changes_training_targets_but_not_windows():
     assert np.array_equal(off.y_true, slow.y_true)
     assert on.metadata['censored_train_labels'] == 1
     assert slow.metadata['censored_train_labels'] == 2
-    assert np.array_equal(on.y_fit[on.validation], on.y_true[on.validation])
+    assert on.metadata['censored_val_labels'] == 1
+    assert slow.metadata['censored_val_labels'] == 1
+    assert off.metadata['censored_val_labels'] == 0
+    assert on.y_fit[85] == slow.y_fit[85] == 0
+    assert on.y_true[85] == slow.y_true[85] == 1
+    assert on.y_fit[95] == on.y_true[95] == 1
+    selected_labels = []
+
+    def fake_train_and_predict(features, positions_for, train, validation, test,
+                               y_fit, y_true, seed, device):
+        return np.zeros(len(validation)), np.zeros(len(test)), {}
+
+    def fake_threshold(labels, scores):
+        selected_labels.append(labels.copy())
+        return 0.5
+
+    monkeypatch.setattr(sequence_experiment, 'train_and_predict', fake_train_and_predict)
+    monkeypatch.setattr(sequence_experiment, 'best_f1_threshold', fake_threshold)
+    result = sequence_experiment.run_lstm(on, seeds=(0,), device='cpu')
+    np.testing.assert_array_equal(selected_labels[0], on.y_fit[on.validation])
+    assert result['seeds'][0]['scores']['val']['n_positive'] == 1
     assert len(on.features.names) == 46
     assert not {'is_fraud', 'reported_at', 'reported_at_slow'} & set(on.features.names)
     targets = np.array([0, 85, 95])
@@ -269,13 +290,15 @@ def test_lstm_training_scores_the_requested_targets(monkeypatch):
         previous = np.where(ids % 10 == 0, ids, ids - 1)
         return np.column_stack((previous, ids)).astype('int32'), np.full(len(ids), 2)
 
+    fit_labels = labels.copy()
+    fit_labels[42] = 0
     validation, test, details = lstm.train_and_predict(
         features,
         pairs,
         np.arange(40),
         np.arange(40, 50),
         np.arange(50, 60),
-        labels,
+        fit_labels,
         labels,
         seed=0,
         device_name='cpu',
@@ -285,3 +308,7 @@ def test_lstm_training_scores_the_requested_targets(monkeypatch):
     assert np.isfinite(validation).all()
     assert np.isfinite(test).all()
     assert details['best_epoch'] == 1
+    from sklearn.metrics import average_precision_score
+    assert details['history'][0]['val_ap'] == pytest.approx(
+        average_precision_score(fit_labels[40:50], validation)
+    )
