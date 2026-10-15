@@ -179,7 +179,7 @@ def test_extra_regimes_share_campaigns_and_rows(tmp_path):
 def test_sidecar_records_parameters_and_summary(tmp_path):
     df = transactions(n=1_000)
     src = run(tmp_path, df, '--cutoff', '2020-09-01', '--seed', '4')
-    card = json.loads(src.with_name('in.label_delay.json').read_text())
+    card = json.loads(src.with_name('in.label_delay.parquet.json').read_text())
     assert card['seed'] == 4
     assert card['campaign_gap'] == '1 days 00:00:00'
     (regime,) = card['regimes']
@@ -187,3 +187,129 @@ def test_sidecar_records_parameters_and_summary(tmp_path):
     assert regime['median_days'] == 7.0
     assert 0.0 <= regime['censored_at_cutoff']['share'] <= 1.0
     assert card['n_campaigns'] > 0
+
+
+# --- edge cases from the review of PR #7 ------------------------------------------
+
+
+def main_with(src, out, *args):
+    tool.main(
+        [str(src), '-o', str(out), '--entity', 'card', '--time', 'ts', '--fraud', 'label', *args]
+    )
+
+
+def test_csv_entity_ids_keep_leading_zeros(tmp_path):
+    """'0007' and '7' are different cards, and CSV must agree with Parquet."""
+    df = transactions(n=1_000)
+    df['card'] = df['card'].map(lambda c: f'{c:04d}' if c % 2 else str(c))
+    a = run(tmp_path, df, name='p.parquet')
+    b = run(tmp_path, df, name='c.csv')
+    from_parquet = pd.read_parquet(a.with_name('p.label_delay.parquet'))
+    from_csv = pd.read_csv(b.with_name('c.label_delay.csv'), dtype={'card': str})
+    assert from_csv['card'].equals(df['card'])
+    assert from_csv['campaign_id'].equals(from_parquet['campaign_id'].astype('float64'))
+    reported = pd.to_datetime(from_csv['reported_at']).astype('datetime64[us]')
+    assert reported.equals(from_parquet['reported_at'])
+
+
+def test_mixed_utc_offsets_in_csv_are_read(tmp_path):
+    df = transactions(n=500)
+    df['ts'] = df['ts'].dt.tz_localize('UTC').dt.tz_convert('America/New_York').astype(str)
+    src = run(tmp_path, df, name='in.csv')
+    written = pd.read_csv(src.with_name('in.label_delay.csv'))
+    assert written['reported_at'].notna().sum() == df['label'].sum()
+
+
+def test_tz_aware_input_matches_utc_and_writes_utc_aware(tmp_path):
+    df = transactions(n=1_000)
+    naive = run(tmp_path, df, name='naive.parquet')
+    aware = df.assign(ts=df['ts'].dt.tz_localize('UTC').dt.tz_convert('Europe/Prague'))
+    src = run(tmp_path, aware, '--cutoff', '2020-07-01T00:00+02:00', name='aware.parquet')
+    a = pd.read_parquet(naive.with_name('naive.label_delay.parquet'))['reported_at']
+    b = pd.read_parquet(src.with_name('aware.label_delay.parquet'))['reported_at']
+    assert str(b.dt.tz) == 'UTC'
+    pd.testing.assert_series_equal(b.dt.tz_localize(None), a)
+    # The written column compares directly with the input's own tz-aware times.
+    assert (b.dropna() >= aware.loc[b.notna(), 'ts']).all()
+
+
+def test_cutoff_timezone_must_match_the_data(tmp_path):
+    aware = transactions(n=200)
+    aware['ts'] = aware['ts'].dt.tz_localize('UTC')
+    with pytest.raises(SystemExit):
+        run(tmp_path, aware, '--cutoff', '2020-07-01', name='a.parquet')
+    with pytest.raises(SystemExit):
+        run(tmp_path, transactions(n=200), '--cutoff', '2020-07-01T00:00Z', name='n.parquet')
+
+
+@pytest.mark.parametrize('gap', ['-1D', 'NaT'])
+def test_invalid_campaign_gap_is_refused(tmp_path, gap):
+    with pytest.raises(SystemExit):
+        run(tmp_path, transactions(n=200), f'--campaign-gap={gap}')
+
+
+def test_sidecar_does_not_clobber_a_sibling_json(tmp_path):
+    (tmp_path / 'meta.json').write_text('keep')
+    src = tmp_path / 'in.parquet'
+    transactions(n=200).to_parquet(src)
+    main_with(src, tmp_path / 'meta.parquet')
+    assert (tmp_path / 'meta.json').read_text() == 'keep'
+    assert (tmp_path / 'meta.parquet.json').exists()
+
+
+def test_output_may_not_overwrite_the_input(tmp_path):
+    src = tmp_path / 'in.parquet'
+    transactions(n=200).to_parquet(src)
+    with pytest.raises(SystemExit):
+        main_with(src, src)
+
+
+def test_bad_output_format_is_refused_before_reading(tmp_path):
+    with pytest.raises(SystemExit):
+        main_with(tmp_path / 'does_not_exist.parquet', tmp_path / 'out.xlsx')
+
+
+def test_csv_output_from_parquet_input(tmp_path):
+    src = tmp_path / 'in.parquet'
+    df = transactions(n=300)
+    df.to_parquet(src)
+    main_with(src, tmp_path / 'out.csv')
+    assert pd.read_csv(tmp_path / 'out.csv')['reported_at'].notna().sum() == df['label'].sum()
+
+
+def test_time_origin_on_a_datetime_column_is_refused(tmp_path):
+    with pytest.raises(SystemExit):
+        run(tmp_path, transactions(n=200), '--time-origin', '2020-01-01')
+
+
+@pytest.mark.parametrize(
+    'labels', [['true', 'False'], ['1', '0'], [True, False], [1.0, 0.0]], ids=str
+)
+def test_fraud_label_forms_are_accepted(tmp_path, labels):
+    df = transactions(n=200)
+    df['label'] = [labels[0] if y else labels[1] for y in df['label']]
+    src = run(tmp_path, df)
+    written = pd.read_parquet(src.with_name('in.label_delay.parquet'))
+    assert written['reported_at'].notna().sum() == (df['label'] == labels[0]).sum()
+
+
+@pytest.mark.parametrize('labels', [[2, 0], ['yes', 'no']], ids=str)
+def test_other_fraud_labels_are_refused(tmp_path, labels):
+    df = transactions(n=200)
+    df['label'] = [labels[0] if y else labels[1] for y in df['label']]
+    with pytest.raises(SystemExit):
+        run(tmp_path, df)
+
+
+def test_missing_fraud_label_is_refused(tmp_path):
+    df = transactions(n=200).astype({'label': 'float64'})
+    df.loc[0, 'label'] = np.nan
+    with pytest.raises(SystemExit):
+        run(tmp_path, df)
+
+
+def test_no_frauds_writes_empty_columns(tmp_path):
+    src = run(tmp_path, transactions(n=200).assign(label=0))
+    written = pd.read_parquet(src.with_name('in.label_delay.parquet'))
+    assert written['campaign_id'].isna().all()
+    assert written['reported_at'].isna().all()

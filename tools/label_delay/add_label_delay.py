@@ -198,9 +198,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         args.regimes = [base_regime(args), *(parse_regime(s) for s in args.regime)]
     except ValueError as exc:
         parser.error(str(exc))
+    # pd.Timedelta('NaT') parses without error, and comparing against it is always
+    # False, which would silently make every entity a single campaign.
+    if args.campaign_gap is pd.NaT or args.campaign_gap < pd.Timedelta(0):
+        parser.error(f'--campaign-gap must be a non-negative duration, got {args.campaign_gap}')
     names = [r.name for r in args.regimes]
     if len(set(names)) != len(names):
         parser.error(f'regime names must be distinct, got {names[1:]}')
+
+    args.output = args.output or args.input.with_name(
+        f'{args.input.stem}.label_delay{args.input.suffix}'
+    )
+    args.sidecar = args.output.with_name(f'{args.output.name}.json')
+    for path, role in ((args.input, 'input'), (args.output, 'output')):
+        if path.suffix.lower() not in FORMATS:
+            parser.error(f'unsupported {role} format {path.suffix!r}; use .parquet, .pq or .csv')
+    if args.input.resolve() in {args.output.resolve(), args.sidecar.resolve()}:
+        parser.error('the output would overwrite the input; pass a different -o')
     return args
 
 
@@ -227,27 +241,64 @@ def parse_regime(spec: str) -> Regime:
     return Regime(name, float(median), float(sigma), float(cap) if cap else None)
 
 
-def read_table(path: Path) -> pd.DataFrame:
-    suffix = path.suffix.lower()
-    if suffix in {'.parquet', '.pq'}:
-        return pd.read_parquet(path)
-    if suffix == '.csv':
-        return pd.read_csv(path)
-    raise SystemExit(f'error: unsupported input format {path.suffix!r}; use .parquet, .pq or .csv')
+FORMATS = {'.parquet', '.pq', '.csv'}
+
+
+def read_table(path: Path, entity: str) -> pd.DataFrame:
+    if path.suffix.lower() == '.csv':
+        # Read entity ids as text: as numbers, '0007' and '7' would become one entity
+        # and the same data would give different campaigns from CSV and Parquet.
+        return pd.read_csv(path, dtype={entity: str})
+    return pd.read_parquet(path)
 
 
 def write_table(df: pd.DataFrame, path: Path) -> None:
-    suffix = path.suffix.lower()
-    if suffix in {'.parquet', '.pq'}:
-        df.to_parquet(path)
-    elif suffix == '.csv':
+    if path.suffix.lower() == '.csv':
         df.to_csv(path, index=False)
     else:
-        raise SystemExit(f'error: unsupported output format {path.suffix!r}')
+        df.to_parquet(path)
 
 
-def canonicalize(df: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
-    """entity_id/event_time/is_fraud in the dtypes the method expects, on a RangeIndex.
+def parse_time(time: pd.Series, args: argparse.Namespace) -> tuple[pd.Series, bool]:
+    """Transaction times as naive datetime64[us], and whether the input was tz-aware.
+
+    Timezone-aware input is converted to UTC for the computation, so that the
+    campaign gap and the delay are measured in elapsed time across DST changes.
+    """
+    if pd.api.types.is_numeric_dtype(time):
+        if args.time_origin is None:
+            raise SystemExit(f'error: {args.time!r} is numeric; pass --time-origin')
+        time = pd.Timestamp(args.time_origin) + pd.to_timedelta(time, unit=args.time_unit)
+    elif args.time_origin is not None:
+        raise SystemExit('error: --time-origin applies only to a numeric time column')
+    elif not isinstance(time.dtype, pd.DatetimeTZDtype):
+        try:
+            time = pd.to_datetime(time)
+        except ValueError:
+            # Strings carrying different UTC offsets, e.g. either side of a DST change.
+            time = pd.to_datetime(time, utc=True)
+    aware = time.dt.tz is not None
+    if aware:
+        time = time.dt.tz_convert('UTC').dt.tz_localize(None)
+    return time.astype('datetime64[us]'), aware
+
+
+def parse_fraud(fraud: pd.Series, column: str) -> pd.Series:
+    """The fraud label as bool, from 0/1, booleans or their text forms."""
+    if not (pd.api.types.is_bool_dtype(fraud) or pd.api.types.is_numeric_dtype(fraud)):
+        text = fraud.astype(str).str.strip().str.lower()
+        fraud = text.map({'true': 1, 'false': 0, '1': 1, '0': 0})
+    if fraud.isna().any() or not fraud.isin([0, 1]).all():
+        raise SystemExit(
+            f'error: {column!r} must hold only 0/1, true/false or booleans; '
+            f'found {sorted(map(str, fraud[~fraud.isin([0, 1])].unique()[:5]))}'
+        )
+    return fraud.astype(bool)
+
+
+def canonicalize(df: pd.DataFrame, args: argparse.Namespace) -> tuple[pd.DataFrame, bool]:
+    """entity_id/event_time/is_fraud in the dtypes the method expects, on a RangeIndex,
+    and whether the input times were timezone-aware.
 
     Entities are compared as strings, which fixes the campaign numbering and hence
     which delay each campaign draws for a given seed.
@@ -259,30 +310,33 @@ def canonicalize(df: pd.DataFrame, args: argparse.Namespace) -> pd.DataFrame:
         if df[c].isna().any():
             raise SystemExit(f'error: column {c!r} has missing values')
 
-    time = df[args.time]
-    if pd.api.types.is_numeric_dtype(time):
-        if args.time_origin is None:
-            raise SystemExit(f'error: {args.time!r} is numeric; pass --time-origin')
-        time = pd.Timestamp(args.time_origin) + pd.to_timedelta(time, unit=args.time_unit)
-    else:
-        time = pd.to_datetime(time)
-    if time.dt.tz is not None:
-        time = time.dt.tz_convert('UTC').dt.tz_localize(None)
-
-    fraud = df[args.fraud]
-    if not fraud.isin([0, 1]).all():
-        raise SystemExit(f'error: {args.fraud!r} must hold only 0/1 or True/False')
-
-    return pd.DataFrame(
+    time, aware = parse_time(df[args.time], args)
+    canon = pd.DataFrame(
         {
             'entity_id': df[args.entity].astype(str).astype('string').to_numpy(),
-            'event_time': time.astype('datetime64[us]').to_numpy(),
-            'is_fraud': fraud.astype(bool).to_numpy(),
+            'event_time': time.to_numpy(),
+            'is_fraud': parse_fraud(df[args.fraud], args.fraud).to_numpy(),
         }
     )
+    return canon, aware
 
 
-def describe(canon: pd.DataFrame, cutoff: pd.Timestamp | None, regime: Regime) -> dict:
+def utc_cutoff(cutoff: pd.Timestamp | None, aware: bool) -> pd.Timestamp | None:
+    """The cutoff on the naive-UTC clock the computation runs on.
+
+    A cutoff without a timezone against timezone-aware data (or the reverse) is
+    refused rather than guessed, since a guess shifts it by the UTC offset.
+    """
+    if cutoff is None:
+        return None
+    if aware != (cutoff.tz is not None):
+        need = 'with' if aware else 'without'
+        raise SystemExit(f'error: the time column is {"" if aware else "not "}timezone-aware; '
+                         f'pass --cutoff {need} a timezone')  # fmt: skip
+    return cutoff.tz_convert('UTC').tz_localize(None) if aware else cutoff
+
+
+def describe(canon: pd.DataFrame, cutoff: pd.Timestamp | None, regime: Regime, aware: bool) -> dict:
     """Realised delay of one regime and how many frauds it leaves unknown."""
     fraud = canon[canon['is_fraud']]
     delays = (fraud[regime.column] - fraud['event_time']).dt.total_seconds() / 86_400
@@ -298,7 +352,7 @@ def describe(canon: pd.DataFrame, cutoff: pd.Timestamp | None, regime: Regime) -
         known = fraud[fraud['event_time'] <= c]
         unreported = int((known[regime.column] > c).sum())
         censoring.append({
-            'cutoff': str(pd.Timestamp(c)),
+            'cutoff': str(pd.Timestamp(c).tz_localize('UTC') if aware else pd.Timestamp(c)),
             'frauds_up_to_cutoff': len(known),
             'unreported_at_cutoff': unreported,
             'share': unreported / len(known) if len(known) else 0.0,
@@ -329,21 +383,19 @@ def report(card: dict) -> None:
                 f'  unreported at {c["cutoff"]}: {c["unreported_at_cutoff"]:,} of '
                 f'{c["frauds_up_to_cutoff"]:,} frauds ({100 * c["share"]:.1f}%)'
             )
-    print(f'wrote {card["output"]}')
+    print(f'wrote {card["output"]} and its .json record')
 
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
-    output = args.output or args.input.with_name(
-        f'{args.input.stem}.label_delay{args.input.suffix}'
-    )
-    df = read_table(args.input)
+    df = read_table(args.input, args.entity)
     new_columns = ['campaign_id', *(r.column for r in args.regimes)]
     clash = [c for c in new_columns if c in df.columns]
     if clash:
-        raise SystemExit(f'error: input already has column(s) {clash}')
+        raise SystemExit(f'error: input already has column(s) {clash}; drop or rename them first')
 
-    canon = canonicalize(df, args)
+    canon, aware = canonicalize(df, args)
+    cutoff = utc_cutoff(args.cutoff, aware)
     canon['campaign_id'] = assign_campaigns(canon, args.campaign_gap)
     try:
         for regime in args.regimes:
@@ -352,9 +404,13 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(f'error: {exc}') from exc
 
     out = df.copy()
-    for column in new_columns:
-        out[column] = canon[column].array
-    write_table(out, output)
+    out['campaign_id'] = canon['campaign_id'].array
+    for regime in args.regimes:
+        reported = canon[regime.column]
+        # Timezone-aware input gets a UTC-aware reported_at, so it compares
+        # directly with the input's own time column and cutoffs.
+        out[regime.column] = (reported.dt.tz_localize('UTC') if aware else reported).array
+    write_table(out, args.output)
 
     sizes = canon['campaign_id'].dropna().value_counts()
     card = {
@@ -362,10 +418,11 @@ def main(argv: list[str] | None = None) -> None:
         'version': VERSION,
         'note': 'reported_at is synthetic; it is not observed reporting behaviour',
         'input': str(args.input),
-        'output': str(output),
+        'output': str(args.output),
         'columns': {'entity': args.entity, 'time': args.time, 'fraud': args.fraud},
         'time_origin': args.time_origin,
         'time_unit': args.time_unit if args.time_origin else None,
+        'reported_at_timezone': 'UTC' if aware else None,
         'preset': args.preset,
         'seed': args.seed,
         'campaign_gap': str(args.campaign_gap),
@@ -374,9 +431,9 @@ def main(argv: list[str] | None = None) -> None:
         'n_campaigns': int(sizes.size),
         'largest_campaign': int(sizes.max()) if sizes.size else 0,
         'median_campaign_size': float(sizes.median()) if sizes.size else 0.0,
-        'regimes': [describe(canon, args.cutoff, r) for r in args.regimes],
+        'regimes': [describe(canon, cutoff, r, aware) for r in args.regimes],
     }
-    output.with_suffix('.json').write_text(json.dumps(card, indent=2) + '\n')
+    args.sidecar.write_text(json.dumps(card, indent=2) + '\n')
     report(card)
 
 
