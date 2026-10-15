@@ -308,6 +308,67 @@ def test_missing_fraud_label_is_refused(tmp_path):
         run(tmp_path, df)
 
 
+def test_csv_entity_named_like_a_missing_value_is_kept(tmp_path):
+    """'NA', 'null' and '' are real ids in CSV, as they would be in Parquet."""
+    df = transactions(n=600)
+    names = {0: 'NA', 1: 'null', 2: '', 3: 'None'}
+    df['card'] = df['card'].map(lambda c: names.get(c % 8, str(c)))
+    a = run(tmp_path, df, name='p.parquet')
+    b = run(tmp_path, df, name='c.csv')
+    from_parquet = pd.read_parquet(a.with_name('p.label_delay.parquet'))
+    from_csv = pd.read_csv(b.with_name('c.label_delay.csv'), keep_default_na=False)
+    assert (
+        from_csv['campaign_id']
+        .replace('', np.nan)
+        .astype('float64')
+        .equals(from_parquet['campaign_id'].astype('float64'))
+    )
+
+
+def test_offsets_mixed_with_naive_strings_are_refused(tmp_path):
+    df = transactions(n=100)
+    df['ts'] = df['ts'].astype(str)
+    df.loc[0, 'ts'] = '2020-03-07 10:00:00-05:00'
+    with pytest.raises(SystemExit, match='cannot read'):
+        run(tmp_path, df, name='in.csv')
+
+
+@pytest.mark.parametrize(
+    'args',
+    [['--time-origin', 'not-a-date'], ['--time-origin', '2020-01-01', '--time-unit', 'fortnight']],
+)
+def test_bad_time_origin_or_unit_exits_cleanly(tmp_path, args):
+    df = transactions(n=100)
+    df['ts'] = (df['ts'] - pd.Timestamp('2020-01-01')).dt.total_seconds()
+    with pytest.raises(SystemExit, match='cannot read'):
+        run(tmp_path, df, *args)
+
+
+def test_unparsable_time_exits_cleanly(tmp_path):
+    df = transactions(n=100)
+    df['ts'] = df['ts'].astype(str)
+    df.loc[0, 'ts'] = 'yesterday-ish'
+    with pytest.raises(SystemExit, match='cannot read'):
+        run(tmp_path, df)
+
+
+def test_missing_input_and_output_directory_are_refused_up_front(tmp_path):
+    with pytest.raises(SystemExit):
+        main_with(tmp_path / 'absent.parquet', tmp_path / 'out.parquet')
+    src = tmp_path / 'in.parquet'
+    transactions(n=100).to_parquet(src)
+    with pytest.raises(SystemExit):
+        main_with(src, tmp_path / 'no' / 'such' / 'dir' / 'out.parquet')
+
+
+def test_bad_fraud_labels_are_named_in_the_error(tmp_path, capsys):
+    df = transactions(n=100)
+    df['label'] = ['yes' if y else 'no' for y in df['label']]
+    with pytest.raises(SystemExit) as exc:
+        run(tmp_path, df)
+    assert "'yes'" in str(exc.value) or "'no'" in str(exc.value)
+
+
 def test_no_frauds_writes_empty_columns(tmp_path):
     src = run(tmp_path, transactions(n=200).assign(label=0))
     written = pd.read_parquet(src.with_name('in.label_delay.parquet'))
