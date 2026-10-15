@@ -52,13 +52,20 @@ class LSTMConfig:
 
 DEFAULT_CONFIG = LSTMConfig()
 SLOW = {'learning_rate': 0.0003, 'max_epochs': 15, 'patience': 4, 'warmup_cosine': True}
-LSTM_CONFIGS = {
+# Presets used for the paper: the recorded protocol and the one selected on
+# 68/16/16 temporal validation AP.
+PAPER_LSTM_CONFIGS = {
     'default': DEFAULT_CONFIG,
+    'sqrt_weight_slow': LSTMConfig(positive_weight='sqrt', **SLOW),
+}
+# Rejected candidates from that selection; kept runnable so the records in
+# results/paper/archive/lstm_presets/ stay reproducible.
+ARCHIVED_LSTM_CONFIGS = {
     'sqrt_weight': LSTMConfig(positive_weight='sqrt'),
     'full_weight_slow': LSTMConfig(**SLOW),
-    'sqrt_weight_slow': LSTMConfig(positive_weight='sqrt', **SLOW),
     'sqrt_weight_slow_ln': LSTMConfig(positive_weight='sqrt', input_layer_norm=True, **SLOW),
 }
+LSTM_CONFIGS = {**PAPER_LSTM_CONFIGS, **ARCHIVED_LSTM_CONFIGS}
 
 
 def model_settings(name: str = 'default') -> dict:
