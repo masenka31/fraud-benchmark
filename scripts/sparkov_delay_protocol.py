@@ -25,7 +25,7 @@ RESULTS = {
     'on': Path('results/paper/sparkov_delay_on.json'),
     'slow': Path('results/paper/sparkov_delay_slow.json'),
 }
-DEFAULT_TABLE = Path('results/sparkov_label_delay.md')
+DEFAULT_TABLE = Path('results/paper/sparkov_label_delay.md')
 
 
 def recorded_result(regime: str) -> dict:

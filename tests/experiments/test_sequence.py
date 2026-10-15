@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -326,11 +328,16 @@ def test_every_lstm_preset_trains_and_is_seed_deterministic(monkeypatch, name):
     assert first[2]['positive_weight'] == pytest.approx(expected)
 
 
-def test_non_default_lstm_presets_write_separate_records(tmp_path):
+def _lstm_runner():
     import importlib.util
     spec = importlib.util.spec_from_file_location('lstm_protocol', 'scripts/lstm_protocol.py')
     runner = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(runner)
+    return runner
+
+
+def test_non_default_lstm_presets_write_separate_records(tmp_path):
+    runner = _lstm_runner()
     default = runner._path('ibm', 'lstm', 'pre_italy_68_16_16', tmp_path, 10, window_stride=5)
     tuned = runner._path(
         'ibm', 'lstm', 'pre_italy_68_16_16', tmp_path, 10, window_stride=5,
@@ -338,3 +345,24 @@ def test_non_default_lstm_presets_write_separate_records(tmp_path):
     )
     assert default.name == 'ibm_lstm_pre_italy_68_16_16_len10_stride5.json'
     assert tuned.name == 'ibm_lstm_pre_italy_68_16_16_len10_stride5_cfg-sqrt_weight.json'
+
+
+def test_only_paper_cells_default_to_the_paper_folder():
+    runner = _lstm_runner()
+    paper = runner._path(
+        'ibm', 'lstm', 'pre_italy_iid_customers_68_16_16', None, 10, window_stride=5,
+        config='sqrt_weight_slow',
+    )
+    assert paper.parent == Path('results/paper')
+    archived = {
+        runner._path('ibm', 'lstm', 'pre_italy_68_16_16', None, 10, window_stride=5),
+        runner._path('ibm', 'xgboost', 'pre_italy_68_16_16', None, 10, window_stride=5),
+        runner._path('ibm', 'lstm', 'pre_italy', None, 10, config='sqrt_weight_slow'),
+    }
+    assert {path.parent for path in archived} == {Path('results/archive/ibm_sequence')}
+    rejected = runner._path(
+        'ibm', 'lstm', 'pre_italy_68_16_16', None, 10, window_stride=5, config='sqrt_weight',
+    )
+    assert rejected.parent == Path('results/archive/lstm_presets')
+    sparkov = runner._path('sparkov', 'lstm', 'slow', None, 10)
+    assert sparkov.parent == Path('results/archive/sparkov_lstm')

@@ -31,13 +31,14 @@ LABELS = {
     'pre_italy_iid_rows': 'Transaction IID',
     'pre_italy_iid_customers': 'Customer IID',
 }
+ARCHIVE = Path('results/archive/ibm_xgboost_full_rows')
 RESULTS = {
-    'pre_italy': Path('results/paper/ibm_pre_italy_temporal.json'),
-    'pre_italy_iid_rows': Path('results/paper/ibm_pre_italy_iid_rows.json'),
-    'pre_italy_iid_customers': Path('results/paper/ibm_pre_italy_iid_customers.json'),
-    'pre_italy_68_16_16': Path('results/paper/ibm_pre_italy_temporal_68_16_16.json'),
+    'pre_italy': ARCHIVE / 'ibm_pre_italy_temporal.json',
+    'pre_italy_iid_rows': ARCHIVE / 'ibm_pre_italy_iid_rows.json',
+    'pre_italy_iid_customers': ARCHIVE / 'ibm_pre_italy_iid_customers.json',
+    'pre_italy_68_16_16': ARCHIVE / 'ibm_pre_italy_temporal_68_16_16.json',
 }
-DEFAULT_TABLE = Path('results/ibm_split_protocol.md')
+DEFAULT_TABLE = ARCHIVE / 'ibm_split_protocol.md'
 CATEGORICAL = (
     'artifact_merchant_state',
     'artifact_merchant_city',
