@@ -47,12 +47,12 @@ have dedicated reproducible runners described below.
 ## Datasets
 
 Eight registered: seven distinct sources plus `sparkov_slow`, which is `sparkov` under a
-second delay regime. 73 million transactions in total. Six of the eight are fully synthetic;
+second delay regime. 73 million transactions in total. All but IEEE-CIS are synthetic;
 IEEE-CIS is the only real-world data.
 
 ### Recommended
 
-We recommend to use the following datasets for sequential fraud (and AML) detection.
+We recommend using the following datasets for sequential fraud (and AML) detection.
 The datasets contain entity features, have a realistic time-span, and the artifacts
 of the data do not disqualify them from benchmark purposes.
 
@@ -63,8 +63,8 @@ of the data do not disqualify them from benchmark purposes.
 | [`saml_d`](docs/datasets/saml_d.md) | 9,504,852 | 0.104% | 320d | CC BY-NC-SA 4.0 |
 | [`ibm_ccf`](docs/datasets/ibm_ccf.md) | 24,386,900 | 0.122% | 10,649d | Apache-2.0 ⚠ |
 
-There is a known artifact for IBM CFF dataset where nearly all of fraudulent transactions
-in validation and test periods come with `country = Italy`.
+There is a known artifact in the IBM CCF dataset: nearly all fraudulent transactions in the
+validation and test periods have `Merchant State = Italy`.
 
 ### Use with caution
 
@@ -131,21 +131,24 @@ standalone file that reads Parquet or CSV and needs only numpy and pandas.
 
 Two experiments back the paper's tables:
 
-- **IBM CCF, temporal vs iid splits:** an LSTM over 10-transaction windows shows that iid
-  splits hide concept drift (test AP 0.63 temporal vs about 0.77 iid).
+- **IBM CCF, temporal vs iid splits:** an LSTM over 10-transaction windows loses about 0.20
+  average precision from validation to test under a temporal split, but almost none under
+  iid splits, which suggests that iid splits hide concept drift.
 - **Sparkov, synthetic label delay:** XGBoost trained with delayed fraud labels loses
   test AP as the delay grows (−0.023 default, −0.035 slow).
 
 ```bash
-.venv/bin/python scripts/download.py --dataset ibm_ccf     # and the same for sparkov
-.venv/bin/python scripts/prepare.py --dataset ibm_ccf
-.venv/bin/python scripts/features.py --dataset ibm_ccf
+for dataset in sparkov sparkov_slow; do
+  .venv/bin/python scripts/download.py --dataset $dataset
+  .venv/bin/python scripts/prepare.py --dataset $dataset
+done
+.venv/bin/python scripts/features.py --dataset sparkov
 .venv/bin/python scripts/sparkov_delay_protocol.py
 ```
 
-The IBM experiment needs the optional `lstm` dependencies and a GPU; its commands are in
-[`docs/experiments.md`](docs/experiments.md), along with the exact setup and caveats of
-both experiments. Tables and records are in [`results/`](results/README.md).
+The IBM experiment needs the optional `lstm` dependencies and, in practice, a GPU. Its
+commands are in [`docs/experiments.md`](docs/experiments.md), along with the exact setup
+and caveats of both experiments. Tables and records are in [`results/`](results/README.md).
 
 ## Tests
 

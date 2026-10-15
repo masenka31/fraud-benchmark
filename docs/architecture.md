@@ -113,16 +113,17 @@ in the installed package, so nothing importable lives outside `src/` and a test 
 has to reach into `scripts/` to get at a decision.
 
 The preparation stages are the first three rows, in order. Each takes `--dataset` or
-`--all`. The final two runners reproduce the public paper experiments.
+`--all`. `sparkov_delay_protocol.py` and `lstm_protocol.py` reproduce the paper's tables;
+`ibm_split_protocol.py` reproduces an archived earlier version of the IBM table.
 
 | script | over | does |
 |---|---|---|
 | `download.py` | `data.pipeline.download` | **1.** raw files → `data/raw/<name>/`, and stops |
 | `prepare.py` | `data.pipeline.prepare` | **2.** raw files → `data/processed/<name>/` on the shared schema |
 | `features.py` | `experiments.features` | **3.** a prepared dataset → `data/features/<name>.parquet` |
-| `ibm_split_protocol.py` | `experiments` | pre-Italy temporal/IID comparison → three JSON records and one readable table |
+| `ibm_split_protocol.py` | `experiments` | archived full-row pre-Italy temporal/IID comparison → three JSON records and one readable table |
 | `sparkov_delay_protocol.py` | `experiments` | synthetic training-label-delay comparison → JSONL records and one readable table |
-| `lstm_protocol.py` | `experiments.sequence_experiment` | LSTM sequence extension of both studies → JSON records per cell and readable tables |
+| `lstm_protocol.py` | `experiments.sequence_experiment` | LSTM sequence experiments, including the paper's IBM split table → JSON records per cell and readable tables |
 | `figures/plot_monthly_fraud.py` | — | IBM CCF's regime shift, from its feature parquet |
 | `figures/plot_dataset_caveats.py` | — | the three dataset caveats that are a shape rather than a number |
 
@@ -141,11 +142,9 @@ read as one system and a colour is defined once. Outputs land in `results/figure
 
 | path | holds |
 |---|---|
-| `paper.md` | index of the two public paper experiments and their records |
-| `paper/*.json` | the three IBM pre-Italy split records |
-| `paper/sparkov_delay_*.json` | the three Sparkov training-label-delay records |
-| `ibm_split_protocol.md` | readable IBM paper table |
-| `sparkov_label_delay.md` | readable Sparkov paper table |
+| `README.md` | index of the paper's tables and their records |
+| `paper/` | records and readable tables behind the paper's two tables |
+| `archive/` | other experiments, not used in the paper |
 | `figures/` | generated plots, light and dark per figure |
 
 ## Conventions worth knowing before changing anything

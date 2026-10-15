@@ -59,7 +59,7 @@ PAPER_LSTM_CONFIGS = {
     'sqrt_weight_slow': LSTMConfig(positive_weight='sqrt', **SLOW),
 }
 # Rejected candidates from that selection; kept runnable so the records in
-# results/paper/archive/lstm_presets/ stay reproducible.
+# results/archive/lstm_presets/ stay reproducible.
 ARCHIVED_LSTM_CONFIGS = {
     'sqrt_weight': LSTMConfig(positive_weight='sqrt'),
     'full_weight_slow': LSTMConfig(**SLOW),
