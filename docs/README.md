@@ -28,5 +28,6 @@ it. Everything else lives here.
 
 | doc | answers |
 |---|---|
-| [`experiments.md`](experiments.md) | Exact protocols for the paper's pre-Italy IBM split comparison and synthetic Sparkov label-delay comparison, plus their LSTM sequence extensions, the exploratory 68/16/16 IBM split, and the LSTM training presets. |
-| [`../results/paper.md`](../results/paper.md) | Index of results: what the paper prints (`results/paper/`) and everything archived (`results/archive/`), with runners, readable tables, and machine-readable records. |
+| [`experiments.md`](experiments.md) | The two paper experiments: setup, commands, results, and caveats. |
+| [`../results/README.md`](../results/README.md) | Where each paper table and its records are. |
+| [`archive.md`](archive.md) | Other experiments, not used in the paper. |

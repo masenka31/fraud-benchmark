@@ -129,47 +129,23 @@ standalone file that reads Parquet or CSV and needs only numpy and pandas.
 
 ## Paper experiments
 
-`src/fraud_benchmark/experiments/` holds everything that happens after a dataset is
-prepared, and reads the pipeline's output without ever writing to it.
+Two experiments back the paper's tables:
 
-The public supplementary material contains two experiments: IBM CCF temporal versus IID
-evaluation over a shared pre-Italy population, and Sparkov under three synthetic
-training-label-delay regimes. Build the required inputs with the same download, prepare,
-and feature stages used by the dataset pipeline:
-
-```bash
-.venv/bin/python scripts/download.py --dataset sparkov
-.venv/bin/python scripts/prepare.py --dataset sparkov
-.venv/bin/python scripts/features.py --dataset sparkov
-```
-
-Then reproduce the paper tables:
+- **IBM CCF, temporal vs iid splits:** an LSTM over 10-transaction windows shows that iid
+  splits hide concept drift (test AP 0.63 temporal vs about 0.77 iid).
+- **Sparkov, synthetic label delay:** XGBoost trained with delayed fraud labels loses
+  test AP as the delay grows (−0.023 default, −0.035 slow).
 
 ```bash
-.venv/bin/python scripts/ibm_split_protocol.py
+.venv/bin/python scripts/download.py --dataset ibm_ccf     # and the same for sparkov
+.venv/bin/python scripts/prepare.py --dataset ibm_ccf
+.venv/bin/python scripts/features.py --dataset ibm_ccf
 .venv/bin/python scripts/sparkov_delay_protocol.py
 ```
 
-`results/paper/` holds only what the paper prints: the Sparkov label-delay records and
-table, and the IBM temporal-versus-IID split from the LSTM sequence extension below.
-Everything else, including the earlier full-row IBM XGBoost split comparison, is in
-`results/archive/`. [`results/paper.md`](results/paper.md) indexes both and states
-exactly which rows and regimes each experiment uses.
-
-An optional LSTM sequence extension runs the IBM study on the final transaction
-of complete same-entity windows and the Sparkov study on every transaction.
-Run it with `scripts/lstm_protocol.py --dataset ibm` or `--dataset sparkov` after
-installing the optional `lstm` dependencies. IBM windows default to 30 disjoint
-transactions; `--window-length` and `--window-stride` change that, and the
-exploratory 68/16/16 regimes score overlapping 10-transaction windows. The
-reduced-target IBM results have a matching XGBoost comparator and are separate
-from the full-row table above. `--lstm-config` selects a named LSTM training
-preset; `default` is the recorded protocol. See
-[`docs/experiments.md`](docs/experiments.md) for the input and split rules.
-
-See [`docs/architecture.md`](docs/architecture.md) for the layout,
-[`docs/experiments.md`](docs/experiments.md) for the complete protocols, and
-[`docs/README.md`](docs/README.md) for everything else.
+The IBM experiment needs the optional `lstm` dependencies and a GPU; its commands are in
+[`docs/experiments.md`](docs/experiments.md), along with the exact setup and caveats of
+both experiments. Tables and records are in [`results/`](results/README.md).
 
 ## Tests
 
