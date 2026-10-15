@@ -14,7 +14,7 @@ timestamp:
 Every delay produced here is synthetic. The presets are calibrated to be plausible
 for a domain, not fitted to any observed reporting behaviour.
 
-Requires numpy, pandas and, for Parquet, pyarrow. Standalone copy of
+Requires numpy, pandas>=3.0 and, for Parquet, pyarrow. Standalone copy of
 `fraud_benchmark.data.campaigns` and `fraud_benchmark.data.delay` from
 https://github.com/masenka31/fraud-benchmark; for the same inputs, seed and
 parameters it produces identical columns.
