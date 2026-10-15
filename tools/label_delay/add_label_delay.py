@@ -32,6 +32,7 @@ import json
 import math
 import re
 import sys
+import warnings
 from dataclasses import asdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -246,9 +247,10 @@ FORMATS = {'.parquet', '.pq', '.csv'}
 
 def read_table(path: Path, entity: str) -> pd.DataFrame:
     if path.suffix.lower() == '.csv':
-        # Read entity ids as text: as numbers, '0007' and '7' would become one entity
-        # and the same data would give different campaigns from CSV and Parquet.
-        return pd.read_csv(path, dtype={entity: str})
+        # Read entity ids as literal text: as numbers, '0007' and '7' would become one
+        # entity, and with the default NA parsing an entity named 'NA' or 'null' would
+        # be missing. Either way CSV and Parquet copies of one table would disagree.
+        return pd.read_csv(path, converters={entity: str})
     return pd.read_parquet(path)
 
 
@@ -265,35 +267,56 @@ def parse_time(time: pd.Series, args: argparse.Namespace) -> tuple[pd.Series, bo
     Timezone-aware input is converted to UTC for the computation, so that the
     campaign gap and the delay are measured in elapsed time across DST changes.
     """
-    if pd.api.types.is_numeric_dtype(time):
-        if args.time_origin is None:
-            raise SystemExit(f'error: {args.time!r} is numeric; pass --time-origin')
-        time = pd.Timestamp(args.time_origin) + pd.to_timedelta(time, unit=args.time_unit)
-    elif args.time_origin is not None:
+    numeric = pd.api.types.is_numeric_dtype(time)
+    if numeric and args.time_origin is None:
+        raise SystemExit(f'error: {args.time!r} is numeric; pass --time-origin')
+    if not numeric and args.time_origin is not None:
         raise SystemExit('error: --time-origin applies only to a numeric time column')
-    elif not isinstance(time.dtype, pd.DatetimeTZDtype):
-        try:
-            time = pd.to_datetime(time)
-        except ValueError:
-            # Strings carrying different UTC offsets, e.g. either side of a DST change.
-            time = pd.to_datetime(time, utc=True)
+    try:
+        if numeric:
+            time = pd.Timestamp(args.time_origin) + pd.to_timedelta(time, unit=args.time_unit)
+        elif not pd.api.types.is_datetime64_any_dtype(time):
+            time = parse_time_strings(time)
+    except (ValueError, TypeError, OverflowError) as exc:
+        raise SystemExit(f'error: cannot read {args.time!r} as times: {exc}') from exc
     aware = time.dt.tz is not None
     if aware:
         time = time.dt.tz_convert('UTC').dt.tz_localize(None)
     return time.astype('datetime64[us]'), aware
 
 
+def parse_time_strings(time: pd.Series) -> pd.Series:
+    """Datetimes from text, falling back to UTC for strings with mixed offsets.
+
+    Mixed offsets (e.g. either side of a DST change) raise on pandas 3 but come
+    back as an object column of Timestamps on pandas 2, so both are checked.
+    """
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', FutureWarning)
+            parsed = pd.to_datetime(time)
+    except ValueError:
+        parsed = None
+    if parsed is None or not pd.api.types.is_datetime64_any_dtype(parsed):
+        parsed = pd.to_datetime(time, utc=True)
+    return parsed
+
+
+FRAUD_TEXT = {'true': 1, 'false': 0, '1': 1, '0': 0, '1.0': 1, '0.0': 0}
+
+
 def parse_fraud(fraud: pd.Series, column: str) -> pd.Series:
     """The fraud label as bool, from 0/1, booleans or their text forms."""
+    values = fraud
     if not (pd.api.types.is_bool_dtype(fraud) or pd.api.types.is_numeric_dtype(fraud)):
-        text = fraud.astype(str).str.strip().str.lower()
-        fraud = text.map({'true': 1, 'false': 0, '1': 1, '0': 0})
-    if fraud.isna().any() or not fraud.isin([0, 1]).all():
+        values = fraud.astype(str).str.strip().str.lower().map(FRAUD_TEXT)
+    bad = values.isna() | ~values.isin([0, 1])
+    if bad.any():
         raise SystemExit(
             f'error: {column!r} must hold only 0/1, true/false or booleans; '
-            f'found {sorted(map(str, fraud[~fraud.isin([0, 1])].unique()[:5]))}'
+            f'found {sorted(map(str, fraud[bad].unique()))[:5]}'
         )
-    return fraud.astype(bool)
+    return values.astype(bool)
 
 
 def canonicalize(df: pd.DataFrame, args: argparse.Namespace) -> tuple[pd.DataFrame, bool]:
@@ -388,6 +411,10 @@ def report(card: dict) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
+    if not args.input.is_file():
+        raise SystemExit(f'error: input file {str(args.input)!r} does not exist')
+    if not args.output.parent.is_dir():
+        raise SystemExit(f'error: output directory {str(args.output.parent)!r} does not exist')
     df = read_table(args.input, args.entity)
     new_columns = ['campaign_id', *(r.column for r in args.regimes)]
     clash = [c for c in new_columns if c in df.columns]
