@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from fraud_benchmark.experiments.features.util import FEATURE_DIR
+from fraud_benchmark.experiments.lstm import LSTM_CONFIGS
 from fraud_benchmark.experiments.sequence import complete_chunks
 from fraud_benchmark.experiments.sequence_experiment import IBM_DIAGNOSTIC_REGIMES
 from fraud_benchmark.experiments.sequence_experiment import IBM_PAPER_REGIMES
@@ -32,6 +33,7 @@ SPARKOV_TABLE = Path('results/sparkov_lstm_delay.md')
 def _path(
     dataset: str, model: str, regime: str, results_dir: Path,
     window_length: int = 30, feature_set: str = 'full', window_stride: int | None = None,
+    config: str = 'default',
 ) -> Path:
     if feature_set == 'rawish':
         suffix = f'_rawish_len{window_length}'
@@ -39,6 +41,8 @@ def _path(
         suffix = '' if window_length == 30 else f'_len{window_length}'
     if dataset == 'ibm' and window_stride is not None and window_stride != window_length:
         suffix += f'_stride{window_stride}'
+    if config != 'default':
+        suffix += f'_cfg-{config}'
     return results_dir / f'{dataset}_{model}_{regime}{suffix}.json'
 
 
@@ -240,6 +244,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--window-length', type=int, default=30)
     parser.add_argument('--window-stride', type=int, help='IBM window step; defaults to length')
     parser.add_argument('--feature-set', choices=('full', 'rawish'), default='full')
+    parser.add_argument(
+        '--lstm-config', choices=tuple(LSTM_CONFIGS), default='default',
+        help='LSTM training preset; non-default presets write separate records',
+    )
     parser.add_argument('--render-only', action='store_true')
     parser.add_argument('--prepare-only', action='store_true')
     parser.add_argument('--resume', action='store_true', help='skip result files already present')
@@ -257,6 +265,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.window_stride < args.window_length and args.regime is None:
             parser.error('overlapping IBM windows require an explicit --regime')
     seeds = tuple(args.seeds)
+    if args.lstm_config != 'default' and args.model != 'lstm':
+        parser.error('--lstm-config applies to --model lstm only')
     if args.dataset == 'sparkov' and args.model != 'lstm':
         parser.error('Sparkov XGBoost already has its own paper protocol')
     if args.dataset == 'ibm' and args.feature_set != 'full':
@@ -282,6 +292,7 @@ def main(argv: list[str] | None = None) -> int:
                     _path(
                         'ibm', model, regime, args.results_dir,
                         args.window_length, window_stride=args.window_stride,
+                        config=args.lstm_config,
                     ).exists()
                     for model in wanted
                 ):
@@ -299,9 +310,10 @@ def main(argv: list[str] | None = None) -> int:
                     path = _path(
                         'ibm', 'lstm', regime, args.results_dir,
                         args.window_length, window_stride=args.window_stride,
+                        config=args.lstm_config,
                     )
                     if not (args.resume and path.exists()):
-                        _write(path, run_lstm(prepared, seeds, args.device))
+                        _write(path, run_lstm(prepared, seeds, args.device, args.lstm_config))
                 if args.model in ('xgboost', 'both'):
                     path = _path(
                         'ibm', 'xgboost', regime, args.results_dir,
@@ -314,7 +326,7 @@ def main(argv: list[str] | None = None) -> int:
             for regime in (args.regime,) if args.regime else SPARKOV_REGIMES:
                 path = _path(
                     'sparkov', 'lstm', regime, args.results_dir,
-                    args.window_length, args.feature_set
+                    args.window_length, args.feature_set, config=args.lstm_config,
                 )
                 if args.resume and path.exists():
                     print(f'Skipping completed Sparkov {regime}', flush=True)
@@ -326,9 +338,9 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 print(f'Sparkov {regime}: {prepared.metadata["positives"]}', flush=True)
                 if not args.prepare_only:
-                    _write(path, run_lstm(prepared, seeds, args.device))
+                    _write(path, run_lstm(prepared, seeds, args.device, args.lstm_config))
 
-    if args.prepare_only or args.results_dir != RESULTS:
+    if args.prepare_only or args.results_dir != RESULTS or args.lstm_config != 'default':
         return 0
     if args.dataset == 'ibm':
         if args.regime in IBM_DIAGNOSTIC_REGIMES:

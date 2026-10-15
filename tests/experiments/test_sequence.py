@@ -251,10 +251,7 @@ def test_ibm_regimes_keep_the_same_endpoints_and_no_label_derived_inputs():
     assert short.positions_for(np.array([0]))[0].shape == (1, 10)
 
 
-def test_lstm_training_scores_the_requested_targets(monkeypatch):
-    pytest.importorskip('torch')
-    monkeypatch.setattr(lstm, 'MAX_EPOCHS', 1)
-    monkeypatch.setattr(lstm, 'BATCH_SIZE', 8)
+def _tiny_lstm_problem():
     n = 60
     frame = pd.DataFrame(
         {
@@ -269,7 +266,12 @@ def test_lstm_training_scores_the_requested_targets(monkeypatch):
         previous = np.where(ids % 10 == 0, ids, ids - 1)
         return np.column_stack((previous, ids)).astype('int32'), np.full(len(ids), 2)
 
-    validation, test, details = lstm.train_and_predict(
+    return features, pairs, labels
+
+
+def _train_tiny(config, seed=0):
+    features, pairs, labels = _tiny_lstm_problem()
+    return lstm.train_and_predict(
         features,
         pairs,
         np.arange(40),
@@ -277,11 +279,62 @@ def test_lstm_training_scores_the_requested_targets(monkeypatch):
         np.arange(50, 60),
         labels,
         labels,
-        seed=0,
+        seed=seed,
         device_name='cpu',
+        config=config,
     )
+
+
+def test_lstm_training_scores_the_requested_targets(monkeypatch):
+    pytest.importorskip('torch')
+    monkeypatch.setattr(lstm, 'BATCH_SIZE', 8)
+    validation, test, details = _train_tiny(lstm.LSTMConfig(max_epochs=1))
     assert validation.shape == (10,)
     assert test.shape == (10,)
     assert np.isfinite(validation).all()
     assert np.isfinite(test).all()
     assert details['best_epoch'] == 1
+
+
+def test_default_lstm_config_matches_the_recorded_protocol():
+    default = lstm.LSTM_CONFIGS['default']
+    assert default.learning_rate == lstm.LEARNING_RATE == 0.001
+    assert default.max_epochs == lstm.MAX_EPOCHS == 8
+    assert default.patience == lstm.PATIENCE == 2
+    assert default.positive_weight == 'ratio'
+    assert not default.warmup_cosine
+    assert not default.input_layer_norm
+    assert lstm.model_settings('default') is lstm.MODEL_SETTINGS
+    recorded = lstm.model_settings('sqrt_weight_slow_ln')
+    assert recorded['config'] == 'sqrt_weight_slow_ln'
+    assert recorded['learning_rate'] == 0.0003
+    assert recorded['input_layer_norm']
+
+
+@pytest.mark.parametrize('name', sorted(lstm.LSTM_CONFIGS))
+def test_every_lstm_preset_trains_and_is_seed_deterministic(monkeypatch, name):
+    pytest.importorskip('torch')
+    monkeypatch.setattr(lstm, 'BATCH_SIZE', 8)
+    config = lstm.LSTM_CONFIGS[name]
+    first = _train_tiny(config)
+    second = _train_tiny(config)
+    np.testing.assert_array_equal(first[0], second[0])
+    np.testing.assert_array_equal(first[1], second[1])
+    assert len(first[2]['history']) <= config.max_epochs
+    ratio = 34 / 6
+    expected = ratio ** 0.5 if config.positive_weight == 'sqrt' else ratio
+    assert first[2]['positive_weight'] == pytest.approx(expected)
+
+
+def test_non_default_lstm_presets_write_separate_records(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('lstm_protocol', 'scripts/lstm_protocol.py')
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    default = runner._path('ibm', 'lstm', 'pre_italy_68_16_16', tmp_path, 10, window_stride=5)
+    tuned = runner._path(
+        'ibm', 'lstm', 'pre_italy_68_16_16', tmp_path, 10, window_stride=5,
+        config='sqrt_weight',
+    )
+    assert default.name == 'ibm_lstm_pre_italy_68_16_16_len10_stride5.json'
+    assert tuned.name == 'ibm_lstm_pre_italy_68_16_16_len10_stride5_cfg-sqrt_weight.json'
