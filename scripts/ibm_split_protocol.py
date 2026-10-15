@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Run and render the paper's five-seed pre-Italy IBM split comparison."""
+"""Run and render the archived full-row five-seed pre-Italy IBM split comparison."""
 
 from __future__ import annotations
 
