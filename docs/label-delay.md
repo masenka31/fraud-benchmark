@@ -135,3 +135,12 @@ The realised delay is recorded per dataset in `dataset_card.json` under
 `label_delay`, including `observed_mean_delay_days` — truncation pulls the realised
 mean below nominal, so the card reports what happened rather than only what was
 configured.
+
+## Outside this repository
+
+[`tools/label_delay/add_label_delay.py`](../tools/label_delay/README.md) is a
+standalone copy of `campaigns.py` and `delay.py`. It adds `campaign_id` and
+`reported_at` to any Parquet or CSV file of transactions. Parity tests in
+`tests/tools/` keep it identical to the package. Its `card` preset with
+`--regime slow:15,1.665,365` reproduces the shipped `sparkov` and `sparkov_slow`
+columns exactly.

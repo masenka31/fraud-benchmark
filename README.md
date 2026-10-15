@@ -118,6 +118,10 @@ than tuned. Every `reported_at` in this repository is synthetic; no public datas
 ships a real one. Full picture, including the two datasets whose spans cannot carry a
 realistic clock: **[`docs/label-delay.md`](docs/label-delay.md)**.
 
+To add the same synthetic delay to your own data, use
+[`tools/label_delay/add_label_delay.py`](tools/label_delay/README.md). It is one
+standalone file that reads Parquet or CSV and needs only numpy and pandas.
+
 ## Paper experiments
 
 `src/fraud_benchmark/experiments/` holds everything that happens after a dataset is
