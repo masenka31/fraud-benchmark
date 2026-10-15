@@ -22,11 +22,11 @@ it. Everything else lives here.
 
 | doc | answers |
 |---|---|
-| [`architecture.md`](architecture.md) | Repository layout: dataset preparation, per-dataset feature modules, the two paper protocols, public scripts and results, and the conventions to respect before changing anything. |
+| [`architecture.md`](architecture.md) | Repository layout: dataset preparation, per-dataset feature modules, the two paper protocols and their LSTM sequence extension, public scripts and results, and the conventions to respect before changing anything. |
 
 ## Findings
 
 | doc | answers |
 |---|---|
-| [`experiments.md`](experiments.md) | Exact protocols for the paper's pre-Italy IBM split comparison and synthetic Sparkov label-delay comparison. |
-| [`../results/paper.md`](../results/paper.md) | Index of the two paper experiments, their runners, readable tables, and machine-readable records. |
+| [`experiments.md`](experiments.md) | Exact protocols for the paper's pre-Italy IBM split comparison and synthetic Sparkov label-delay comparison, plus their LSTM sequence extensions, the exploratory 68/16/16 IBM split, and the LSTM training presets. |
+| [`../results/paper.md`](../results/paper.md) | Index of the paper experiments and their sequence extensions: runners, readable tables, and machine-readable records. |
