@@ -166,6 +166,15 @@ weight decay 0.0001, gradient clipping at 1, batch size 1,024, and at most eight
 epochs. The best checkpoint is selected by validation average precision, with
 patience two. Seeds 0--4 are fixed. No transaction label, reporting timestamp,
 or label-availability flag is an LSTM input.
+These settings are the `default` preset of `--lstm-config`. Other presets exist
+to diagnose seed instability on the exploratory IBM 68/16/16 temporal cell:
+`sqrt_weight` uses the square root of the negative/positive ratio as the fraud
+weight; `full_weight_slow` and `sqrt_weight_slow` lower the learning rate to
+0.0003, warm it up linearly over the first epoch, decay it on a cosine schedule,
+and allow 15 epochs with patience four; `sqrt_weight_slow_ln` adds layer
+normalization after the input projection. A non-default preset writes records with
+a `_cfg-<preset>` suffix and never renders a table. Presets are compared on
+validation AP only; a chosen preset must be rerun on every cell it is compared with.
 
 ### IBM endpoint experiment
 

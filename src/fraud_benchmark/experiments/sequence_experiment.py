@@ -19,9 +19,10 @@ from fraud_benchmark.experiments.experiment import ExperimentError
 from fraud_benchmark.experiments.features.util import ARTIFACT_PREFIX
 from fraud_benchmark.experiments.features.util import FEATURE_DIR
 from fraud_benchmark.experiments.features.util import feature_columns
-from fraud_benchmark.experiments.lstm import MODEL_SETTINGS
+from fraud_benchmark.experiments.lstm import LSTM_CONFIGS
 from fraud_benchmark.experiments.lstm import EncodedFeatures
 from fraud_benchmark.experiments.lstm import encode_features
+from fraud_benchmark.experiments.lstm import model_settings
 from fraud_benchmark.experiments.lstm import train_and_predict
 from fraud_benchmark.experiments.metrics import best_f1_threshold
 from fraud_benchmark.experiments.metrics import score
@@ -301,7 +302,9 @@ def prepare_sparkov(
     )
 
 
-def run_lstm(prepared: PreparedSequence, seeds: tuple[int, ...], device: str) -> dict:
+def run_lstm(
+    prepared: PreparedSequence, seeds: tuple[int, ...], device: str, config: str = 'default'
+) -> dict:
     """Full-population Sparkov or specified-endpoint IBM five-seed run."""
     seed_records = []
     for seed in seeds:
@@ -316,6 +319,7 @@ def run_lstm(prepared: PreparedSequence, seeds: tuple[int, ...], device: str) ->
             prepared.y_true,
             seed,
             device,
+            LSTM_CONFIGS[config],
         )
         threshold = best_f1_threshold(prepared.y_true[prepared.validation], val_scores)
         seed_records.append(
@@ -332,7 +336,7 @@ def run_lstm(prepared: PreparedSequence, seeds: tuple[int, ...], device: str) ->
     return {
         **prepared.metadata,
         'model': 'lstm',
-        'model_settings': MODEL_SETTINGS,
+        'model_settings': model_settings(config),
         'categorical_cardinalities': dict(
             zip(prepared.features.categorical_names, prepared.features.cardinalities)
         ),
