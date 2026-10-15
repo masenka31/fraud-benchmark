@@ -246,7 +246,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--feature-set', choices=('full', 'rawish'), default='full')
     parser.add_argument(
         '--lstm-config', choices=tuple(LSTM_CONFIGS), default='default',
-        help='LSTM training preset; non-default presets write separate records',
+        help='LSTM training preset (paper: default, sqrt_weight_slow; others archived); '
+        'non-default presets write separate records',
     )
     parser.add_argument('--render-only', action='store_true')
     parser.add_argument('--prepare-only', action='store_true')
