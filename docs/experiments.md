@@ -45,6 +45,10 @@ amount_over_entity_mean, amount_over_entity_max, entity_txn_ordinal
 
 ## IBM CCF: pre-Italy temporal versus IID splits
 
+The paper's split table now comes from the LSTM 68/16/16 cells described under the
+LSTM sequence extension below. This full-row XGBoost protocol is the earlier version
+of that table; its records are archived in `results/archive/ibm_xgboost_full_rows/`.
+
 The IBM comparison uses every transaction strictly before the first Italy fraud at
 `2017-11-19 12:06:00`, yielding one shared population of 20,403,999 rows. It compares:
 
@@ -68,7 +72,7 @@ These ratios were chosen after inspecting the true labels, so this is a separate
 diagnostic protocol rather than a replacement for the recorded 80/10/10 table.
 Run its full-row XGBoost cell with
 `.venv/bin/python scripts/ibm_split_protocol.py --regime pre_italy_68_16_16`.
-The runner writes `results/paper/ibm_pre_italy_temporal_68_16_16.json` without
+The runner writes `results/archive/ibm_xgboost_full_rows/ibm_pre_italy_temporal_68_16_16.json` without
 changing the original three-regime table. This full-row cell has not been recorded;
 the recorded 68/16/16 results are the sequence cells described below.
 
@@ -111,8 +115,8 @@ model inputs.
 .venv/bin/python scripts/ibm_split_protocol.py
 ```
 
-The runner writes three JSON records under `results/paper/` and the readable table
-[`results/ibm_split_protocol.md`](../results/ibm_split_protocol.md). Use `--render-only`
+The runner writes three JSON records under `results/archive/ibm_xgboost_full_rows/` and the readable table
+[`results/archive/ibm_xgboost_full_rows/ibm_split_protocol.md`](../results/archive/ibm_xgboost_full_rows/ibm_split_protocol.md). Use `--render-only`
 to regenerate the Markdown from the recorded JSON without refitting.
 
 ## Sparkov: synthetic training-label delay
@@ -146,7 +150,7 @@ category, job, gender, age_at_txn, city_pop_log
 ```
 
 The runner writes machine-readable records under `results/paper/` and the readable table
-[`results/sparkov_label_delay.md`](../results/sparkov_label_delay.md).
+[`results/paper/sparkov_label_delay.md`](../results/paper/sparkov_label_delay.md).
 Use `--render-only` to regenerate the Markdown without refitting.
 
 ## Shared experiment implementation
@@ -179,7 +183,7 @@ a `_cfg-<preset>` suffix and never renders a table. Presets are compared on
 validation AP only; a chosen preset must be rerun on every cell it is compared with.
 Only `default` and `sqrt_weight_slow` are used for the paper. The other three
 presets are archived: they remain runnable, and their records are in
-`results/paper/archive/lstm_presets/`.
+`results/archive/lstm_presets/`.
 
 On the 68/16/16 length-10 stride-5 temporal cell, `default` validation AP was
 0.6351 ± 0.1826 because two seeds trained badly and stopped by epoch three.
@@ -235,7 +239,7 @@ a customer together and balances endpoint counts. The window-IID assignment
 draws each window independently, so overlapping windows can share context rows
 across partitions. That cell is optimistic and should be read as a split
 diagnostic. Once all six model records are present, the runner writes
-`results/ibm_lstm_pre_italy_68_16_16_len10_stride5.md`; it can regenerate the
+`results/archive/ibm_sequence/ibm_lstm_pre_italy_68_16_16_len10_stride5.md`; it can regenerate the
 table with `--render-only` and the same dataset, regime, length, and stride.
 The original `pre_italy_iid_chunks` regime still requires disjoint windows.
 
@@ -272,9 +276,10 @@ module load PyTorch/2.13.0-foss-2025b-CUDA-12.9.1
 .venv/bin/python scripts/lstm_protocol.py --dataset sparkov --device cuda
 ```
 
-The runner writes separate JSON records under `results/paper/` and, after all
-cells are available, generates `results/ibm_lstm_protocol.md` and
-`results/sparkov_lstm_delay.md`. Noncanonical seed runs require a separate
+The runner writes each JSON record to its default folder (see
+[`results/paper.md`](../results/paper.md)) and, after all
+cells are available, generates `results/archive/ibm_sequence/ibm_lstm_protocol.md` and
+`results/archive/sparkov_lstm/sparkov_lstm_delay.md`. Noncanonical seed runs require a separate
 `--results-dir` and are diagnostics, not paper results. The default `auto`
 device uses CUDA when the installed PyTorch build provides it; verify the
 selected device in each result record. On this host, the
@@ -284,8 +289,8 @@ to schedule or restart cells independently.
 
 To repeat the protocols with a 10-transaction sequence, pass
 `--window-length 10` to each runner command. The 10-transaction records have
-`_len10` suffixes and generate `results/ibm_lstm_protocol_len10.md` and
-`results/sparkov_lstm_delay_len10.md`, leaving the 30-transaction records
+`_len10` suffixes and generate `results/archive/ibm_sequence/ibm_lstm_protocol_len10.md` and
+`results/archive/sparkov_lstm/sparkov_lstm_delay_len10.md`, leaving the 30-transaction records
 unchanged. This length comparison retains the original feature sets and all
 other model settings. IBM gets more final-transaction targets because its
 chunks are disjoint; those targets differ from the length-30 endpoints, so an
@@ -297,7 +302,7 @@ Sparkov keeps every transaction as a target at both lengths.
 The IBM endpoint LSTM has mean test average precision of 0.4370 (temporal),
 0.6779 (chunk IID), and 0.7138 (customer IID) over seeds 0--4. The matched
 XGBoost values are 0.3672, 0.5896, and 0.6499 respectively. See the
-[`IBM endpoint table`](../results/ibm_lstm_protocol.md) for validation scores,
+[`IBM endpoint table`](../results/archive/ibm_sequence/ibm_lstm_protocol.md) for validation scores,
 test-minus-validation AP gaps, variation across seeds, and target counts.
 The temporal test set has only 36
 fraud endpoints; its AP difference is descriptive and should not be treated as
@@ -308,14 +313,14 @@ composition and should not be interpreted as a pure leakage effect.
 On Sparkov, mean LSTM test AP is 0.9800 with no delay, 0.9774 with the default
 synthetic delay, and 0.9722 with the slow synthetic delay. The matched
 no-delay differences are -0.0026 and -0.0078. See the
-[`Sparkov delay table`](../results/sparkov_lstm_delay.md) for validation scores
+[`Sparkov delay table`](../results/archive/sparkov_lstm/sparkov_lstm_delay.md) for validation scores
 and test-minus-validation AP gaps. These synthetic regimes show sensitivity to the
 specified reporting delays; they do not estimate real-world delay behavior.
 
 The 10-transaction repeat has 2,039,680 IBM endpoints. Mean test AP is
 0.5853/0.7272/0.7164 for the temporal/chunk-IID/customer-IID LSTM cells and
 0.3939/0.6554/0.6279 for their endpoint-matched XGBoost comparators. The
-[`length-10 IBM table`](../results/ibm_lstm_protocol_len10.md) gives validation
+[`length-10 IBM table`](../results/archive/ibm_sequence/ibm_lstm_protocol_len10.md) gives validation
 AP, seed variation, and target counts. Because the shorter chunks select
 different endpoints, the IBM difference from length 30 cannot be attributed
 to sequence length alone. The temporal test set has 95 fraud endpoints at
@@ -324,7 +329,7 @@ length 10, versus 36 at length 30.
 Sparkov retains all target rows at length 10. Mean test AP is 0.9786 with no
 delay, 0.9786 with the default synthetic delay, and 0.9739 with the slow
 synthetic delay; the unrounded changes from no delay are -0.0001 and -0.0047.
-The [`length-10 Sparkov table`](../results/sparkov_lstm_delay_len10.md)
+The [`length-10 Sparkov table`](../results/archive/sparkov_lstm/sparkov_lstm_delay_len10.md)
 contains validation AP and seed variation. These are five-seed descriptive
 results with the same synthetic-delay caveats as the length-30 protocol.
 
@@ -332,7 +337,7 @@ The exploratory 68/16/16 IBM cells use complete 10-transaction windows every
 five transactions: 4,078,583 endpoints, with 765 temporal test frauds. With the
 `default` preset, mean LSTM test AP is 0.3916 (temporal), 0.7695 (window IID),
 and 0.7692 (customer IID), and the temporal value varies strongly by seed. The
-[`68/16/16 table`](../results/ibm_lstm_pre_italy_68_16_16_len10_stride5.md) also
+[`68/16/16 table`](../results/archive/ibm_sequence/ibm_lstm_pre_italy_68_16_16_len10_stride5.md) also
 gives the matched XGBoost cells. The `sqrt_weight_slow` reruns, which are the
 results used for the paper's split comparison, are summarized under the LSTM
 sequence extension above.
@@ -381,8 +386,8 @@ and five seeds as the full-feature Sparkov runs:
 ```
 
 Its separate records have `_rawish_len10` or `_rawish_len30` suffixes, and the
-generated tables are `results/sparkov_lstm_delay_rawish_len10.md` and
-`results/sparkov_lstm_delay_rawish_len30.md`. The 41-feature IBM selection above
+generated tables are `results/archive/sparkov_lstm/sparkov_lstm_delay_rawish_len10.md` and
+`results/archive/sparkov_lstm/sparkov_lstm_delay_rawish_len30.md`. The 41-feature IBM selection above
 is a documented proposal; it is not part of these Sparkov runs.
 
 This removes rolling counts, sums, means, z-scores, recency gaps, entity
@@ -394,8 +399,8 @@ sets; these Sparkov cells change the feature axis separately.
 At length 10, raw-ish LSTM test AP is 0.9807 (off), 0.9798 (on), and 0.9787
 (slow), with changes from off of -0.0010 and -0.0020. At length 30, test AP
 is 0.9794, 0.9786, and 0.9772, with changes of -0.0008 and -0.0022. The
-[`length-10 raw-ish table`](../results/sparkov_lstm_delay_rawish_len10.md)
-and [`length-30 raw-ish table`](../results/sparkov_lstm_delay_rawish_len30.md)
+[`length-10 raw-ish table`](../results/archive/sparkov_lstm/sparkov_lstm_delay_rawish_len10.md)
+and [`length-30 raw-ish table`](../results/archive/sparkov_lstm/sparkov_lstm_delay_rawish_len30.md)
 record validation AP, seed variation, and test-minus-validation gaps. Removing
 engineered history features did not increase the measured synthetic-delay
 effect in these runs. The raw-ish no-delay test AP remains near 0.98, so the
