@@ -176,6 +176,27 @@ normalization after the input projection. A non-default preset writes records wi
 a `_cfg-<preset>` suffix and never renders a table. Presets are compared on
 validation AP only; a chosen preset must be rerun on every cell it is compared with.
 
+On the 68/16/16 length-10 stride-5 temporal cell, `default` validation AP was
+0.6351 ± 0.1826 because two seeds trained badly and stopped by epoch three.
+`sqrt_weight_slow` had the best mean, spread, and worst seed (0.8279 ± 0.0308),
+so it was selected before any test AP was read. It was then rerun on all
+three 68/16/16 cells and all six 80/10/10 cells (lengths 10 and 30):
+
+| Split | 68/16/16 test AP | 80/10/10 length-10 test AP | 80/10/10 length-30 test AP |
+|---|---:|---:|---:|
+| Temporal | 0.6301 ± 0.0670 | 0.5709 ± 0.0179 | 0.4297 ± 0.0270 |
+| Window/chunk IID | 0.7709 ± 0.0092 | 0.7267 ± 0.0110 | 0.6101 ± 0.0109 |
+| Customer IID | 0.7761 ± 0.0102 | 0.7066 ± 0.0205 | 0.7109 ± 0.0208 |
+
+On 68/16/16 the preset fixes the temporal instability (test AP 0.3916 ± 0.2021
+with `default`) and moves the IID cells by at most 0.007. On 80/10/10, where
+`default` was already stable, it lowers validation AP in every cell by
+0.006–0.037; the largest test change is length-30 chunk IID (−0.068). The
+temporal-versus-IID conclusion holds under either preset. The 68/16/16 cutoffs
+and the preset were both chosen after inspecting labels or validation results,
+so these cells remain exploratory. In this pre-Italy population, the last fraud
+is on 2016-12-22, so 2017 test rows contain no fraud.
+
 ### IBM endpoint experiment
 
 The IBM extension sorts each entity's transactions chronologically and forms
