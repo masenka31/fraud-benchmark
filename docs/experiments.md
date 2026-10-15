@@ -166,6 +166,11 @@ weight decay 0.0001, gradient clipping at 1, batch size 1,024, and at most eight
 epochs. The best checkpoint is selected by validation average precision, with
 patience two. Seeds 0--4 are fixed. No transaction label, reporting timestamp,
 or label-availability flag is an LSTM input.
+For Sparkov LSTM delay runs, checkpoint selection and the F1 threshold use labels
+available at the end of validation: frauds reported later have provisional label
+`0`. Validation and test scores still use true `is_fraud`. Previously saved
+Sparkov LSTM records without `validation_label_policy` used true validation
+labels for selection; rerun those cells to measure the revised protocol.
 
 ### IBM endpoint experiment
 
@@ -226,8 +231,9 @@ Sparkov retains every transaction as a target under the existing temporal split.
 For each target, the runner gathers that transaction and up to 29 strictly
 earlier-time transactions from the same entity. It uses the 46 non-artifact
 Sparkov features listed above. The `off`, `on`, and `slow` runs share those
-windows and differ only in synthetic training-label availability. A delayed
-fraud stays in training with provisional label 0; validation and test use the
+windows and differ only in synthetic label availability. A delayed
+fraud stays in training with provisional label 0. Validation-time selection uses
+labels available at the validation cutoff; validation and test scores use the
 true labels.
 
 ```bash
@@ -350,6 +356,8 @@ sets; these Sparkov cells change the feature axis separately.
 At length 10, raw-ish LSTM test AP is 0.9807 (off), 0.9798 (on), and 0.9787
 (slow), with changes from off of -0.0010 and -0.0020. At length 30, test AP
 is 0.9794, 0.9786, and 0.9772, with changes of -0.0008 and -0.0022. The
+saved numbers here used true validation labels for checkpoint and threshold
+selection; they need a rerun under the available-label validation protocol. The
 [`length-10 raw-ish table`](../results/sparkov_lstm_delay_rawish_len10.md)
 and [`length-30 raw-ish table`](../results/sparkov_lstm_delay_rawish_len30.md)
 record validation AP, seed variation, and test-minus-validation gaps. Removing

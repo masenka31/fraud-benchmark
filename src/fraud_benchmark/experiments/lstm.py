@@ -184,7 +184,7 @@ def train_and_predict(
     seed: int,
     device_name: str = 'auto',
 ) -> tuple[np.ndarray, np.ndarray, dict]:
-    """Fit on visible train labels; checkpoint by validation AP only."""
+    """Fit on visible train labels; checkpoint by available validation-label AP."""
     torch = _torch()
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -229,7 +229,7 @@ def train_and_predict(
             optimizer.step()
             total_loss += float(loss.detach()) * len(batch_ids)
         val_scores = _predict(model, features, validation, positions_for, device)
-        val_ap = float(average_precision_score(y_true[validation], val_scores))
+        val_ap = float(average_precision_score(y_fit[validation], val_scores))
         history.append({'epoch': epoch, 'train_loss': total_loss / len(train), 'val_ap': val_ap})
         if val_ap > best_ap:
             best_ap = val_ap

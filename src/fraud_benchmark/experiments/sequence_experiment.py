@@ -259,15 +259,18 @@ def prepare_sparkov(
     train, validation, test = _partition_ids(split)
     y_true = df['is_fraud'].to_numpy(dtype='int64')
     y_fit = y_true.copy()
+    censored_val_labels = 0
     if regime != 'off':
         column = 'reported_at' if regime == 'on' else 'reported_at_slow'
         if column not in df:
             raise ExperimentError(f'sparkov: no {column!r} column')
-        cutoff = df.loc[train_mask, 'event_time'].max()
-        visible = censored_labels(
-            pd.DataFrame({'is_fraud': df['is_fraud'], 'reported_at': df[column]}), cutoff
-        )
-        y_fit[train_mask] = visible[train_mask]
+        labels = pd.DataFrame({'is_fraud': df['is_fraud'], 'reported_at': df[column]})
+        train_cutoff = df.loc[train_mask, 'event_time'].max()
+        val_mask = split == 1
+        val_cutoff = df.loc[val_mask, 'event_time'].max()
+        y_fit[train_mask] = censored_labels(labels, train_cutoff)[train_mask]
+        y_fit[val_mask] = censored_labels(labels, val_cutoff)[val_mask]
+        censored_val_labels = int(y_true[validation].sum() - y_fit[validation].sum())
     if any(y_true[part].sum() == 0 for part in (validation, test)):
         raise ExperimentError('a Sparkov evaluation partition contains no fraud targets')
     return PreparedSequence(
@@ -288,6 +291,8 @@ def prepare_sparkov(
             'target': 'each transaction',
             'tie_policy': 'exclude equal-timestamp predecessor rows',
             'censored_train_labels': int(y_true[train].sum() - y_fit[train].sum()),
+            'censored_val_labels': censored_val_labels,
+            'validation_label_policy': 'available at validation cutoff',
             'features': names,
             'rows': {
                 name: len(rows)
@@ -317,7 +322,7 @@ def run_lstm(prepared: PreparedSequence, seeds: tuple[int, ...], device: str) ->
             seed,
             device,
         )
-        threshold = best_f1_threshold(prepared.y_true[prepared.validation], val_scores)
+        threshold = best_f1_threshold(prepared.y_fit[prepared.validation], val_scores)
         seed_records.append(
             {
                 'seed': seed,

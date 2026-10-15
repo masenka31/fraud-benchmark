@@ -185,11 +185,24 @@ def render_sparkov(records: dict) -> str:
     )
     length = records['off']['window_length']
     feature_set = records['off'].get('feature_set', 'full')
+    policies = {
+        record.get('validation_label_policy', 'true labels') for record in records.values()
+    }
+    if len(policies) != 1:
+        raise ValueError('Sparkov result records use different validation-label policies')
+    validation_note = (
+        'Checkpoint and threshold selection use labels available at the end of validation.'
+        if policies == {'available at validation cutoff'}
+        else 'Checkpoint and threshold selection use true validation labels (legacy records).'
+    )
+    available_validation = policies == {'available at validation cutoff'}
     for regime in SPARKOV_REGIMES:
         record = records[regime]
         ap = np.mean([row['scores']['test']['average_precision'] for row in record['seeds']])
+        hidden_val = f'{record["censored_val_labels"]:,} | ' if available_validation else ''
         rows.append(
             f'| {labels[regime]} | {record["censored_train_labels"]:,} | '
+            f'{hidden_val}'
             f'{_mean_sd(record, "val", "average_precision")} | '
             f'{_mean_sd(record, "test", "average_precision")} | '
             f'{_test_minus_validation_ap(record)} | {ap - baseline:+.4f} |'
@@ -202,7 +215,8 @@ def render_sparkov(records: dict) -> str:
             '',
             'All three regimes score every Sparkov row with true evaluation labels.',
             f'The {length}-transaction windows, split, features, settings, and seeds are fixed;',
-            'only synthetic training-label availability changes.',
+            'only synthetic label availability changes.',
+            validation_note,
             *(
                 ['Inputs are 21 raw-ish current-event/static features; '
                  'no entity-history statistics are model inputs.']
@@ -212,9 +226,12 @@ def render_sparkov(records: dict) -> str:
             'Test − validation AP is the mean within-seed difference; '
             'negative means lower test AP.',
             '',
-            '| Training labels | Hidden train frauds | Validation AP | Test AP | '
+            '| Training labels | Hidden train frauds | '
+            + ('Hidden validation frauds | ' if available_validation else '')
+            + 'Validation AP | Test AP | '
             'Test − validation AP | Δ test AP vs off |',
-            '|---|---:|---:|---:|---:|---:|',
+            '|---|---:|' + ('---:|' if available_validation else '')
+            + '---:|---:|---:|---:|',
             *rows,
         ]
     )
@@ -316,7 +333,11 @@ def main(argv: list[str] | None = None) -> int:
                     'sparkov', 'lstm', regime, args.results_dir,
                     args.window_length, args.feature_set
                 )
-                if args.resume and path.exists():
+                if (
+                    args.resume and path.exists()
+                    and json.loads(path.read_text()).get('validation_label_policy')
+                    == 'available at validation cutoff'
+                ):
                     print(f'Skipping completed Sparkov {regime}', flush=True)
                     continue
                 prepared = prepare_sparkov(
@@ -384,6 +405,16 @@ def main(argv: list[str] | None = None) -> int:
         ).exists()
         for regime in SPARKOV_REGIMES
     ):
+        records = _read(
+            'sparkov', 'lstm', SPARKOV_REGIMES, args.results_dir,
+            args.window_length, args.feature_set
+        )
+        policies = {
+            record.get('validation_label_policy', 'true labels') for record in records.values()
+        }
+        if len(policies) != 1:
+            print('Sparkov table pending: rerun remaining regimes with available validation labels')
+            return 0
         if args.feature_set == 'rawish':
             table = SPARKOV_TABLE.with_stem(
                 f'{SPARKOV_TABLE.stem}_rawish_len{args.window_length}'
@@ -393,12 +424,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             table = SPARKOV_TABLE.with_stem(f'{SPARKOV_TABLE.stem}_len{args.window_length}')
         table.write_text(
-            render_sparkov(
-                _read(
-                    'sparkov', 'lstm', SPARKOV_REGIMES, args.results_dir,
-                    args.window_length, args.feature_set
-                )
-            ) + '\n'
+            render_sparkov(records) + '\n'
         )
         print(f'Wrote {table}', flush=True)
     return 0
