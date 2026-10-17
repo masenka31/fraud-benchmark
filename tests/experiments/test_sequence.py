@@ -337,6 +337,17 @@ def test_fixed_epoch_preset_trains_every_epoch_and_keeps_final_weights(monkeypat
     assert details['best_epoch'] == 4
 
 
+def test_train_ap_tracking_records_visible_and_true_labels(monkeypatch, capsys):
+    pytest.importorskip('torch')
+    monkeypatch.setattr(lstm, 'BATCH_SIZE', 8)
+    config = lstm.LSTMConfig(max_epochs=2, early_stopping=False, track_train_ap=True)
+    _, _, details = _train_tiny(config)
+    for row in details['history']:
+        assert 0 <= row['train_ap_visible'] <= 1
+        assert 0 <= row['train_ap_true'] <= 1
+    assert 'seed 0 epoch 2' in capsys.readouterr().out
+
+
 def _lstm_runner():
     import importlib.util
     spec = importlib.util.spec_from_file_location('lstm_protocol', 'scripts/lstm_protocol.py')

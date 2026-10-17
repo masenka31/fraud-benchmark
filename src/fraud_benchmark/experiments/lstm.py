@@ -49,6 +49,7 @@ class LSTMConfig:
     warmup_cosine: bool = False  # per-step linear warmup over one epoch, then cosine decay
     input_layer_norm: bool = False
     early_stopping: bool = True  # False trains max_epochs and keeps the final weights
+    track_train_ap: bool = False  # log train AP against visible and true labels each epoch
 
 
 DEFAULT_CONFIG = LSTMConfig()
@@ -69,6 +70,7 @@ ARCHIVED_LSTM_CONFIGS = {
 # Diagnostics: not selected or used for the paper.
 DIAGNOSTIC_LSTM_CONFIGS = {
     'fixed10': LSTMConfig(max_epochs=10, early_stopping=False),
+    'fixed15': LSTMConfig(max_epochs=15, early_stopping=False, track_train_ap=True),
 }
 LSTM_CONFIGS = {**PAPER_LSTM_CONFIGS, **ARCHIVED_LSTM_CONFIGS, **DIAGNOSTIC_LSTM_CONFIGS}
 
@@ -304,7 +306,18 @@ def train_and_predict(
             total_loss += float(loss.detach()) * len(batch_ids)
         val_scores = _predict(model, features, validation, positions_for, device)
         val_ap = float(average_precision_score(y_true[validation], val_scores))
-        history.append({'epoch': epoch, 'train_loss': total_loss / len(train), 'val_ap': val_ap})
+        entry = {'epoch': epoch, 'train_loss': total_loss / len(train), 'val_ap': val_ap}
+        message = f'seed {seed} epoch {epoch}: loss {entry["train_loss"]:.4f} val AP {val_ap:.4f}'
+        if config.track_train_ap:
+            train_scores = _predict(model, features, train, positions_for, device)
+            entry['train_ap_visible'] = float(average_precision_score(y_fit[train], train_scores))
+            entry['train_ap_true'] = float(average_precision_score(y_true[train], train_scores))
+            message += (
+                f' train AP visible {entry["train_ap_visible"]:.4f}'
+                f' true {entry["train_ap_true"]:.4f}'
+            )
+        history.append(entry)
+        print(message, flush=True)
         if not config.early_stopping:
             best_ap = val_ap
             best_epoch = epoch
