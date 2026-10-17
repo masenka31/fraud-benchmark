@@ -328,6 +328,15 @@ def test_every_lstm_preset_trains_and_is_seed_deterministic(monkeypatch, name):
     assert first[2]['positive_weight'] == pytest.approx(expected)
 
 
+def test_fixed_epoch_preset_trains_every_epoch_and_keeps_final_weights(monkeypatch):
+    pytest.importorskip('torch')
+    monkeypatch.setattr(lstm, 'BATCH_SIZE', 8)
+    config = lstm.LSTMConfig(max_epochs=4, patience=1, early_stopping=False)
+    _, _, details = _train_tiny(config)
+    assert [row['epoch'] for row in details['history']] == [1, 2, 3, 4]
+    assert details['best_epoch'] == 4
+
+
 def _lstm_runner():
     import importlib.util
     spec = importlib.util.spec_from_file_location('lstm_protocol', 'scripts/lstm_protocol.py')

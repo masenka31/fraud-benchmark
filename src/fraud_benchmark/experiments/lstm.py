@@ -48,6 +48,7 @@ class LSTMConfig:
     positive_weight: str = 'ratio'  # 'ratio' = negatives/positives, 'sqrt' = its square root
     warmup_cosine: bool = False  # per-step linear warmup over one epoch, then cosine decay
     input_layer_norm: bool = False
+    early_stopping: bool = True  # False trains max_epochs and keeps the final weights
 
 
 DEFAULT_CONFIG = LSTMConfig()
@@ -65,7 +66,11 @@ ARCHIVED_LSTM_CONFIGS = {
     'full_weight_slow': LSTMConfig(**SLOW),
     'sqrt_weight_slow_ln': LSTMConfig(positive_weight='sqrt', input_layer_norm=True, **SLOW),
 }
-LSTM_CONFIGS = {**PAPER_LSTM_CONFIGS, **ARCHIVED_LSTM_CONFIGS}
+# Diagnostics: not selected or used for the paper.
+DIAGNOSTIC_LSTM_CONFIGS = {
+    'fixed10': LSTMConfig(max_epochs=10, early_stopping=False),
+}
+LSTM_CONFIGS = {**PAPER_LSTM_CONFIGS, **ARCHIVED_LSTM_CONFIGS, **DIAGNOSTIC_LSTM_CONFIGS}
 
 
 def model_settings(name: str = 'default') -> dict:
@@ -300,6 +305,10 @@ def train_and_predict(
         val_scores = _predict(model, features, validation, positions_for, device)
         val_ap = float(average_precision_score(y_true[validation], val_scores))
         history.append({'epoch': epoch, 'train_loss': total_loss / len(train), 'val_ap': val_ap})
+        if not config.early_stopping:
+            best_ap = val_ap
+            best_epoch = epoch
+            continue
         if val_ap > best_ap:
             best_ap = val_ap
             best_epoch = epoch
@@ -309,9 +318,10 @@ def train_and_predict(
             epochs_without_gain += 1
             if epochs_without_gain >= config.patience:
                 break
-    if best_state is None:
-        raise RuntimeError('LSTM training did not produce a validation checkpoint')
-    model.load_state_dict(best_state)
+    if config.early_stopping:
+        if best_state is None:
+            raise RuntimeError('LSTM training did not produce a validation checkpoint')
+        model.load_state_dict(best_state)
     validation_scores = _predict(model, features, validation, positions_for, device)
     test_scores = _predict(model, features, test, positions_for, device)
     details = {
