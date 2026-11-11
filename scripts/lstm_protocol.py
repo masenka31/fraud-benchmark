@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from fraud_benchmark.data.config import load_config
 from fraud_benchmark.experiments.features.util import FEATURE_DIR
 from fraud_benchmark.experiments.lstm import ARCHIVED_LSTM_CONFIGS
 from fraud_benchmark.experiments.lstm import LSTM_CONFIGS
@@ -366,6 +367,29 @@ def sparkov_delays(features_dir: Path = FEATURE_DIR) -> dict[str, tuple[float, f
     return delays
 
 
+def sparkov_delay_settings() -> str:
+    """The configured delay parameters of the two Sparkov regimes, as one sentence."""
+    config = load_config()
+    gap = config.campaign_gap_for('sparkov')
+    parts = []
+    for label, dataset in (('default', 'sparkov'), ('slow', 'sparkov_slow')):
+        params = config.delay_for(dataset)
+        cap = (
+            f'capped at {params.max_delay_days:g} days'
+            if params.max_delay_days is not None
+            else 'no cap'
+        )
+        parts.append(f'{label} median {params.median_days:g} days, σ {params.sigma:g}, {cap}')
+    days = gap / pd.Timedelta(days=1)
+    return (
+        'Synthetic delays: frauds on one card form a campaign while each follows the previous '
+        f'within {days:g} day{"" if days == 1 else "s"}; one lognormal delay per campaign, '
+        'from its last fraud ('
+        + '; '.join(parts)
+        + ').'
+    )
+
+
 def _seed_range(seeds: list[int]) -> str:
     if seeds == list(range(seeds[0], seeds[-1] + 1)):
         return f'{seeds[0]}–{seeds[-1]}'
@@ -373,7 +397,7 @@ def _seed_range(seeds: list[int]) -> str:
 
 
 def render_sparkov_paper(
-    records: dict[str, dict], delays: dict[str, tuple[float, float]]
+    records: dict[str, dict], delays: dict[str, tuple[float, float]], delay_settings: str
 ) -> str:
     """The paper's Sparkov label-delay table, with paired test-AP differences."""
     off = records['off']
@@ -425,6 +449,7 @@ def render_sparkov_paper(
             'the training labels available at the cutoff differ.',
             'Validation and test are scored against the true labels. The reporting delays are '
             'synthetic, and the slow regime is a stress test.',
+            delay_settings,
             'Delays are realised transaction-to-report delays over all Sparkov frauds. Hidden '
             f'train frauds are the training frauds (of {train_frauds:,}) reported after the '
             'training cutoff; they stay in training as negatives.',
@@ -580,7 +605,11 @@ def main(argv: list[str] | None = None) -> int:
             ).exists()
             for regime in SPARKOV_REGIMES
         ):
-            table = render_sparkov_paper(sparkov_paper_records(), sparkov_delays(args.features_dir))
+            table = render_sparkov_paper(
+                sparkov_paper_records(),
+                sparkov_delays(args.features_dir),
+                sparkov_delay_settings(),
+            )
             SPARKOV_PAPER_TABLE.write_text(table + '\n')
             print(f'Wrote {SPARKOV_PAPER_TABLE}', flush=True)
         return 0

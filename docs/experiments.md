@@ -116,8 +116,13 @@ Shows how delayed fraud labels at training time affect a detector.
 - **Targets:** every transaction, scored with up to 9 earlier transactions of the same card.
 - **Regimes**, differing only in which training labels are available at the cutoff:
   - `off`: true labels;
-  - `on`: synthetic default delay (`reported_at`);
-  - `slow`: synthetic fat-tailed stress delay (`reported_at_slow`).
+  - `on`: synthetic default delay (`reported_at`): median 7 days, σ 1, no cap;
+  - `slow`: synthetic fat-tailed stress delay (`reported_at_slow`): median 15 days,
+    σ 1.665, capped at 365 days. Uncapped, its nominal mean would be 60 days; with the
+    cap, the realised mean is 41.1 days.
+
+  Frauds on one card form a campaign while each follows the previous within one day; one
+  lognormal delay is drawn per campaign, from its last fraud.
 
   A fraud reported after the cutoff stays in training as a negative: 132 (1.6%) of
   the 8,302 training frauds under `on`, 509 (6.1%) under `slow`. Validation and test always use

@@ -439,12 +439,20 @@ def test_sparkov_paper_records_merge_per_seed_files_and_pair_by_seed(tmp_path):
     records = runner.sparkov_paper_records(tmp_path)
     assert [row['seed'] for row in records['on']['seeds']] == [0, 1, 2]
 
-    table = runner.render_sparkov_paper(records, {'on': (7.0, 11.0), 'slow': (14.0, 41.0)})
+    table = runner.render_sparkov_paper(
+        records, {'on': (7.0, 11.0), 'slow': (14.0, 41.0)}, 'Synthetic delays.'
+    )
     # on − off per seed: −0.05, −0.10, 0.00 → mean −0.05, sample sd 0.05, SE 0.05/√3.
     assert '| Δ test AP | – | -0.0500 (0.0289) |' in table
     assert '| Hidden train frauds | 0 | 2 (10.0%) | 5 (25.0%) |' in table
     assert '| Seeds with lower test AP than no delay | – | 2/3 | 3/3 |' in table
     assert 'seeds 0–2' in table
+
+
+def test_sparkov_delay_settings_state_the_slow_cap():
+    settings = _lstm_runner().sparkov_delay_settings()
+    assert 'default median 7 days, σ 1, no cap' in settings
+    assert 'slow median 15 days, σ 1.665, capped at 365 days' in settings
 
 
 def test_sparkov_paper_records_refuse_repeated_seeds(tmp_path):

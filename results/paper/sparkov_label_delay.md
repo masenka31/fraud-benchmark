@@ -6,6 +6,7 @@ LSTM preset `fixed15`: 15 epochs without early stopping; the final weights are s
 Chronological 80/10/10 split of all 1,852,394 Sparkov rows. Every transaction is a target, scored with up to 9 earlier transactions of the same card.
 All regimes use the same rows, split, features, model settings, and seeds; only the training labels available at the cutoff differ.
 Validation and test are scored against the true labels. The reporting delays are synthetic, and the slow regime is a stress test.
+Synthetic delays: frauds on one card form a campaign while each follows the previous within 1 day; one lognormal delay per campaign, from its last fraud (default median 7 days, σ 1, no cap; slow median 15 days, σ 1.665, capped at 365 days).
 Delays are realised transaction-to-report delays over all Sparkov frauds. Hidden train frauds are the training frauds (of 8,302) reported after the training cutoff; they stay in training as negatives.
 AP entries are mean ± population standard deviation over seeds 0–9. Δ is the mean within-seed difference in test AP to the no-delay run, with its standard error in parentheses.
 
