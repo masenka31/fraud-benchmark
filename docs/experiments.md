@@ -1,8 +1,10 @@
 # Paper experiments
 
-Two experiments back the paper's Tables 3 and 4. Both train a one-layer LSTM, report
-average precision (AP) as the primary metric, and fit all preprocessing on the training
-split only. Generated tables and records are in [`results/`](../results/README.md).
+Three experiments back the paper's Figure 2 and Tables 3 and 4. All report average
+precision (AP) as the primary metric and fit all preprocessing on the training split only.
+Figure 2 uses XGBoost and also reports ROC-AUC, to show what it hides; Tables 3 and 4 use a
+one-layer LSTM. Generated tables, figures and records are in
+[`results/`](../results/README.md).
 
 Build the inputs first. The Sparkov features also need `sparkov_slow`, which supplies the
 slow-delay timestamps:
@@ -15,6 +17,44 @@ done
 .venv/bin/python scripts/features.py --dataset ibm_ccf
 .venv/bin/python scripts/features.py --dataset sparkov
 ```
+
+## IBM CCF: ROC-AUC versus average precision under downsampling
+
+Shows that ROC-AUC can make two models look interchangeable when average precision
+separates them clearly.
+
+- **Data:** the pre-Italy IBM CCF transactions and the temporal 68/16/16 split of the next
+  section, one row per transaction (13,874,719 / 3,264,640 / 3,264,640 rows).
+- **Models:** two XGBoost models (300 trees, depth 6, learning rate 0.1) with the same
+  features, hyperparameters and model seed (0). `scale_pos_weight` is negatives/positives of
+  the rows each model is fitted on.
+  - *Model X*: all 17,170 training frauds plus as many random training negatives (1:1,
+    sample seed 1729), so it sees fewer than 0.2% of the legitimate training rows;
+  - *Model Y*: all training rows.
+- **Features:** 90 columns. Unlike the repository's standard preparation, they keep the
+  `artifact_*` columns and add merchant-state rarity and chronological fraud rates for five
+  artifact categories. Every count and rate is fitted on training rows only, and a
+  training row sees only earlier training labels.
+
+```bash
+.venv/bin/python scripts/ibm_downsampling_curves.py
+```
+
+It peaks at about 20 GB of memory and takes about 12 minutes on 4 CPU cores. It writes the
+record and the figure (PDF and PNG) to `results/paper/ibm_downsampling_roc_pr.*`.
+
+| | Model X (1:1) | Model Y (all rows) |
+|---|---:|---:|
+| Validation AP | 0.7805 | 0.8812 |
+| Validation ROC-AUC | 0.9980 | 0.9984 |
+| Test AP | 0.6716 | 0.8083 |
+| Test ROC-AUC | 0.9973 | 0.9979 |
+
+Caveats:
+
+- One model seed and one subsample, so there is no spread across seeds.
+- Only the training set is subsampled. Validation and test are always complete, with true
+  labels.
 
 ## IBM CCF: temporal versus iid splits
 
