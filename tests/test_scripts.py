@@ -51,12 +51,7 @@ def config_file(tmp_path):
 
 
 STAGES = ('download', 'prepare', 'features')
-PROTOCOLS = (
-    'ibm_split_protocol',
-    'sparkov_delay_protocol',
-    'lstm_protocol',
-    'ibm_downsampling_curves',
-)
+PROTOCOLS = ('lstm_protocol', 'ibm_downsampling_curves')
 
 
 @pytest.mark.parametrize('name', STAGES)

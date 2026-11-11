@@ -1,4 +1,4 @@
-"""Small fixed LSTM classifier for the two sequence protocols."""
+"""Small fixed LSTM classifier for the paper's Tables 3 and 4."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ MODEL_SETTINGS = {
 
 @dataclass(frozen=True)
 class LSTMConfig:
-    """Training settings; the default reproduces the recorded protocol exactly."""
+    """Training settings. Every field is recorded with each result."""
 
     learning_rate: float = LEARNING_RATE
     max_epochs: int = MAX_EPOCHS
@@ -54,32 +54,17 @@ class LSTMConfig:
 
 DEFAULT_CONFIG = LSTMConfig()
 SLOW = {'learning_rate': 0.0003, 'max_epochs': 15, 'patience': 4, 'warmup_cosine': True}
-# Presets used for the paper. `sqrt_weight_slow` was selected on 68/16/16 temporal
-# validation AP for the IBM split table. `fixed15` is the Sparkov label-delay table:
-# 15 epochs without early stopping, so validation labels never select a checkpoint.
-PAPER_LSTM_CONFIGS = {
-    'default': DEFAULT_CONFIG,
+#: The paper's presets. `sqrt_weight_slow` (Table 3) was selected on 68/16/16 temporal
+#: validation AP. `fixed15` (Table 4) trains 15 epochs without early stopping, so
+#: validation labels never select a checkpoint.
+LSTM_CONFIGS = {
     'sqrt_weight_slow': LSTMConfig(positive_weight='sqrt', **SLOW),
     'fixed15': LSTMConfig(max_epochs=15, early_stopping=False, track_train_ap=True),
 }
-# Rejected candidates from that selection; kept runnable so the records in
-# results/archive/lstm_presets/ stay reproducible.
-ARCHIVED_LSTM_CONFIGS = {
-    'sqrt_weight': LSTMConfig(positive_weight='sqrt'),
-    'full_weight_slow': LSTMConfig(**SLOW),
-    'sqrt_weight_slow_ln': LSTMConfig(positive_weight='sqrt', input_layer_norm=True, **SLOW),
-}
-# Diagnostics: not selected or used for the paper.
-DIAGNOSTIC_LSTM_CONFIGS = {
-    'fixed10': LSTMConfig(max_epochs=10, early_stopping=False),
-}
-LSTM_CONFIGS = {**PAPER_LSTM_CONFIGS, **ARCHIVED_LSTM_CONFIGS, **DIAGNOSTIC_LSTM_CONFIGS}
 
 
-def model_settings(name: str = 'default') -> dict:
-    """Recorded settings; the default record keeps its original form."""
-    if name == 'default':
-        return MODEL_SETTINGS
+def model_settings(name: str) -> dict:
+    """The settings recorded with a result of preset `name`."""
     config = LSTM_CONFIGS[name]
     return {
         **MODEL_SETTINGS,
@@ -111,17 +96,6 @@ class EncodedFeatures:
             self.categorical_names,
             self.cardinalities,
         )
-
-    def tree_matrix(self, rows: np.ndarray) -> np.ndarray:
-        """The same current-event information as the LSTM, at selected targets."""
-        values: dict[str, np.ndarray] = {}
-        for index, name in enumerate(self.numeric_names):
-            column = self.numeric[rows, index].copy()
-            column[self.missing[rows, index].astype(bool)] = np.nan
-            values[name] = column
-        for index, name in enumerate(self.categorical_names):
-            values[name] = self.categorical[rows, index].astype('float32')
-        return np.column_stack([values[name] for name in self.names]).astype('float32')
 
 
 def encode_features(df: pd.DataFrame, names: list[str], train_mask: np.ndarray) -> EncodedFeatures:
