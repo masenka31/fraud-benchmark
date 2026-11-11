@@ -1,7 +1,9 @@
 # Synthetic label delay for any transaction table
 
 `add_label_delay.py` is one standalone file: copy it into your project. It needs
-`numpy`, `pandas>=3.0` and, for Parquet, `pyarrow`, and nothing from this repository. It
+`numpy`, `pandas` and, for Parquet, `pyarrow`, and nothing from this repository. It is
+tested on pandas 3 and also runs on pandas 2.2, where a delay reaching past the year 2262
+is refused. It
 adds the same `campaign_id` and `reported_at` columns that the
 [fraud-benchmark](../../README.md) pipeline uses for its Sparkov label-delay study,
 and for the same inputs and parameters it reproduces them exactly.
