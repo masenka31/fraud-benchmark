@@ -41,7 +41,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-VERSION = '1.0.2'
+VERSION = '1.0.3'
 BARE_NUMBER = re.compile(r'\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*')
 
 
@@ -59,12 +59,15 @@ class Regime:
     max_delay_days: float | None = None
 
     def __post_init__(self) -> None:
-        if self.median_days <= 0:
-            raise ValueError(f'median_days must be positive, got {self.median_days}')
-        if self.sigma <= 0:
-            raise ValueError(f'sigma must be positive, got {self.sigma}')
-        if self.max_delay_days is not None and self.max_delay_days <= 0:
-            raise ValueError(f'max_delay_days must be positive, got {self.max_delay_days}')
+        # `not x > 0` rather than `x <= 0`, so that NaN is refused too.
+        if not (math.isfinite(self.median_days) and self.median_days > 0):
+            raise ValueError(f'median_days must be a positive number, got {self.median_days}')
+        if not (math.isfinite(self.sigma) and self.sigma > 0):
+            raise ValueError(f'sigma must be a positive number, got {self.sigma}')
+        if self.max_delay_days is not None and not (
+            math.isfinite(self.max_delay_days) and self.max_delay_days > 0
+        ):
+            raise ValueError(f'max_delay_days must be a positive number, got {self.max_delay_days}')
 
     @property
     def column(self) -> str:
@@ -141,7 +144,13 @@ def assign_reported_at(df: pd.DataFrame, regime: Regime, seed: int) -> pd.Series
             'sampled reporting delay exceeds the representable range; set a cap to '
             f'bound it (largest draw was {days.max():,.0f} days)'
         )
-    per_campaign = campaign_end + offset_micros.astype('int64').astype('timedelta64[us]')
+    try:
+        per_campaign = campaign_end + offset_micros.astype('int64').astype('timedelta64[us]')
+    except OverflowError as exc:
+        raise ValueError(
+            'sampled reporting delay exceeds the representable range; set a cap to '
+            f'bound it (largest draw was {days.max():,.0f} days)'
+        ) from exc
     mapped = df.loc[labelled, 'campaign_id'].map(per_campaign.to_dict())
     reported.loc[labelled] = pd.to_datetime(mapped).astype('datetime64[us]')
     return reported
@@ -204,6 +213,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     try:
         args.campaign_gap = pd.Timedelta(args.campaign_gap)
         args.cutoff = pd.Timestamp(args.cutoff) if args.cutoff else None
+        if args.cutoff is pd.NaT:
+            raise ValueError('--cutoff must be a timestamp, got NaT')
         args.regimes = [base_regime(args), *(parse_regime(s) for s in args.regime)]
     except ValueError as exc:
         parser.error(str(exc))

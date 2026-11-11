@@ -125,8 +125,12 @@ def test_invalid_params_are_rejected():
         {'median_days': -1.0, 'sigma': 1.0},
         {'median_days': 7.0, 'sigma': 0.0},
         {'median_days': 7.0, 'sigma': -1.0},
+        {'median_days': float('nan'), 'sigma': 1.0},
+        {'median_days': 7.0, 'sigma': float('nan')},
+        {'median_days': 7.0, 'sigma': float('inf')},
+        {'median_days': 7.0, 'sigma': 1.0, 'max_delay_days': float('nan')},
     ):
-        with pytest.raises(ValueError, match='must be positive'):
+        with pytest.raises(ValueError, match='must be a positive number'):
             DelayParams(seed=0, **kwargs)
 
 

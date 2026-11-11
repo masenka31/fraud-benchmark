@@ -44,8 +44,7 @@ version and the realised delays. CSV works the same way: from CSV to CSV, the ot
 columns are written back exactly as they were read, so leading zeros, `NA` strings and
 number formatting are kept. Use `-o` to choose the output path; it may use a different
 format from the input but may not overwrite it. Between formats, pandas infers the CSV
-column types. The input
-must not already contain the columns being added.
+column types. The input must not already contain the columns being added.
 
 | flag | meaning |
 |---|---|
@@ -54,6 +53,7 @@ must not already contain the columns being added.
 | `--preset` | `card` (default), `card-slow` or `aml`, see below |
 | `--median-days`, `--sigma`, `--max-delay-days` | override the preset. `--max-delay-days 0` removes its cap. |
 | `--regime NAME:MEDIAN,SIGMA[,CAP]` | an extra regime in `reported_at_NAME`. Repeatable. |
+| `--version` | print the script version, which the JSON record also stores. |
 | `--campaign-gap` | longest gap inside one campaign, with a unit: `1D`, `12h`, `30min`. A bare number is refused. The default is `1D`. |
 | `--seed` | default `0` |
 | `--cutoff` | your training cutoff. The script then prints how many frauds up to it are still unreported. Give it a timezone exactly when the time column has one. |

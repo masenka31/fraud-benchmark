@@ -383,6 +383,7 @@ def test_bad_time_origin_or_unit_exits_cleanly(tmp_path, args):
         run(tmp_path, df, *args)
 
 
+@pytest.mark.filterwarnings('ignore:Could not infer format:UserWarning')
 def test_unparsable_time_exits_cleanly(tmp_path):
     df = transactions(n=100)
     df['ts'] = df['ts'].astype(str)
@@ -431,3 +432,24 @@ def test_a_campaign_gap_with_a_unit_is_accepted(tmp_path, gap, expected):
     src = run(tmp_path, df, '--campaign-gap', gap)
     card = json.loads(src.with_name('in.label_delay.parquet.json').read_text())
     assert card['campaign_gap'] == expected
+
+
+@pytest.mark.parametrize(
+    'args',
+    [
+        ['--sigma', 'nan'],
+        ['--median-days', 'nan'],
+        ['--max-delay-days', 'nan'],
+        ['--sigma', 'inf'],
+        ['--cutoff', 'NaT'],
+    ],
+)
+def test_non_numbers_are_refused_up_front(tmp_path, args, capsys):
+    with pytest.raises(SystemExit):
+        run(tmp_path, transactions(n=100), *args)
+    assert 'representable range' not in capsys.readouterr().err
+
+
+def test_a_delay_that_overflows_on_addition_exits_cleanly(tmp_path):
+    with pytest.raises(SystemExit, match='representable range'):
+        run(tmp_path, transactions(n=100), '--median-days', '1.0674e8', '--sigma', '1e-9')
