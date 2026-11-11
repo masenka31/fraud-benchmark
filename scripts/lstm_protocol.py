@@ -32,13 +32,26 @@ IBM_TABLE = ARCHIVE / 'ibm_sequence' / 'ibm_lstm_protocol.md'
 SPARKOV_TABLE = ARCHIVE / 'sparkov_lstm' / 'sparkov_lstm_delay.md'
 PAPER_TABLE = PAPER / 'ibm_lstm_split_comparison.md'
 PAPER_CONFIG = 'sqrt_weight_slow'
+SPARKOV_PAPER_DIR = PAPER / 'sparkov_lstm_delay'
+SPARKOV_PAPER_TABLE = PAPER / 'sparkov_label_delay.md'
+SPARKOV_PAPER_CONFIG = 'fixed15'
+SPARKOV_PAPER_LENGTH = 10
 
 
 def _is_paper_cell(
     dataset: str, model: str, regime: str, window_length: int,
-    window_stride: int | None, config: str,
+    window_stride: int | None, config: str, feature_set: str = 'full',
 ) -> bool:
-    """The paper's split table: 68/16/16, length 10, stride 5, selected preset."""
+    """The paper's two LSTM tables.
+
+    IBM split table: 68/16/16, length 10, stride 5, selected preset.
+    Sparkov label-delay table: length 10, full features, `fixed15` preset.
+    """
+    if dataset == 'sparkov':
+        return (
+            model == 'lstm' and window_length == SPARKOV_PAPER_LENGTH
+            and feature_set == 'full' and config == SPARKOV_PAPER_CONFIG
+        )
     return (
         dataset == 'ibm' and model == 'lstm' and regime in IBM_DIAGNOSTIC_REGIMES
         and window_length == 10 and window_stride == 5 and config == PAPER_CONFIG
@@ -47,10 +60,12 @@ def _is_paper_cell(
 
 def _default_dir(
     dataset: str, model: str, regime: str, window_length: int,
-    window_stride: int | None, config: str,
+    window_stride: int | None, config: str, feature_set: str = 'full',
 ) -> Path:
-    if _is_paper_cell(dataset, model, regime, window_length, window_stride, config):
-        return PAPER
+    if _is_paper_cell(
+        dataset, model, regime, window_length, window_stride, config, feature_set
+    ):
+        return SPARKOV_PAPER_DIR if dataset == 'sparkov' else PAPER
     if config in ARCHIVED_LSTM_CONFIGS:
         return ARCHIVE / 'lstm_presets'
     return ARCHIVE / ('ibm_sequence' if dataset == 'ibm' else 'sparkov_lstm')
@@ -62,7 +77,9 @@ def _path(
     config: str = 'default',
 ) -> Path:
     if results_dir is None:
-        results_dir = _default_dir(dataset, model, regime, window_length, window_stride, config)
+        results_dir = _default_dir(
+            dataset, model, regime, window_length, window_stride, config, feature_set
+        )
     if feature_set == 'rawish':
         suffix = f'_rawish_len{window_length}'
     else:
@@ -295,6 +312,139 @@ def render_ibm_paper_split(lstm: dict[str, dict]) -> str:
     )
 
 
+def sparkov_paper_records(directory: Path = SPARKOV_PAPER_DIR) -> dict[str, dict]:
+    """Merge the Sparkov label-delay records into one record per regime.
+
+    The records are kept as run: seeds 0–4 in one file per regime, and each later seed
+    in its own `seedN/` folder. Every field except `seeds` must agree between files of a
+    regime, no seed may repeat, and all regimes must share everything except the
+    training labels.
+    """
+    merged = {}
+    for regime in SPARKOV_REGIMES:
+        name = _path(
+            'sparkov', 'lstm', regime, directory, SPARKOV_PAPER_LENGTH,
+            config=SPARKOV_PAPER_CONFIG,
+        ).name
+        paths = sorted(directory.rglob(name))
+        if not paths:
+            raise FileNotFoundError(f'no {name} under {directory}')
+        records = [json.loads(path.read_text()) for path in paths]
+        base = {key: value for key, value in records[0].items() if key != 'seeds'}
+        seeds = []
+        for path, record in zip(paths, records, strict=True):
+            if {key: value for key, value in record.items() if key != 'seeds'} != base:
+                raise ValueError(f'{path} differs from {paths[0]} outside its seeds')
+            seeds.extend(record['seeds'])
+        numbers = [row['seed'] for row in seeds]
+        if len(set(numbers)) != len(numbers):
+            raise ValueError(f'Sparkov {regime}: repeated seeds in {sorted(numbers)}')
+        merged[regime] = {**base, 'seeds': sorted(seeds, key=lambda row: row['seed'])}
+
+    per_regime = {'regime', 'censored_train_labels', 'seeds'}
+    reference = merged['off']
+    for regime, record in merged.items():
+        for key in reference.keys() - per_regime:
+            if record.get(key) != reference[key]:
+                raise ValueError(f'Sparkov {regime} differs from off in {key!r}')
+        if [row['seed'] for row in record['seeds']] != [row['seed'] for row in reference['seeds']]:
+            raise ValueError(f'Sparkov {regime} does not have the same seeds as off')
+    return merged
+
+
+def sparkov_delays(features_dir: Path = FEATURE_DIR) -> dict[str, tuple[float, float]]:
+    """Median and mean synthetic transaction-to-report delay in days, over all frauds."""
+    df = pd.read_parquet(
+        Path(features_dir) / 'sparkov.parquet',
+        columns=['event_time', 'is_fraud', 'reported_at', 'reported_at_slow'],
+    )
+    fraud = df[df['is_fraud'].astype(bool)]
+    delays = {}
+    for regime, column in (('on', 'reported_at'), ('slow', 'reported_at_slow')):
+        days = (fraud[column] - fraud['event_time']).dt.total_seconds() / 86_400
+        delays[regime] = (float(days.median()), float(days.mean()))
+    return delays
+
+
+def _seed_range(seeds: list[int]) -> str:
+    if seeds == list(range(seeds[0], seeds[-1] + 1)):
+        return f'{seeds[0]}–{seeds[-1]}'
+    return ', '.join(str(seed) for seed in seeds)
+
+
+def render_sparkov_paper(
+    records: dict[str, dict], delays: dict[str, tuple[float, float]]
+) -> str:
+    """The paper's Sparkov label-delay table, with paired test-AP differences."""
+    off = records['off']
+    seeds = [row['seed'] for row in off['seeds']]
+    test = {
+        regime: _values(record, 'test', 'average_precision')
+        for regime, record in records.items()
+    }
+    train_frauds = off['positives']['train']
+
+    def hidden(regime: str) -> str:
+        count = records[regime]['censored_train_labels']
+        if regime == 'off':
+            return f'{count:,}'
+        return f'{count:,} ({100 * count / train_frauds:.1f}%)'
+
+    def delta(regime: str) -> str:
+        difference = test[regime] - test['off']
+        error = np.std(difference, ddof=1) / np.sqrt(len(difference))
+        return f'{np.mean(difference):+.4f} ({error:.4f})'
+
+    def lower(regime: str) -> str:
+        difference = test[regime] - test['off']
+        return f'{int(np.sum(difference < 0))}/{len(difference)}'
+
+    def ap(partition: str):
+        return lambda regime: _mean_sd(records[regime], partition, 'average_precision')
+
+    def row(label: str, cell, *, delayed_only: bool = True) -> str:
+        cells = [
+            '–' if delayed_only and regime == 'off' else cell(regime)
+            for regime in SPARKOV_REGIMES
+        ]
+        return f'| {label} | ' + ' | '.join(cells) + ' |'
+
+    settings = off['model_settings']
+    return '\n'.join(
+        [
+            '# Sparkov synthetic label delay (paper)',
+            '',
+            'Generated by `scripts/lstm_protocol.py`; do not edit by hand.',
+            '',
+            f'LSTM preset `{settings["config"]}`: {settings["max_epochs"]} epochs without early '
+            'stopping; the final weights are scored.',
+            f'Chronological 80/10/10 split of all {off["source_rows"]:,} Sparkov rows. Every '
+            f'transaction is a target, scored with up to {off["window_length"] - 1} earlier '
+            'transactions of the same card.',
+            'All regimes use the same rows, split, features, model settings, and seeds; only '
+            'the training labels available at the cutoff differ.',
+            'Validation and test are scored against the true labels. The reporting delays are '
+            'synthetic, and the slow regime is a stress test.',
+            'Delays are realised transaction-to-report delays over all Sparkov frauds. Hidden '
+            f'train frauds are the training frauds (of {train_frauds:,}) reported after the '
+            'training cutoff; they stay in training as negatives.',
+            f'AP entries are mean ± population standard deviation over seeds {_seed_range(seeds)}. '
+            'Δ is the mean within-seed difference in test AP to the no-delay run, with its '
+            'standard error in parentheses.',
+            '',
+            '| | No delay | Default delay | Slow delay |',
+            '|---|---:|---:|---:|',
+            row('Median delay', lambda regime: f'{delays[regime][0]:.1f} days'),
+            row('Mean delay', lambda regime: f'{delays[regime][1]:.1f} days'),
+            row('Hidden train frauds', hidden, delayed_only=False),
+            row('Validation AP', ap('val'), delayed_only=False),
+            row('Test AP', ap('test'), delayed_only=False),
+            row('Δ test AP', delta),
+            row('Seeds with lower test AP than no delay', lower),
+        ]
+    )
+
+
 def _write(path: Path, record: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(f'{path.suffix}.{os.getpid()}.tmp')
@@ -321,7 +471,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--feature-set', choices=('full', 'rawish'), default='full')
     parser.add_argument(
         '--lstm-config', choices=tuple(LSTM_CONFIGS), default='default',
-        help=f'LSTM training preset ({PAPER_CONFIG} is used for the paper; archived presets '
+        help=f'LSTM training preset ({PAPER_CONFIG} for the paper IBM split table, '
+        f'{SPARKOV_PAPER_CONFIG} for the paper Sparkov label-delay table; archived presets '
         f'are {", ".join(ARCHIVED_LSTM_CONFIGS)}); '
         'non-default presets write separate records',
     )
@@ -418,6 +569,20 @@ def main(argv: list[str] | None = None) -> int:
                     _write(path, run_lstm(prepared, seeds, args.device, args.lstm_config))
 
     if args.prepare_only or args.results_dir is not None:
+        return 0
+    if args.dataset == 'sparkov' and _is_paper_cell(
+        'sparkov', 'lstm', 'off', args.window_length, None, args.lstm_config, args.feature_set
+    ):
+        if all(
+            _path(
+                'sparkov', 'lstm', regime, None, args.window_length, args.feature_set,
+                config=args.lstm_config,
+            ).exists()
+            for regime in SPARKOV_REGIMES
+        ):
+            table = render_sparkov_paper(sparkov_paper_records(), sparkov_delays(args.features_dir))
+            SPARKOV_PAPER_TABLE.write_text(table + '\n')
+            print(f'Wrote {SPARKOV_PAPER_TABLE}', flush=True)
         return 0
     if args.lstm_config != 'default':
         paper = {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -384,5 +385,83 @@ def test_only_paper_cells_default_to_the_paper_folder():
         'ibm', 'lstm', 'pre_italy_68_16_16', None, 10, window_stride=5, config='sqrt_weight',
     )
     assert rejected.parent == Path('results/archive/lstm_presets')
-    sparkov = runner._path('sparkov', 'lstm', 'slow', None, 10)
-    assert sparkov.parent == Path('results/archive/sparkov_lstm')
+    sparkov = runner._path('sparkov', 'lstm', 'slow', None, 10, config='fixed15')
+    assert sparkov.parent == Path('results/paper/sparkov_lstm_delay')
+    assert sparkov.name == 'sparkov_lstm_slow_len10_cfg-fixed15.json'
+    sparkov_archived = {
+        runner._path('sparkov', 'lstm', 'slow', None, 10),
+        runner._path('sparkov', 'lstm', 'slow', None, 30, config='fixed15'),
+        runner._path('sparkov', 'lstm', 'slow', None, 10, 'rawish', config='fixed15'),
+    }
+    assert {path.parent for path in sparkov_archived} == {Path('results/archive/sparkov_lstm')}
+
+
+def _sparkov_record(regime, seeds, censored=0):
+    return {
+        'dataset': 'sparkov',
+        'regime': regime,
+        'source_rows': 100,
+        'window_length': 10,
+        'censored_train_labels': censored,
+        'rows': {'train': 80, 'val': 10, 'test': 10},
+        'positives': {'train': 20, 'val': 2, 'test': 2},
+        'model': 'lstm',
+        'model_settings': {'config': 'fixed15', 'max_epochs': 15},
+        'seeds': [
+            {
+                'seed': seed,
+                'scores': {
+                    'val': {'average_precision': ap},
+                    'test': {'average_precision': ap},
+                },
+            }
+            for seed, ap in seeds
+        ],
+    }
+
+
+def _write_sparkov_records(directory, regime, first, rest, censored=0):
+    name = f'sparkov_lstm_{regime}_len10_cfg-fixed15.json'
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / name).write_text(json.dumps(_sparkov_record(regime, first, censored)))
+    for seed, ap in rest:
+        folder = directory / f'seed{seed}'
+        folder.mkdir(exist_ok=True)
+        (folder / name).write_text(json.dumps(_sparkov_record(regime, [(seed, ap)], censored)))
+
+
+def test_sparkov_paper_records_merge_per_seed_files_and_pair_by_seed(tmp_path):
+    runner = _lstm_runner()
+    _write_sparkov_records(tmp_path, 'off', [(0, 0.90), (1, 0.80)], [(2, 0.70)])
+    _write_sparkov_records(tmp_path, 'on', [(0, 0.85), (1, 0.70)], [(2, 0.70)], censored=2)
+    _write_sparkov_records(tmp_path, 'slow', [(0, 0.80), (1, 0.60)], [(2, 0.60)], censored=5)
+
+    records = runner.sparkov_paper_records(tmp_path)
+    assert [row['seed'] for row in records['on']['seeds']] == [0, 1, 2]
+
+    table = runner.render_sparkov_paper(records, {'on': (7.0, 11.0), 'slow': (14.0, 41.0)})
+    # on − off per seed: −0.05, −0.10, 0.00 → mean −0.05, sample sd 0.05, SE 0.05/√3.
+    assert '| Δ test AP | – | -0.0500 (0.0289) |' in table
+    assert '| Hidden train frauds | 0 | 2 (10.0%) | 5 (25.0%) |' in table
+    assert '| Seeds with lower test AP than no delay | – | 2/3 | 3/3 |' in table
+    assert 'seeds 0–2' in table
+
+
+def test_sparkov_paper_records_refuse_repeated_seeds(tmp_path):
+    runner = _lstm_runner()
+    for regime in ('off', 'on', 'slow'):
+        _write_sparkov_records(tmp_path, regime, [(0, 0.9), (1, 0.8)], [(1, 0.8)])
+    with pytest.raises(ValueError, match='repeated seeds'):
+        runner.sparkov_paper_records(tmp_path)
+
+
+def test_sparkov_paper_records_refuse_regimes_that_differ_beyond_labels(tmp_path):
+    runner = _lstm_runner()
+    for regime in ('off', 'on', 'slow'):
+        _write_sparkov_records(tmp_path, regime, [(0, 0.9)], [])
+    path = tmp_path / 'sparkov_lstm_slow_len10_cfg-fixed15.json'
+    record = json.loads(path.read_text())
+    record['rows']['train'] = 79
+    path.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="slow differs from off in 'rows'"):
+        runner.sparkov_paper_records(tmp_path)

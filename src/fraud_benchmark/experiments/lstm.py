@@ -54,11 +54,13 @@ class LSTMConfig:
 
 DEFAULT_CONFIG = LSTMConfig()
 SLOW = {'learning_rate': 0.0003, 'max_epochs': 15, 'patience': 4, 'warmup_cosine': True}
-# Presets used for the paper: the recorded protocol and the one selected on
-# 68/16/16 temporal validation AP.
+# Presets used for the paper. `sqrt_weight_slow` was selected on 68/16/16 temporal
+# validation AP for the IBM split table. `fixed15` is the Sparkov label-delay table:
+# 15 epochs without early stopping, so validation labels never select a checkpoint.
 PAPER_LSTM_CONFIGS = {
     'default': DEFAULT_CONFIG,
     'sqrt_weight_slow': LSTMConfig(positive_weight='sqrt', **SLOW),
+    'fixed15': LSTMConfig(max_epochs=15, early_stopping=False, track_train_ap=True),
 }
 # Rejected candidates from that selection; kept runnable so the records in
 # results/archive/lstm_presets/ stay reproducible.
@@ -70,7 +72,6 @@ ARCHIVED_LSTM_CONFIGS = {
 # Diagnostics: not selected or used for the paper.
 DIAGNOSTIC_LSTM_CONFIGS = {
     'fixed10': LSTMConfig(max_epochs=10, early_stopping=False),
-    'fixed15': LSTMConfig(max_epochs=15, early_stopping=False, track_train_ap=True),
 }
 LSTM_CONFIGS = {**PAPER_LSTM_CONFIGS, **ARCHIVED_LSTM_CONFIGS, **DIAGNOSTIC_LSTM_CONFIGS}
 

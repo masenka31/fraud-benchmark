@@ -1,5 +1,8 @@
 #!/usr/bin/env python
-"""Run and render the five-seed Sparkov training-label-delay comparison."""
+"""Run and render the archived five-seed XGBoost Sparkov label-delay comparison.
+
+Not used in the paper; the paper's Sparkov table is the LSTM in `lstm_protocol.py`.
+"""
 
 from __future__ import annotations
 
@@ -21,15 +24,15 @@ from fraud_benchmark.experiments.models import fit_xgboost
 REGIMES = ('off', 'on', 'slow')
 LABELS = {'off': 'No delay', 'on': 'Default delay', 'slow': 'Slow delay'}
 RESULTS = {
-    'off': Path('results/paper/sparkov_delay_off.json'),
-    'on': Path('results/paper/sparkov_delay_on.json'),
-    'slow': Path('results/paper/sparkov_delay_slow.json'),
+    'off': Path('results/archive/sparkov_xgboost/sparkov_delay_off.json'),
+    'on': Path('results/archive/sparkov_xgboost/sparkov_delay_on.json'),
+    'slow': Path('results/archive/sparkov_xgboost/sparkov_delay_slow.json'),
 }
-DEFAULT_TABLE = Path('results/paper/sparkov_label_delay.md')
+DEFAULT_TABLE = Path('results/archive/sparkov_xgboost/sparkov_label_delay.md')
 
 
 def recorded_result(regime: str) -> dict:
-    """Read one public paper-result snapshot."""
+    """Read one archived result snapshot."""
     return json.loads(RESULTS[regime].read_text())
 
 
