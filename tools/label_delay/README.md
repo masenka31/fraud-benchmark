@@ -104,7 +104,10 @@ and dropping it would presume knowledge of which rows to distrust:
 
 ```python
 def censored_labels(train: pd.DataFrame, cutoff: pd.Timestamp) -> np.ndarray:
-    known = train['is_fraud'].astype(bool) & (train['reported_at'] <= cutoff)
+    # reported_at reads back from CSV as text. If the input times were timezone-aware,
+    # reported_at is in UTC, so pass a UTC-aware cutoff.
+    reported = pd.to_datetime(train['reported_at'])
+    known = train['is_fraud'].astype(bool) & (reported <= cutoff)
     return known.to_numpy().astype(int)
 ```
 
