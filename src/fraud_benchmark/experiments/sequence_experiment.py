@@ -273,9 +273,7 @@ def prepare_sparkov(
     )
 
 
-def run_lstm(
-    prepared: PreparedSequence, seeds: tuple[int, ...], device: str, config: str
-) -> dict:
+def run_lstm(prepared: PreparedSequence, seeds: tuple[int, ...], device: str, config: str) -> dict:
     """Train and score one preset over `seeds` on a prepared Sparkov or IBM protocol."""
     seed_records = []
     for seed in seeds:

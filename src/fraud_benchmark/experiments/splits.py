@@ -55,9 +55,7 @@ def pre_italy_68_16_16_split(df: pd.DataFrame) -> pd.DataFrame:
     out = _pre_italy_rows(df)
     times = out['event_time']
     val_start, test_start = pre_italy_68_16_16_boundaries(times)
-    out['split'] = np.where(
-        times < val_start, 'train', np.where(times < test_start, 'val', 'test')
-    )
+    out['split'] = np.where(times < val_start, 'train', np.where(times < test_start, 'val', 'test'))
     return out
 
 
@@ -81,7 +79,8 @@ def _pre_italy_rows(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def iid_customer_split(
-    df: pd.DataFrame, seed: int = IID_SPLIT_SEED,
+    df: pd.DataFrame,
+    seed: int = IID_SPLIT_SEED,
     ratios: tuple[float, float, float] = (0.8, 0.1, 0.1),
 ) -> pd.DataFrame:
     """Deterministic customer-disjoint split balanced on transaction counts.
@@ -136,10 +135,9 @@ def iid_customer_split(
             for right in range(left + 1, 3):
                 right_index = np.flatnonzero(destinations == right)
                 delta = customer_rows[right_index][None, :] - customer_rows[left_index][:, None]
-                errors = (
-                    ((assigned[left] + delta - targets[left]) / targets[left]) ** 2
-                    + ((assigned[right] - delta - targets[right]) / targets[right]) ** 2
-                )
+                errors = ((assigned[left] + delta - targets[left]) / targets[left]) ** 2 + (
+                    (assigned[right] - delta - targets[right]) / targets[right]
+                ) ** 2
                 errors += current_error - (
                     ((assigned[left] - targets[left]) / targets[left]) ** 2
                     + ((assigned[right] - targets[right]) / targets[right]) ** 2

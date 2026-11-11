@@ -71,8 +71,11 @@ def model_settings(name: str) -> dict:
         'config': name,
         **asdict(config),
         'loss': 'binary cross entropy with visible-label positive weight '
-        + ('negatives/positives' if config.positive_weight == 'ratio'
-           else 'sqrt(negatives/positives)'),
+        + (
+            'negatives/positives'
+            if config.positive_weight == 'ratio'
+            else 'sqrt(negatives/positives)'
+        ),
     }
 
 
@@ -233,9 +236,9 @@ def train_and_predict(
         if device_name == 'auto'
         else device_name
     )
-    model = _model(
-        features.numeric.shape[1], features.cardinalities, config.input_layer_norm
-    ).to(device)
+    model = _model(features.numeric.shape[1], features.cardinalities, config.input_layer_norm).to(
+        device
+    )
     positives = int(y_fit[train].sum())
     if positives == 0:
         raise ValueError('training targets have no visible fraud labels')
