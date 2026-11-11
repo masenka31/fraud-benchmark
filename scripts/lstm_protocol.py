@@ -16,9 +16,9 @@ from fraud_benchmark.experiments.features.util import FEATURE_DIR
 from fraud_benchmark.experiments.lstm import ARCHIVED_LSTM_CONFIGS
 from fraud_benchmark.experiments.lstm import LSTM_CONFIGS
 from fraud_benchmark.experiments.sequence import complete_chunks
-from fraud_benchmark.experiments.sequence_experiment import IBM_DIAGNOSTIC_REGIMES
-from fraud_benchmark.experiments.sequence_experiment import IBM_PAPER_REGIMES
+from fraud_benchmark.experiments.sequence_experiment import IBM_ARCHIVED_REGIMES
 from fraud_benchmark.experiments.sequence_experiment import IBM_REGIMES
+from fraud_benchmark.experiments.sequence_experiment import IBM_TABLE3_REGIMES
 from fraud_benchmark.experiments.sequence_experiment import SPARKOV_REGIMES
 from fraud_benchmark.experiments.sequence_experiment import prepare_ibm
 from fraud_benchmark.experiments.sequence_experiment import prepare_sparkov
@@ -40,8 +40,13 @@ SPARKOV_PAPER_LENGTH = 10
 
 
 def _is_paper_cell(
-    dataset: str, model: str, regime: str, window_length: int,
-    window_stride: int | None, config: str, feature_set: str = 'full',
+    dataset: str,
+    model: str,
+    regime: str,
+    window_length: int,
+    window_stride: int | None,
+    config: str,
+    feature_set: str = 'full',
 ) -> bool:
     """The paper's two LSTM tables.
 
@@ -50,22 +55,31 @@ def _is_paper_cell(
     """
     if dataset == 'sparkov':
         return (
-            model == 'lstm' and window_length == SPARKOV_PAPER_LENGTH
-            and feature_set == 'full' and config == SPARKOV_PAPER_CONFIG
+            model == 'lstm'
+            and window_length == SPARKOV_PAPER_LENGTH
+            and feature_set == 'full'
+            and config == SPARKOV_PAPER_CONFIG
         )
     return (
-        dataset == 'ibm' and model == 'lstm' and regime in IBM_DIAGNOSTIC_REGIMES
-        and window_length == 10 and window_stride == 5 and config == PAPER_CONFIG
+        dataset == 'ibm'
+        and model == 'lstm'
+        and regime in IBM_TABLE3_REGIMES
+        and window_length == 10
+        and window_stride == 5
+        and config == PAPER_CONFIG
     )
 
 
 def _default_dir(
-    dataset: str, model: str, regime: str, window_length: int,
-    window_stride: int | None, config: str, feature_set: str = 'full',
+    dataset: str,
+    model: str,
+    regime: str,
+    window_length: int,
+    window_stride: int | None,
+    config: str,
+    feature_set: str = 'full',
 ) -> Path:
-    if _is_paper_cell(
-        dataset, model, regime, window_length, window_stride, config, feature_set
-    ):
+    if _is_paper_cell(dataset, model, regime, window_length, window_stride, config, feature_set):
         return SPARKOV_PAPER_DIR if dataset == 'sparkov' else PAPER
     if config in ARCHIVED_LSTM_CONFIGS:
         return ARCHIVE / 'lstm_presets'
@@ -73,8 +87,13 @@ def _default_dir(
 
 
 def _path(
-    dataset: str, model: str, regime: str, results_dir: Path | None,
-    window_length: int = 30, feature_set: str = 'full', window_stride: int | None = None,
+    dataset: str,
+    model: str,
+    regime: str,
+    results_dir: Path | None,
+    window_length: int = 30,
+    feature_set: str = 'full',
+    window_stride: int | None = None,
     config: str = 'default',
 ) -> Path:
     if results_dir is None:
@@ -93,8 +112,12 @@ def _path(
 
 
 def _read(
-    dataset: str, model: str, regimes: tuple[str, ...], results_dir: Path | None,
-    window_length: int = 30, feature_set: str = 'full',
+    dataset: str,
+    model: str,
+    regimes: tuple[str, ...],
+    results_dir: Path | None,
+    window_length: int = 30,
+    feature_set: str = 'full',
 ) -> dict:
     return {
         regime: json.loads(
@@ -132,7 +155,7 @@ def render_ibm(lstm: dict, xgboost: dict) -> str:
         'pre_italy_iid_chunks': 'Chunk IID',
         'pre_italy_iid_customers': 'Customer IID',
     }
-    for regime in IBM_PAPER_REGIMES:
+    for regime in IBM_ARCHIVED_REGIMES:
         for model, records in (('LSTM', lstm), ('XGBoost', xgboost)):
             record = records[regime]
             rows.append(
@@ -169,8 +192,8 @@ def render_ibm(lstm: dict, xgboost: dict) -> str:
     )
 
 
-def render_ibm_temporal_diagnostic(lstm: dict[str, dict], xgboost: dict[str, dict]) -> str:
-    """Render the paired 68/16/16 IBM sequence cells."""
+def render_ibm_68_16_16_default_preset(lstm: dict[str, dict], xgboost: dict[str, dict]) -> str:
+    """The Table 3 cells with the default LSTM preset and endpoint XGBoost (archived)."""
     temporal = lstm['pre_italy_68_16_16']
     length = temporal['chunk_length']
     stride = temporal['window_stride']
@@ -181,11 +204,9 @@ def render_ibm_temporal_diagnostic(lstm: dict[str, dict], xgboost: dict[str, dic
     }
     counts = []
     rows = []
-    for regime in IBM_DIAGNOSTIC_REGIMES:
+    for regime in IBM_TABLE3_REGIMES:
         record = lstm[regime]
-        for partition, label in (
-            ('train', 'Train'), ('val', 'Validation'), ('test', 'Test')
-        ):
+        for partition, label in (('train', 'Train'), ('val', 'Validation'), ('test', 'Test')):
             positives = record['positives'][partition]
             n_rows = record['rows'][partition]
             counts.append(
@@ -254,9 +275,12 @@ def render_sparkov(records: dict) -> str:
             f'The {length}-transaction windows, split, features, settings, and seeds are fixed;',
             'only synthetic training-label availability changes.',
             *(
-                ['Inputs are 21 raw-ish current-event/static features; '
-                 'no entity-history statistics are model inputs.']
-                if feature_set == 'rawish' else []
+                [
+                    'Inputs are 21 raw-ish current-event/static features; '
+                    'no entity-history statistics are model inputs.'
+                ]
+                if feature_set == 'rawish'
+                else []
             ),
             'Entries are mean ± population standard deviation over seeds 0–4.',
             'Test − validation AP is the mean within-seed difference; '
@@ -324,7 +348,11 @@ def sparkov_paper_records(directory: Path = SPARKOV_PAPER_DIR) -> dict[str, dict
     merged = {}
     for regime in SPARKOV_REGIMES:
         name = _path(
-            'sparkov', 'lstm', regime, directory, SPARKOV_PAPER_LENGTH,
+            'sparkov',
+            'lstm',
+            regime,
+            directory,
+            SPARKOV_PAPER_LENGTH,
             config=SPARKOV_PAPER_CONFIG,
         ).name
         paths = sorted(directory.rglob(name))
@@ -384,9 +412,7 @@ def sparkov_delay_settings() -> str:
     return (
         'Synthetic delays: frauds on one card form a campaign while each follows the previous '
         f'within {days:g} day{"" if days == 1 else "s"}; one lognormal delay per campaign, '
-        'from its last fraud ('
-        + '; '.join(parts)
-        + ').'
+        'from its last fraud (' + '; '.join(parts) + ').'
     )
 
 
@@ -403,8 +429,7 @@ def render_sparkov_paper(
     off = records['off']
     seeds = [row['seed'] for row in off['seeds']]
     test = {
-        regime: _values(record, 'test', 'average_precision')
-        for regime, record in records.items()
+        regime: _values(record, 'test', 'average_precision') for regime, record in records.items()
     }
     train_frauds = off['positives']['train']
 
@@ -428,8 +453,7 @@ def render_sparkov_paper(
 
     def row(label: str, cell, *, delayed_only: bool = True) -> str:
         cells = [
-            '–' if delayed_only and regime == 'off' else cell(regime)
-            for regime in SPARKOV_REGIMES
+            '–' if delayed_only and regime == 'off' else cell(regime) for regime in SPARKOV_REGIMES
         ]
         return f'| {label} | ' + ' | '.join(cells) + ' |'
 
@@ -486,7 +510,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--regime', choices=(*IBM_REGIMES, *SPARKOV_REGIMES))
     parser.add_argument('--features-dir', type=Path, default=FEATURE_DIR)
     parser.add_argument(
-        '--results-dir', type=Path,
+        '--results-dir',
+        type=Path,
         help='write records here; by default paper cells go to results/paper '
         'and others to results/archive',
     )
@@ -497,7 +522,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--window-stride', type=int, help='IBM window step; defaults to length')
     parser.add_argument('--feature-set', choices=('full', 'rawish'), default='full')
     parser.add_argument(
-        '--lstm-config', choices=tuple(LSTM_CONFIGS), default='default',
+        '--lstm-config',
+        choices=tuple(LSTM_CONFIGS),
+        default='default',
         help=f'LSTM training preset ({PAPER_CONFIG} for the paper IBM split table, '
         f'{SPARKOV_PAPER_CONFIG} for the paper Sparkov label-delay table; archived presets '
         f'are {", ".join(ARCHIVED_LSTM_CONFIGS)}); '
@@ -523,7 +550,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.lstm_config != 'default' and args.model != 'lstm':
         parser.error('--lstm-config applies to --model lstm only')
     if args.dataset == 'sparkov' and args.model != 'lstm':
-        parser.error('Sparkov XGBoost already has its own paper protocol')
+        parser.error('Sparkov XGBoost has its own runner, sparkov_delay_protocol.py')
     if args.dataset == 'ibm' and args.feature_set != 'full':
         parser.error('the raw-ish feature set is currently defined for Sparkov only')
     if args.regime and args.regime not in (
@@ -537,16 +564,22 @@ def main(argv: list[str] | None = None) -> int:
         if args.dataset == 'ibm':
             source = pre_italy_split(pd.read_parquet(args.features_dir / 'ibm_ccf.parquet'))
             chunks = complete_chunks(
-                source['entity_id'], source['event_time'], args.window_length,
+                source['entity_id'],
+                source['event_time'],
+                args.window_length,
                 args.window_stride,
             )
             print(f'IBM: {len(chunks.rows):,} complete endpoint windows', flush=True)
-            for regime in (args.regime,) if args.regime else IBM_PAPER_REGIMES:
+            for regime in (args.regime,) if args.regime else IBM_ARCHIVED_REGIMES:
                 wanted = ('lstm', 'xgboost') if args.model == 'both' else (args.model,)
                 if args.resume and all(
                     _path(
-                        'ibm', model, regime, args.results_dir,
-                        args.window_length, window_stride=args.window_stride,
+                        'ibm',
+                        model,
+                        regime,
+                        args.results_dir,
+                        args.window_length,
+                        window_stride=args.window_stride,
                         config=args.lstm_config,
                     ).exists()
                     for model in wanted
@@ -554,8 +587,12 @@ def main(argv: list[str] | None = None) -> int:
                     print(f'Skipping completed IBM {regime}', flush=True)
                     continue
                 prepared = prepare_ibm(
-                    regime, args.features_dir, source=source, chunks=chunks,
-                    source_prepared=True, window_length=args.window_length,
+                    regime,
+                    args.features_dir,
+                    source=source,
+                    chunks=chunks,
+                    source_prepared=True,
+                    window_length=args.window_length,
                     window_stride=args.window_stride,
                 )
                 print(f'IBM {regime}: {prepared.metadata["positives"]}', flush=True)
@@ -563,16 +600,24 @@ def main(argv: list[str] | None = None) -> int:
                     continue
                 if args.model in ('lstm', 'both'):
                     path = _path(
-                        'ibm', 'lstm', regime, args.results_dir,
-                        args.window_length, window_stride=args.window_stride,
+                        'ibm',
+                        'lstm',
+                        regime,
+                        args.results_dir,
+                        args.window_length,
+                        window_stride=args.window_stride,
                         config=args.lstm_config,
                     )
                     if not (args.resume and path.exists()):
                         _write(path, run_lstm(prepared, seeds, args.device, args.lstm_config))
                 if args.model in ('xgboost', 'both'):
                     path = _path(
-                        'ibm', 'xgboost', regime, args.results_dir,
-                        args.window_length, window_stride=args.window_stride,
+                        'ibm',
+                        'xgboost',
+                        regime,
+                        args.results_dir,
+                        args.window_length,
+                        window_stride=args.window_stride,
                     )
                     if not (args.resume and path.exists()):
                         _write(path, run_ibm_xgboost(prepared, seeds))
@@ -580,16 +625,24 @@ def main(argv: list[str] | None = None) -> int:
             source = standard_split(pd.read_parquet(args.features_dir / 'sparkov.parquet'))
             for regime in (args.regime,) if args.regime else SPARKOV_REGIMES:
                 path = _path(
-                    'sparkov', 'lstm', regime, args.results_dir,
-                    args.window_length, args.feature_set, config=args.lstm_config,
+                    'sparkov',
+                    'lstm',
+                    regime,
+                    args.results_dir,
+                    args.window_length,
+                    args.feature_set,
+                    config=args.lstm_config,
                 )
                 if args.resume and path.exists():
                     print(f'Skipping completed Sparkov {regime}', flush=True)
                     continue
                 prepared = prepare_sparkov(
-                    regime, args.features_dir, source=source,
-                    source_prepared=True, window_length=args.window_length,
-                    feature_set=args.feature_set
+                    regime,
+                    args.features_dir,
+                    source=source,
+                    source_prepared=True,
+                    window_length=args.window_length,
+                    feature_set=args.feature_set,
                 )
                 print(f'Sparkov {regime}: {prepared.metadata["positives"]}', flush=True)
                 if not args.prepare_only:
@@ -602,7 +655,12 @@ def main(argv: list[str] | None = None) -> int:
     ):
         if all(
             _path(
-                'sparkov', 'lstm', regime, None, args.window_length, args.feature_set,
+                'sparkov',
+                'lstm',
+                regime,
+                None,
+                args.window_length,
+                args.feature_set,
                 config=args.lstm_config,
             ).exists()
             for regime in SPARKOV_REGIMES
@@ -618,13 +676,19 @@ def main(argv: list[str] | None = None) -> int:
     if args.lstm_config != 'default':
         paper = {
             regime: _path(
-                'ibm', 'lstm', regime, None, args.window_length,
-                window_stride=args.window_stride, config=args.lstm_config,
+                'ibm',
+                'lstm',
+                regime,
+                None,
+                args.window_length,
+                window_stride=args.window_stride,
+                config=args.lstm_config,
             )
-            for regime in IBM_DIAGNOSTIC_REGIMES
+            for regime in IBM_TABLE3_REGIMES
         }
         if (
-            args.dataset == 'ibm' and args.regime in IBM_DIAGNOSTIC_REGIMES
+            args.dataset == 'ibm'
+            and args.regime in IBM_TABLE3_REGIMES
             and all(path.parent == PAPER and path.exists() for path in paper.values())
         ):
             records = {regime: json.loads(path.read_text()) for regime, path in paper.items()}
@@ -632,29 +696,37 @@ def main(argv: list[str] | None = None) -> int:
             print(f'Wrote {PAPER_TABLE}', flush=True)
         return 0
     if args.dataset == 'ibm':
-        if args.regime in IBM_DIAGNOSTIC_REGIMES:
+        if args.regime in IBM_TABLE3_REGIMES:
             paths = {
                 (model, regime): _path(
-                    'ibm', model, regime, args.results_dir,
-                    args.window_length, window_stride=args.window_stride,
+                    'ibm',
+                    model,
+                    regime,
+                    args.results_dir,
+                    args.window_length,
+                    window_stride=args.window_stride,
                 )
                 for model in ('lstm', 'xgboost')
-                for regime in IBM_DIAGNOSTIC_REGIMES
+                for regime in IBM_TABLE3_REGIMES
             }
             if all(path.exists() for path in paths.values()):
-                table = ARCHIVE / 'ibm_sequence' / (
-                    f'ibm_lstm_pre_italy_68_16_16_len{args.window_length}'
-                    f'_stride{args.window_stride or args.window_length}.md'
+                table = (
+                    ARCHIVE
+                    / 'ibm_sequence'
+                    / (
+                        f'ibm_lstm_pre_italy_68_16_16_len{args.window_length}'
+                        f'_stride{args.window_stride or args.window_length}.md'
+                    )
                 )
                 records = {
                     model: {
                         regime: json.loads(paths[model, regime].read_text())
-                        for regime in IBM_DIAGNOSTIC_REGIMES
+                        for regime in IBM_TABLE3_REGIMES
                     }
                     for model in ('lstm', 'xgboost')
                 }
                 table.write_text(
-                    render_ibm_temporal_diagnostic(records['lstm'], records['xgboost']) + '\n'
+                    render_ibm_68_16_16_default_preset(records['lstm'], records['xgboost']) + '\n'
                 )
                 print(f'Wrote {table}', flush=True)
             return 0
@@ -663,17 +735,24 @@ def main(argv: list[str] | None = None) -> int:
         if all(
             _path('ibm', model, regime, args.results_dir, args.window_length).exists()
             for model in ('lstm', 'xgboost')
-            for regime in IBM_PAPER_REGIMES
+            for regime in IBM_ARCHIVED_REGIMES
         ):
-            table = IBM_TABLE if args.window_length == 30 else IBM_TABLE.with_stem(
-                f'{IBM_TABLE.stem}_len{args.window_length}'
+            table = (
+                IBM_TABLE
+                if args.window_length == 30
+                else IBM_TABLE.with_stem(f'{IBM_TABLE.stem}_len{args.window_length}')
             )
             table.write_text(
                 render_ibm(
-                    _read('ibm', 'lstm', IBM_PAPER_REGIMES, args.results_dir, args.window_length),
                     _read(
-                        'ibm', 'xgboost', IBM_PAPER_REGIMES,
-                        args.results_dir, args.window_length,
+                        'ibm', 'lstm', IBM_ARCHIVED_REGIMES, args.results_dir, args.window_length
+                    ),
+                    _read(
+                        'ibm',
+                        'xgboost',
+                        IBM_ARCHIVED_REGIMES,
+                        args.results_dir,
+                        args.window_length,
                     ),
                 )
                 + '\n'
@@ -686,9 +765,7 @@ def main(argv: list[str] | None = None) -> int:
         for regime in SPARKOV_REGIMES
     ):
         if args.feature_set == 'rawish':
-            table = SPARKOV_TABLE.with_stem(
-                f'{SPARKOV_TABLE.stem}_rawish_len{args.window_length}'
-            )
+            table = SPARKOV_TABLE.with_stem(f'{SPARKOV_TABLE.stem}_rawish_len{args.window_length}')
         elif args.window_length == 30:
             table = SPARKOV_TABLE
         else:
@@ -696,10 +773,15 @@ def main(argv: list[str] | None = None) -> int:
         table.write_text(
             render_sparkov(
                 _read(
-                    'sparkov', 'lstm', SPARKOV_REGIMES, args.results_dir,
-                    args.window_length, args.feature_set
+                    'sparkov',
+                    'lstm',
+                    SPARKOV_REGIMES,
+                    args.results_dir,
+                    args.window_length,
+                    args.feature_set,
                 )
-            ) + '\n'
+            )
+            + '\n'
         )
         print(f'Wrote {table}', flush=True)
     return 0

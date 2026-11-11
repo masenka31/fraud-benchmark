@@ -1,4 +1,4 @@
-"""Preparation invariants shared by the two public paper protocols."""
+"""Preparation invariants shared by the archived XGBoost protocols."""
 
 import numpy as np
 import pandas as pd

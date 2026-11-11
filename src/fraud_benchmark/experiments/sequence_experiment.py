@@ -1,4 +1,8 @@
-"""Data preparation and scoring for the two LSTM paper protocols."""
+"""Data preparation and scoring for the LSTM sequence protocols.
+
+The paper's Table 3 uses the IBM `IBM_TABLE3_REGIMES` and Table 4 the Sparkov
+`SPARKOV_REGIMES`; the 80/10/10 IBM regimes are kept for the archived records.
+"""
 
 from __future__ import annotations
 
@@ -41,22 +45,41 @@ from fraud_benchmark.experiments.splits import pre_italy_iid_customer_split
 from fraud_benchmark.experiments.splits import pre_italy_split
 from fraud_benchmark.experiments.splits import standard_split
 
-IBM_PAPER_REGIMES = ('pre_italy', 'pre_italy_iid_chunks', 'pre_italy_iid_customers')
-IBM_DIAGNOSTIC_REGIMES = (
+#: Earlier 80/10/10 IBM cells, kept so the archived records stay reproducible.
+IBM_ARCHIVED_REGIMES = ('pre_italy', 'pre_italy_iid_chunks', 'pre_italy_iid_customers')
+#: The paper's Table 3: temporal, window iid and customer iid on 68/16/16.
+IBM_TABLE3_REGIMES = (
     'pre_italy_68_16_16',
     'pre_italy_iid_chunks_68_16_16',
     'pre_italy_iid_customers_68_16_16',
 )
-IBM_REGIMES = (*IBM_PAPER_REGIMES, *IBM_DIAGNOSTIC_REGIMES)
-IBM_DIAGNOSTIC_RATIOS = (0.68, 0.16, 0.16)
+IBM_REGIMES = (*IBM_ARCHIVED_REGIMES, *IBM_TABLE3_REGIMES)
+IBM_TABLE3_RATIOS = (0.68, 0.16, 0.16)
 SPARKOV_REGIMES = ('off', 'on', 'slow')
 SPLIT_CODE = {'train': 0, 'val': 1, 'test': 2}
 RARITY_NAMES = ['state_prior_rarity', 'state_not_seen_previously', 'foreign_state_rarity']
 SPARKOV_RAWISH_FEATURES = (
-    'hour', 'minute', 'weekday', 'day', 'month', 'is_weekend', 'hour_sin', 'hour_cos',
-    'amount', 'amount_log1p', 'amount_is_refund', 'amount_cents',
-    'amount_is_round_10', 'amount_is_round_100', 'amount_is_micro',
-    'distance_from_home_km', 'category', 'job', 'gender', 'age_at_txn', 'city_pop_log',
+    'hour',
+    'minute',
+    'weekday',
+    'day',
+    'month',
+    'is_weekend',
+    'hour_sin',
+    'hour_cos',
+    'amount',
+    'amount_log1p',
+    'amount_is_refund',
+    'amount_cents',
+    'amount_is_round_10',
+    'amount_is_round_100',
+    'amount_is_micro',
+    'distance_from_home_km',
+    'category',
+    'job',
+    'gender',
+    'age_at_txn',
+    'city_pop_log',
 )
 
 
@@ -104,14 +127,12 @@ def _ibm_split(df: pd.DataFrame, chunks: Chunks, regime: str) -> tuple[np.ndarra
         return source[chunks.targets], source
     if regime == 'pre_italy_iid_customers_68_16_16':
         endpoints = df[['entity_id', 'event_time']].iloc[chunks.targets]
-        assignment = iid_customer_split(
-            endpoints, seed=IID_SPLIT_SEED, ratios=IBM_DIAGNOSTIC_RATIOS
-        )
+        assignment = iid_customer_split(endpoints, seed=IID_SPLIT_SEED, ratios=IBM_TABLE3_RATIOS)
         mapping = assignment.drop_duplicates('entity_id').set_index('entity_id')['split']
         source = df['entity_id'].map(mapping).map(SPLIT_CODE).fillna(-1).to_numpy(dtype='int8')
         return source[chunks.targets], source
     if regime == 'pre_italy_iid_chunks_68_16_16':
-        target = iid_chunk_split(len(chunks.rows), IID_SPLIT_SEED, IBM_DIAGNOSTIC_RATIOS)
+        target = iid_chunk_split(len(chunks.rows), IID_SPLIT_SEED, IBM_TABLE3_RATIOS)
         source = np.full(len(df), -1, dtype='int8')
         source[chunks.targets] = target
         return target, source
@@ -197,8 +218,10 @@ def prepare_ibm(
             'tie_policy': 'source row order within equal entity timestamps',
             'split_seed': IID_SPLIT_SEED if 'iid' in regime else None,
             'split_unit': (
-                'overlapping windows' if regime == 'pre_italy_iid_chunks_68_16_16'
-                else 'customers' if regime == 'pre_italy_iid_customers_68_16_16'
+                'overlapping windows'
+                if regime == 'pre_italy_iid_chunks_68_16_16'
+                else 'customers'
+                if regime == 'pre_italy_iid_customers_68_16_16'
                 else 'source transactions'
             ),
             'features': names,

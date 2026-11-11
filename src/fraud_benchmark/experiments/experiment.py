@@ -1,4 +1,4 @@
-"""Shared preparation for the two public paper protocols.
+"""Shared preparation for the archived XGBoost protocols.
 
 This module reads a feature parquet, applies the protocol's split, fits categorical
 encoding on training rows only, and constructs training labels at the train cutoff.
@@ -58,9 +58,9 @@ class ExperimentConfig:
         if self.split.startswith('pre_italy') and self.dataset != 'ibm_ccf':
             raise ExperimentError('pre-Italy splits are defined only for IBM CCF')
         if self.dataset == 'ibm_ccf' and not self.split.startswith('pre_italy'):
-            raise ExperimentError('the public IBM paper protocol uses pre-Italy rows only')
+            raise ExperimentError('the IBM XGBoost protocol uses pre-Italy rows only')
         if self.dataset == 'sparkov' and self.split != 'standard':
-            raise ExperimentError('the public Sparkov paper protocol uses the standard split')
+            raise ExperimentError('the Sparkov XGBoost protocol uses the standard split')
 
 
 @dataclass

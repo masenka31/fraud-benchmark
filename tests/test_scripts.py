@@ -1,4 +1,4 @@
-"""The public `scripts/` surface: three preparation stages and two paper protocols.
+"""The public `scripts/` surface: three preparation stages and the protocol runners.
 
 Stages 1 to 3 are reachable two ways -- `fraud-benchmark download|prepare` for someone
 who wants prepared data, and `scripts/*.py` for someone working on the study. That is
@@ -47,7 +47,7 @@ def config_file(tmp_path):
     return path
 
 
-# --- the three preparation stages and paper protocols exist ------------------
+# --- the three preparation stages and the protocol runners exist ------------
 
 
 STAGES = ('download', 'prepare', 'features')

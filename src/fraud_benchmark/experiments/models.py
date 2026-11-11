@@ -1,4 +1,4 @@
-"""Fixed XGBoost configuration shared by the two public paper protocols."""
+"""Fixed XGBoost configuration shared by the XGBoost protocols and Figure 2."""
 
 from __future__ import annotations
 

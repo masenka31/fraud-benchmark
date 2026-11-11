@@ -14,7 +14,7 @@ from fraud_benchmark.experiments.lstm import encode_features
 from fraud_benchmark.experiments.sequence import complete_chunks
 from fraud_benchmark.experiments.sequence import iid_chunk_split
 from fraud_benchmark.experiments.sequence import window_index
-from fraud_benchmark.experiments.sequence_experiment import IBM_PAPER_REGIMES
+from fraud_benchmark.experiments.sequence_experiment import IBM_ARCHIVED_REGIMES
 from fraud_benchmark.experiments.sequence_experiment import SPARKOV_RAWISH_FEATURES
 from fraud_benchmark.experiments.sequence_experiment import _ibm_split
 from fraud_benchmark.experiments.sequence_experiment import prepare_ibm
@@ -103,12 +103,8 @@ def test_stride_five_iid_cells_share_endpoints_and_use_68_16_16_shares():
         }
     )
     windows = complete_chunks(frame['entity_id'], frame['event_time'], length=10, stride=5)
-    window_split, window_source = _ibm_split(
-        frame, windows, 'pre_italy_iid_chunks_68_16_16'
-    )
-    customer_split, customer_source = _ibm_split(
-        frame, windows, 'pre_italy_iid_customers_68_16_16'
-    )
+    window_split, window_source = _ibm_split(frame, windows, 'pre_italy_iid_chunks_68_16_16')
+    customer_split, customer_source = _ibm_split(frame, windows, 'pre_italy_iid_customers_68_16_16')
     assert windows.targets.shape == (60,)
     assert np.bincount(window_split).tolist() == [40, 10, 10]
     assert np.bincount(customer_split).tolist() == [39, 9, 12]
@@ -230,7 +226,7 @@ def test_ibm_regimes_keep_the_same_endpoints_and_no_label_derived_inputs():
     )
     for index in range(73):
         frame[f'feature_{index}'] = np.ones(len(frame), dtype='float32')
-    prepared = [prepare_ibm(regime, source=frame) for regime in IBM_PAPER_REGIMES]
+    prepared = [prepare_ibm(regime, source=frame) for regime in IBM_ARCHIVED_REGIMES]
     endpoints = [
         item.positions_for(np.arange(len(item.y_true), dtype='int32'))[0][:, -1]
         for item in prepared
@@ -325,7 +321,7 @@ def test_every_lstm_preset_trains_and_is_seed_deterministic(monkeypatch, name):
     np.testing.assert_array_equal(first[1], second[1])
     assert len(first[2]['history']) <= config.max_epochs
     ratio = 34 / 6
-    expected = ratio ** 0.5 if config.positive_weight == 'sqrt' else ratio
+    expected = ratio**0.5 if config.positive_weight == 'sqrt' else ratio
     assert first[2]['positive_weight'] == pytest.approx(expected)
 
 
@@ -351,6 +347,7 @@ def test_train_ap_tracking_records_visible_and_true_labels(monkeypatch, capsys):
 
 def _lstm_runner():
     import importlib.util
+
     spec = importlib.util.spec_from_file_location('lstm_protocol', 'scripts/lstm_protocol.py')
     runner = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(runner)
@@ -361,7 +358,12 @@ def test_non_default_lstm_presets_write_separate_records(tmp_path):
     runner = _lstm_runner()
     default = runner._path('ibm', 'lstm', 'pre_italy_68_16_16', tmp_path, 10, window_stride=5)
     tuned = runner._path(
-        'ibm', 'lstm', 'pre_italy_68_16_16', tmp_path, 10, window_stride=5,
+        'ibm',
+        'lstm',
+        'pre_italy_68_16_16',
+        tmp_path,
+        10,
+        window_stride=5,
         config='sqrt_weight',
     )
     assert default.name == 'ibm_lstm_pre_italy_68_16_16_len10_stride5.json'
@@ -371,7 +373,12 @@ def test_non_default_lstm_presets_write_separate_records(tmp_path):
 def test_only_paper_cells_default_to_the_paper_folder():
     runner = _lstm_runner()
     paper = runner._path(
-        'ibm', 'lstm', 'pre_italy_iid_customers_68_16_16', None, 10, window_stride=5,
+        'ibm',
+        'lstm',
+        'pre_italy_iid_customers_68_16_16',
+        None,
+        10,
+        window_stride=5,
         config='sqrt_weight_slow',
     )
     assert paper.parent == Path('results/paper')
@@ -382,7 +389,13 @@ def test_only_paper_cells_default_to_the_paper_folder():
     }
     assert {path.parent for path in archived} == {Path('results/archive/ibm_sequence')}
     rejected = runner._path(
-        'ibm', 'lstm', 'pre_italy_68_16_16', None, 10, window_stride=5, config='sqrt_weight',
+        'ibm',
+        'lstm',
+        'pre_italy_68_16_16',
+        None,
+        10,
+        window_stride=5,
+        config='sqrt_weight',
     )
     assert rejected.parent == Path('results/archive/lstm_presets')
     sparkov = runner._path('sparkov', 'lstm', 'slow', None, 10, config='fixed15')
