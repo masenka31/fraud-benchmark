@@ -25,7 +25,7 @@ _SPLIT_NAMES = np.asarray(('train', 'val', 'test'))
 
 
 def standard_split(df: pd.DataFrame) -> pd.DataFrame:
-    """The pipeline's own temporal 80/10/10, matching the reported ~0.5 baseline."""
+    """A temporal 80/10/10 recomputed on timestamp quantiles (Table 4's split)."""
     df = df.sort_values('event_time', kind='mergesort').reset_index(drop=True)
     t = df['event_time']
     val_start, test_start = t.quantile(0.8), t.quantile(0.9)
@@ -34,7 +34,11 @@ def standard_split(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def pre_italy_split(df: pd.DataFrame) -> pd.DataFrame:
-    """Temporal 80/10/10 split over rows strictly before the first Italy fraud."""
+    """Rows strictly before the first Italy fraud, in time order.
+
+    Also assigns a positional 80/10/10 `split`; the paper's IBM experiments use the rows
+    and recompute their own 68/16/16 or iid assignment.
+    """
     out = _pre_italy_rows(df)
     train_end = int(0.8 * len(out))
     val_end = int(0.9 * len(out))

@@ -55,10 +55,10 @@ writing `to_canonical` and `column_mapping`, and optionally overriding `custom_s
 Everything that happens after a dataset is prepared. Reads `data/processed/`, writes
 `data/features/`, and never writes to `data/processed/`. Imports from `data` freely.
 
-Three of the seven registered datasets are run experimentally: **IBM CCF**, **SAML-D**
-and **Sparkov**, the last under three label-delay regimes. The other four (paysim,
-banksim, ieee_cis, amaretto) are prepared and documented but not modelled, so nothing
-in this package mentions them.
+Three of the seven registered datasets have feature modules: **IBM CCF**, **SAML-D** and
+**Sparkov**. The paper's experiments use IBM CCF and Sparkov, the latter under three
+label-delay regimes. The other four (paysim, banksim, ieee_cis, amaretto) are prepared and
+documented but not modelled, so nothing in this package mentions them.
 
 ### Feature extraction — `experiments/features/`
 
@@ -76,8 +76,7 @@ to what SAML-D's model sees, so no feature is declared in shared code.
 A feature parquet carries `entity_id`, `event_time`, `reported_at`, `is_fraud`, `split`
 and nothing else raw: every other column was computed deliberately. Features are
 **unfitted** — engineered, but with no vocabulary capped, no ordinal code assigned and
-nothing scaled — so one parquet is valid under both the standard split and the Italy
-holdout. Columns naming an absolute place or a specific counterparty carry an
+nothing scaled — so one parquet is valid under every split the experiments recompute. Columns naming an absolute place or a specific counterparty carry an
 `artifact_` prefix, which is how a downstream filter drops the group that lets a model
 memorise "Italy = fraud" instead of learning fraud.
 
@@ -107,9 +106,10 @@ seed. The protocol fixes every comparison axis except the one named by its table
 
 ## 3. Runners — `scripts/`
 
-**Argparse and an output path, nothing else.** Every script here is a CLI over a module
-in the installed package, so nothing importable lives outside `src/` and a test never
-has to reach into `scripts/` to get at a decision.
+**Mostly argparse and an output path.** The preparation stages are CLIs over modules in
+the installed package. The paper's runners also hold logic of their own:
+`lstm_protocol.py` merges and renders Tables 3 and 4, and `ibm_downsampling_curves.py`
+builds Figure 2's features. Their tests load the scripts by path.
 
 The preparation stages are the first three rows, in order. Each takes `--dataset` or
 `--all`. `lstm_protocol.py` reproduces the paper's Tables 3 and 4 and
@@ -130,8 +130,9 @@ download|prepare` serves someone who wants prepared datasets, these scripts serv
 someone working on the study. Neither owns the behaviour — both call the same function
 in `data/pipeline.py` and take their `--all` semantics from `data/selection.py`, and
 `tests/test_scripts.py` asserts the identity of what each door calls rather than trusting
-the two to stay similar. Paper protocols have no console command: they need the `dev`
-extras, so adding them would make `fraud-benchmark list` fail on a base install.
+the two to stay similar. The paper's runners have no console command: they need the
+`lstm` or `dev` extras, so adding them would make `fraud-benchmark list` fail on a base
+install.
 
 The public figure scripts share one palette, `fraud_benchmark.figures`, so the figures
 read as one system and a colour is defined once. Outputs land in `results/figures/`.

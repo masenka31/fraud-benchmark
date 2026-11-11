@@ -12,7 +12,7 @@ directly and carries as `reported_at_slow`, so one parquet holds both regimes.
 Each module names every feature it produces, and reading that one file is meant to be
 the whole answer to what its model sees. This script only chooses which of them to run;
 `python -m fraud_benchmark.experiments.features.sparkov` remains equivalent for one
-dataset, and is what the sbatch jobs call.
+dataset.
 
 Requires stage 2 to have run: a missing `data/processed/<name>/data.parquet` fails that
 dataset alone and the others continue.

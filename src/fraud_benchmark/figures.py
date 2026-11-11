@@ -1,6 +1,6 @@
 """The one palette every figure in this repository draws with.
 
-Shared so the figures read as one system: three scripts under `scripts/figures/` emit
+Shared so the figures read as one system: two scripts under `scripts/figures/` emit
 into `results/figures/`, and a colour defined twice drifts. Previously
 `plot_dataset_caveats.py` imported it from `plot_monthly_fraud.py` as a bare sibling
 module, which only resolved because the interpreter puts a script's own directory on

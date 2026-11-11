@@ -46,8 +46,8 @@ recording provenance, counts, split strategy, delay parameters and caveats.
 raw files already there and skips it. Both take `--all`, and one unavailable dataset
 fails on its own without stopping the rest.
 
-Every preparation stage is also a script under `scripts/`; the two paper experiments
-have dedicated reproducible runners described below.
+Every preparation stage is also a script under `scripts/`; the paper's experiments have
+dedicated reproducible runners described below.
 
 ## Datasets
 
@@ -142,8 +142,8 @@ cutoff. Those rows are not missing from training data; they sit in it looking le
 | `sparkov` | 7d | 2.2% |
 | `ibm_ccf` | 7d | 0.0% |
 
-Censoring is measured at each dataset's own train cutoff (for `sparkov`, its upstream
-train file). The paper's Sparkov experiment recomputes a chronological 80/10/10 split,
+Censoring is measured at each dataset's own train cutoff (for `sparkov`, a 487-day train
+split whose validation is carved from the tail of the upstream train file). The paper's Sparkov experiment recomputes a chronological 80/10/10 split,
 where the shares are 1.6% (`sparkov`) and 6.1% (`sparkov_slow`).
 
 `ibm_ccf` is effectively undelayed — 7 days against a 9,629-day train window censors 3

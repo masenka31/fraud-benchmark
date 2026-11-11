@@ -90,8 +90,8 @@ reported late under one regime is reported late under the others.
 
 How much a delay matters depends on the delay relative to your **training window**,
 not on the delay alone. The same 7-day delay leaves 2.2% of Sparkov's training frauds
-unreported (the upstream train file, 487 days), 0.0% of IBM CCF's (9,629 days) and 52.7%
-of PaySim's (14 days). Pass `--cutoff` and read the printed share. Without `--cutoff`, the script
+unreported (its own 487-day train split), 0.0% of IBM CCF's (9,629 days) and 52.7% of
+PaySim's (14 days). Pass `--cutoff` and read the printed share. Without `--cutoff`, the script
 reports the share at the 50th, 70th and 80th percentiles of time as a guide.
 
 To censor more, raise `sigma` before raising the median: a fatter tail censors more

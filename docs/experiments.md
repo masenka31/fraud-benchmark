@@ -35,7 +35,8 @@ separates them clearly.
 - **Features:** 90 columns. Unlike the repository's standard preparation, they keep the
   `artifact_*` columns and add merchant-state rarity and chronological fraud rates for five
   artifact categories. Every count and rate is fitted on training rows only, and a
-  training row sees only earlier training labels.
+  training row sees only the labels of training rows before it in time order (rows with
+  the same timestamp in the order of a stable sort).
 
 ```bash
 .venv/bin/python scripts/ibm_downsampling_curves.py
@@ -108,7 +109,7 @@ Caveats:
   transaction of each training window. All three are label-free, but they make the columns
   differ slightly beyond the split itself.
 - The last fraud in this population is on 2016-12-22, so about 48% of the test-period
-  transactions (2016-12-22 to 2017-11-19) contain no fraud.
+  transactions (2016-12-22 to 2017-11-19) fall after the last fraud.
 - The three test sets have slightly different fraud rates, so the test − validation row
   is a cleaner comparison than test AP alone.
 
@@ -175,6 +176,20 @@ AP entries are mean ± population standard deviation over the ten seeds. Δ is t
 within-seed difference in test AP to the no-delay run, with its standard error in
 parentheses. Delays are realised transaction-to-report delays over all Sparkov frauds.
 
+## Regenerating and rerunning Tables 3 and 4
+
+The window length, IBM stride and training preset of each table are fixed in
+`scripts/lstm_protocol.py`, so its commands take no model flags. To regenerate a table
+from the committed records without training, run
+`scripts/lstm_protocol.py --dataset ibm --render-only` or `--dataset sparkov --render-only`.
+The Sparkov table also recomputes its delay rows from `data/features/sparkov.parquet` and
+reads the delay parameters from `configs/default.yaml`, so it needs the features built.
+
+A rerun writes to the same files: rerunning Sparkov seeds 0–4 replaces the committed
+records, and the table then merges them with the committed seeds 5–9. The merge refuses
+records whose settings differ, or seeds run on different devices; the committed records
+ran on the CPU, so pass `--device cpu`.
+
 ## IBM CCF: TabFormer fraud task (Table 5, described only)
 
 Shows that the window labeling convention and the split decide which method looks better.
@@ -185,8 +200,8 @@ PyTorch 1.6, transformers 3.2), not on this package.
 
 - **Task:** the TabFormer fraud-detection task (Padhi et al., 2021) on IBM CCF, rebuilt
   from the released code because the paper states neither the labeling rule nor the split.
-- **Windows:** each user's transactions in file order, cut into complete windows of 10
-  with stride 10, as upstream builds them: 2,437,789 windows.
+- **Windows:** each user's transactions in time order, cut into complete windows of 10
+  with stride 10: 2,437,789 windows.
 - **Labels:**
   - *any-fraud* (the original rule, recovered from the released code): a window is fraud
     if any of its transactions is;
@@ -227,11 +242,9 @@ Caveats:
   validation and test periods (without labels), so the temporal TabBERT row may not be
   strictly chronological.
 
-The window length, IBM stride and training preset of each table are fixed in
-`scripts/lstm_protocol.py`, so the commands above take no model flags. To regenerate the
-IBM table from the saved records without training, run
-`scripts/lstm_protocol.py --dataset ibm --render-only`.
+## Earlier experiments
 
-Earlier experiments that are not in the paper (XGBoost versions of both tables, 80/10/10
-IBM LSTM cells, other window lengths and presets) were removed for the camera-ready
-version. Their code and records remain in the git tag `pre-camera-ready-cleanup`.
+Earlier experiments that are not in the paper (XGBoost versions of Tables 3 and 4,
+80/10/10 IBM LSTM cells, other window lengths and presets) were removed for the
+camera-ready version. Their code and records remain in the git tag
+`pre-camera-ready-cleanup`.
