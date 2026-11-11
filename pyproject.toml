@@ -20,8 +20,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# None of these is used by dataset preparation. They back the two paper protocols,
-# their XGBoost model, tests, and public figure scripts.
+# None of these is used by dataset preparation. They back the paper's experiments,
+# tests, and public figure scripts.
 dev = [
     "pytest>=8",
     "scikit-learn>=1.4",
@@ -36,7 +36,6 @@ dev = [
 lstm = [
     "torch>=2.4",
     "scikit-learn>=1.4",
-    "xgboost>=2.0",
 ]
 
 [project.scripts]

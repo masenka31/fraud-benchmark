@@ -174,8 +174,7 @@ for dataset in sparkov sparkov_slow; do
 done
 .venv/bin/python scripts/features.py --dataset sparkov
 .venv/bin/pip install -e ".[lstm]"
-.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --window-length 10 \
-  --lstm-config fixed15 --device cpu   # seeds 0–4
+.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --device cpu   # seeds 0–4
 ```
 
 The two LSTM experiments need the optional `lstm` dependencies, and the IBM one needs a

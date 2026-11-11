@@ -82,10 +82,9 @@ Suggests that an iid split hides concept drift that a temporal split reveals.
 
 ```bash
 .venv/bin/pip install -e ".[lstm]"   # PyTorch matching your GPU; CPU works but is slow
-for regime in pre_italy_68_16_16 pre_italy_iid_chunks_68_16_16 pre_italy_iid_customers_68_16_16; do
-  .venv/bin/python scripts/lstm_protocol.py --dataset ibm --regime $regime \
-    --window-length 10 --window-stride 5 --model lstm --lstm-config sqrt_weight_slow --device cuda
-done
+.venv/bin/python scripts/lstm_protocol.py --dataset ibm --device cuda   # all three splits
+# or one split per job:
+.venv/bin/python scripts/lstm_protocol.py --dataset ibm --regime pre_italy_68_16_16 --device cuda
 ```
 
 | | Temporal | Window iid | Customer iid |
@@ -99,6 +98,9 @@ Caveats:
 - The 68/16/16 ratio was chosen after looking at the data, so that validation and test
   have similar fraud rates (0.121% and 0.117%).
 - The LSTM preset was chosen from five candidates on temporal validation AP.
+- The committed records predate the `early_stopping` and `track_train_ap` settings
+  fields, so their `model_settings` lack them; they ran with early stopping and without
+  train-AP tracking, which is what a rerun records.
 - Overlapping windows let window-iid share context transactions across partitions.
 - Encoders and merchant-state rarity counts are fitted on each split's training
   transactions: under temporal, all transactions before the validation cutoff; under
@@ -149,17 +151,14 @@ The recorded runs used the CPU. GPU runs are not bit-identical to them.
 ```bash
 .venv/bin/pip install -e ".[lstm]"
 # seeds 0–4: one record per regime
-.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --window-length 10 \
-  --lstm-config fixed15 --device cpu
+.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --device cpu
 # seeds 5–9: one run per seed, each in its own folder
 for seed in 5 6 7 8 9; do
-  .venv/bin/python scripts/lstm_protocol.py --dataset sparkov --window-length 10 \
-    --lstm-config fixed15 --device cpu --seeds $seed \
+  .venv/bin/python scripts/lstm_protocol.py --dataset sparkov --device cpu --seeds $seed \
     --results-dir results/paper/sparkov_lstm_delay/seed$seed
 done
 # the table, from all ten seeds
-.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --window-length 10 \
-  --lstm-config fixed15 --render-only
+.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --render-only
 ```
 
 | | No delay | Default delay | Slow delay |
@@ -228,6 +227,11 @@ Caveats:
   validation and test periods (without labels), so the temporal TabBERT row may not be
   strictly chronological.
 
-To regenerate the IBM table from the saved records without training, add `--render-only`
-to any one of the three IBM commands above (it needs the same flags).
-Other experiments from the project are in [`archive.md`](archive.md).
+The window length, IBM stride and training preset of each table are fixed in
+`scripts/lstm_protocol.py`, so the commands above take no model flags. To regenerate the
+IBM table from the saved records without training, run
+`scripts/lstm_protocol.py --dataset ibm --render-only`.
+
+Earlier experiments that are not in the paper (XGBoost versions of both tables, 80/10/10
+IBM LSTM cells, other window lengths and presets) were removed for the camera-ready
+version. Their code and records remain in the git tag `pre-camera-ready-cleanup`.

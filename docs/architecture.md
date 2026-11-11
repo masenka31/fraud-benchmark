@@ -85,23 +85,22 @@ Sparkov's three label regimes — no delay, delay, slow delay — are a choice o
 not of file: the parquet carries `reported_at` and `reported_at_slow`, and ignoring both
 is the no-delay regime.
 
-### Running the paper protocols — `experiment.py`, `splits.py`, `causal_encoding.py`
+### Running the paper's experiments — `splits.py`, `sequence_experiment.py`, `lstm.py`
 
 Where the split is chosen and everything is fitted. Fitting inside a feature build would
-tie the parquet to one split, and two are in use.
+tie the parquet to one split, and several are in use.
 
 | module | does |
 |---|---|
-| `experiment.py` | paper-protocol preparation: parquet → artifact exclusion → label regime → split → train-fitted design matrix |
-| `splits.py` | temporal, transaction-IID, customer-IID, and shared pre-Italy split assignment on an already-prepared frame |
-| `causal_encoding.py` | chronological label-rate features that use training labels only and score before updating |
+| `splits.py` | the temporal 80/10/10 (Table 4), the pre-Italy population and its 68/16/16 split (Figure 2, Table 3), and the customer-IID assignment, on an already-prepared frame |
+| `causal_encoding.py` | label-free counts over earlier training rows (Table 3's merchant-state rarity) |
 | `encoding.py` | categorical vocabularies and scaling, fitted on train only |
-| `models.py` | the fixed XGBoost parameters and fit primitive shared by both protocols |
+| `models.py` | the fixed XGBoost hyperparameters of Figure 2 |
 | `metrics.py` | average precision, plus precision/recall/F1 at a validation-chosen threshold |
 | `columns.py` | what no model may ever see, whatever the experiment — the label part read from the adapter registry |
 | `sequence.py` | same-entity windows: complete endpoint chunks (optionally overlapping by stride), window indices that exclude same-time and other-entity rows, and whole-chunk IID assignment |
-| `sequence_experiment.py` | sequence-protocol preparation for IBM endpoints and Sparkov full rows, plus the LSTM and endpoint-matched XGBoost runs |
-| `lstm.py` | the LSTM classifier, train-only feature encoding, and named training presets (`default` is the recorded protocol) |
+| `sequence_experiment.py` | preparation of Table 3 (IBM window endpoints) and Table 4 (every Sparkov row), and the LSTM runs |
+| `lstm.py` | the LSTM classifier, train-only feature encoding, and the two paper presets |
 
 Each runner receives the same prepared matrix, labels, and split indices for every model
 seed. The protocol fixes every comparison axis except the one named by its table.
@@ -113,19 +112,16 @@ in the installed package, so nothing importable lives outside `src/` and a test 
 has to reach into `scripts/` to get at a decision.
 
 The preparation stages are the first three rows, in order. Each takes `--dataset` or
-`--all`. `lstm_protocol.py` reproduces the paper's two tables and `ibm_downsampling_curves.py`
-its Figure 2; `ibm_split_protocol.py` and
-`sparkov_delay_protocol.py` reproduce archived earlier XGBoost versions of them.
+`--all`. `lstm_protocol.py` reproduces the paper's Tables 3 and 4 and
+`ibm_downsampling_curves.py` its Figure 2.
 
 | script | over | does |
 |---|---|---|
 | `download.py` | `data.pipeline.download` | **1.** raw files → `data/raw/<name>/`, and stops |
 | `prepare.py` | `data.pipeline.prepare` | **2.** raw files → `data/processed/<name>/` on the shared schema |
 | `features.py` | `experiments.features` | **3.** a prepared dataset → `data/features/<name>.parquet` |
-| `ibm_split_protocol.py` | `experiments` | archived full-row pre-Italy temporal/IID comparison → three JSON records and one readable table |
-| `sparkov_delay_protocol.py` | `experiments` | archived XGBoost synthetic training-label-delay comparison → three JSON records and one readable table |
 | `ibm_downsampling_curves.py` | `experiments` | the paper's Figure 2: XGBoost on all training rows vs a 1:1 downsample → one JSON record and the ROC/PR figure |
-| `lstm_protocol.py` | `experiments.sequence_experiment` | LSTM sequence experiments, including the paper's IBM split and Sparkov label-delay tables → JSON records per cell and readable tables |
+| `lstm_protocol.py` | `experiments.sequence_experiment` | the paper's Tables 3 and 4 → JSON records per cell and the two readable tables |
 | `figures/plot_monthly_fraud.py` | — | IBM CCF's regime shift, from its feature parquet |
 | `figures/plot_dataset_caveats.py` | — | the three dataset caveats that are a shape rather than a number |
 
@@ -144,15 +140,15 @@ read as one system and a colour is defined once. Outputs land in `results/figure
 
 | path | holds |
 |---|---|
-| `README.md` | index of the paper's tables and their records |
-| `paper/` | records and readable tables behind the paper's two tables |
-| `archive/` | other experiments, not used in the paper |
+| `README.md` | index of the paper's figure and tables and their records |
+| `paper/` | records, readable tables and the figure behind Figure 2 and Tables 3 and 4 |
 | `figures/` | generated plots, light and dark per figure |
 
 ## Conventions worth knowing before changing anything
 
 - **Average precision, never ROC AUC.** Base rates run from 0.10% to 3.5%; a
   negative-class-dominated metric stays high for a model with no useful precision.
+  ROC AUC appears only in Figure 2, which exists to show what it hides.
 - **Nothing is fitted on val or test** — encoders, scalers and vocabularies included.
 - **Every feature window is left-closed** and excludes the row it describes.
 - **Splits are cut on timestamp values, not row positions**, so tied timestamps cannot

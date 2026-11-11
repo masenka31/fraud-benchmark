@@ -30,4 +30,3 @@ it. Everything else lives here.
 |---|---|
 | [`experiments.md`](experiments.md) | The two paper experiments: setup, commands, results, and caveats. |
 | [`../results/README.md`](../results/README.md) | Where each paper table and its records are. |
-| [`archive.md`](archive.md) | Other experiments, not used in the paper. |
