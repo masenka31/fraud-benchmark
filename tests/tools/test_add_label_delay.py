@@ -130,6 +130,45 @@ def test_csv_round_trip(tmp_path):
     assert written['reported_at'].notna().sum() == df['label'].sum()
 
 
+def test_csv_to_csv_keeps_other_columns_as_written(tmp_path):
+    """Leading zeros, literal missing-value words, blanks and number text survive."""
+    df = transactions(n=400)
+    text = pd.DataFrame(
+        {
+            'card': df['card'].astype(str),
+            'ts': df['ts'].dt.strftime('%Y-%m-%d %H:%M:%S'),
+            'label': df['label'].astype(str),
+            'zip': [f'{i % 1000:05d}' for i in range(len(df))],
+            'note': [('NA', 'null', '', 'None', 'x')[i % 5] for i in range(len(df))],
+            'price': [('1.10', '2', '3.000', '1e3')[i % 4] for i in range(len(df))],
+        }
+    )
+    src = tmp_path / 'in.csv'
+    text.to_csv(src, index=False)
+    tool.main([str(src), '--entity', 'card', '--time', 'ts', '--fraud', 'label'])
+    written = pd.read_csv(tmp_path / 'in.label_delay.csv', dtype=str, keep_default_na=False)
+    pd.testing.assert_frame_equal(written[text.columns], text)
+    assert list(written.columns) == [*text.columns, 'campaign_id', 'reported_at']
+
+
+def test_csv_text_pass_through_does_not_change_the_new_columns(tmp_path):
+    df = transactions(n=600)
+    a = run(tmp_path, df, name='p.parquet')
+    b = run(tmp_path, df, name='c.csv')
+    from_parquet = pd.read_parquet(a.with_name('p.label_delay.parquet'))
+    from_csv = pd.read_csv(b.with_name('c.label_delay.csv'))
+    assert (
+        from_csv['campaign_id']
+        .astype('float64')
+        .equals(from_parquet['campaign_id'].astype('float64'))
+    )
+    assert (
+        pd.to_datetime(from_csv['reported_at'])
+        .astype('datetime64[us]')
+        .equals(from_parquet['reported_at'].astype('datetime64[us]'))
+    )
+
+
 def test_numeric_time_needs_an_origin(tmp_path):
     df = transactions(n=200)
     df['ts'] = (df['ts'] - pd.Timestamp('2020-01-01')).dt.total_seconds()

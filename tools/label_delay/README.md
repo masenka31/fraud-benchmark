@@ -38,8 +38,11 @@ python add_label_delay.py transactions.parquet \
 This writes `transactions.label_delay.parquet`, which is the input plus `campaign_id`
 and `reported_at`, with the row order and other columns unchanged. It also writes
 `transactions.label_delay.parquet.json`, which records the parameters, seed, script
-version and the realised delays. CSV works the same way. Use `-o` to choose the output
-path; it may use a different format from the input but may not overwrite it. The input
+version and the realised delays. CSV works the same way: from CSV to CSV, the other
+columns are written back exactly as they were read, so leading zeros, `NA` strings and
+number formatting are kept. Use `-o` to choose the output path; it may use a different
+format from the input but may not overwrite it. Between formats, pandas infers the CSV
+column types. The input
 must not already contain the columns being added.
 
 | flag | meaning |

@@ -40,7 +40,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 
 
 @dataclass(frozen=True)
@@ -245,8 +245,12 @@ def parse_regime(spec: str) -> Regime:
 FORMATS = {'.parquet', '.pq', '.csv'}
 
 
+def is_csv(path: Path) -> bool:
+    return path.suffix.lower() == '.csv'
+
+
 def read_table(path: Path, entity: str) -> pd.DataFrame:
-    if path.suffix.lower() == '.csv':
+    if is_csv(path):
         # Read entity ids as literal text: as numbers, '0007' and '7' would become one
         # entity, and with the default NA parsing an entity named 'NA' or 'null' would
         # be missing. Either way CSV and Parquet copies of one table would disagree.
@@ -254,8 +258,13 @@ def read_table(path: Path, entity: str) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
+def read_csv_text(path: Path) -> pd.DataFrame:
+    """Every cell of a CSV as the exact text in the file, with nothing parsed as missing."""
+    return pd.read_csv(path, dtype=str, keep_default_na=False)
+
+
 def write_table(df: pd.DataFrame, path: Path) -> None:
-    if path.suffix.lower() == '.csv':
+    if is_csv(path):
         df.to_csv(path, index=False)
     else:
         df.to_parquet(path)
@@ -430,7 +439,12 @@ def main(argv: list[str] | None = None) -> None:
     except ValueError as exc:
         raise SystemExit(f'error: {exc}') from exc
 
-    out = df.copy()
+    # CSV to CSV carries the input's columns through as the text that was read, so
+    # leading zeros, literal 'NA' and number formatting survive. The computation above
+    # still used the parsed table. Any other combination keeps the parsed types.
+    out = read_csv_text(args.input) if is_csv(args.input) and is_csv(args.output) else df.copy()
+    if out.shape != df.shape:
+        raise SystemExit('error: the CSV did not read back with the same rows and columns')
     out['campaign_id'] = canon['campaign_id'].array
     for regime in args.regimes:
         reported = canon[regime.column]
