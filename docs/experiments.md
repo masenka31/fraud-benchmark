@@ -139,7 +139,8 @@ Shows how delayed fraud labels at training time affect a detector.
   preset in [`lstm.py`](../src/fraud_benchmark/experiments/lstm.py): fraud weight
   negatives/positives from the available training labels, AdamW (learning rate 1e-3, weight
   decay 1e-4), exactly 15 epochs without early stopping, final weights scored. Validation
-  labels never choose a checkpoint. This preset differs from the IBM experiment's.
+  labels never choose a checkpoint. This preset differs from the IBM experiment's. In
+  its records, `best_epoch` is the final epoch and the recorded `patience` is unused.
 - **Seeds:** ten (0–9). Seeds 0–4 ran as one job per regime and seeds 5–9 as one job per
   seed; the records are kept as run, and the table merges them.
 

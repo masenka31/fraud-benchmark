@@ -241,7 +241,11 @@ def train_and_predict(
     device_name: str = 'auto',
     config: LSTMConfig = DEFAULT_CONFIG,
 ) -> tuple[np.ndarray, np.ndarray, dict]:
-    """Fit on visible train labels; checkpoint by validation AP only."""
+    """Fit on visible train labels and score validation and test.
+
+    With early stopping, the epoch with the best validation AP is kept; without it,
+    the final epoch is. `best_epoch` in the details is the scored epoch either way.
+    """
     torch = _torch()
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -320,7 +324,8 @@ def train_and_predict(
         history.append(entry)
         print(message, flush=True)
         if not config.early_stopping:
-            best_ap = val_ap
+            # No checkpoint is chosen: the final epoch is scored, and `best_epoch`
+            # records it under the same key as the early-stopping presets.
             best_epoch = epoch
             continue
         if val_ap > best_ap:
