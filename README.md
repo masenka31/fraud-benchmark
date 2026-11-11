@@ -50,32 +50,55 @@ Eight registered: seven distinct sources plus `sparkov_slow`, which is `sparkov`
 second delay regime. 73 million transactions in total. All but IEEE-CIS are synthetic;
 IEEE-CIS is the only real-world data.
 
+The groups follow the paper's recommendations (Table 1) for sequential fraud detection.
+
 ### Recommended
 
-We recommend using the following datasets for sequential fraud (and AML) detection.
-The datasets contain entity features, have a realistic time-span, and the artifacts
-of the data do not disqualify them from benchmark purposes.
+Timestamped transactions with stable card or account identifiers, long enough histories
+to model, and no artifact that disqualifies them as benchmarks.
 
 | dataset | rows | fraud rate | span | licence |
 |---|---:|---:|---:|---|
 | [`sparkov`](docs/datasets/sparkov.md) | 1,852,394 | 0.521% | 730d | CC0 1.0 |
 | [`sparkov_slow`](docs/datasets/sparkov_slow.md) | 1,852,394 | 0.521% | 730d | CC0 1.0 |
-| [`saml_d`](docs/datasets/saml_d.md) | 9,504,852 | 0.104% | 320d | CC BY-NC-SA 4.0 |
 | [`ibm_ccf`](docs/datasets/ibm_ccf.md) | 24,386,900 | 0.122% | 10,649d | Apache-2.0 ⚠ |
 
 There is a known artifact in the IBM CCF dataset: nearly all fraudulent transactions in the
 validation and test periods have `Merchant State = Italy`.
 
-### Use with caution
+### Recommended with caution
 
-The following datasets are available, but are recommended to use with caution.
+The only real-world data here. Card-level entities must be approximated with community
+heuristics, and the reconstructed sequences are short.
+
+| dataset | rows | fraud rate | span | licence |
+|---|---:|---:|---:|---|
+| [`ieee_cis`](docs/datasets/ieee_cis.md) | 590,540 | 3.499% | 181d | competition rules |
+
+### Supplementary (AML)
+
+Anti-money-laundering datasets, useful when the task is the same per-account sequential
+setting: SAML-D for sparse histories, Amaretto for dense per-client histories.
+
+| dataset | rows | laundering rate | span | licence |
+|---|---:|---:|---:|---|
+| [`saml_d`](docs/datasets/saml_d.md) | 9,504,852 | 0.104% | 320d | CC BY-NC-SA 4.0 |
+| [`amaretto`](docs/datasets/amaretto.md) | 29,704,090 | 0.274% | 83d | MIT |
+
+### Not recommended
+
+Available for algorithm development, but not for evaluation: PaySim's balance columns
+reveal the labels of TRANSFER and CASH_OUT transactions, and BankSim's seven-feature,
+single-bank schema supports no general claims.
 
 | dataset | rows | fraud rate | span | licence |
 |---|---:|---:|---:|---|
 | [`paysim`](docs/datasets/paysim.md) | 6,362,620 | 0.129% | 30d | CC BY-SA 4.0 |
 | [`banksim`](docs/datasets/banksim.md) | 594,643 | 1.211% | 179d | CC BY-NC-SA 4.0 |
-| [`ieee_cis`](docs/datasets/ieee_cis.md) | 590,540 | 3.499% | 181d | competition rules |
-| [`amaretto`](docs/datasets/amaretto.md) | 29,704,090 | 0.274% | 83d | MIT |
+
+The ULB credit card fraud dataset is not included: the paper recommends retiring it as a
+sequential benchmark, since it has no card identifier, spans two days, and its features are
+PCA-transformed.
 
 ⚠ **Read a dataset's page before using it.** Each page gives the numbers,
 the schema mapping, and the disclaimers: **[`docs/datasets/`](docs/datasets/README.md)**.
