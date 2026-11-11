@@ -52,7 +52,7 @@ must not already contain the columns being added.
 | `--preset` | `card` (default), `card-slow` or `aml`, see below |
 | `--median-days`, `--sigma`, `--max-delay-days` | override the preset. `--max-delay-days 0` removes its cap. |
 | `--regime NAME:MEDIAN,SIGMA[,CAP]` | an extra regime in `reported_at_NAME`. Repeatable. |
-| `--campaign-gap` | longest gap inside one campaign. The default is `1D`. |
+| `--campaign-gap` | longest gap inside one campaign, with a unit: `1D`, `12h`, `30min`. A bare number is refused. The default is `1D`. |
 | `--seed` | default `0` |
 | `--cutoff` | your training cutoff. The script then prints how many frauds up to it are still unreported. Give it a timezone exactly when the time column has one. |
 

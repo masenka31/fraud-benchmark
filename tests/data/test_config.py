@@ -304,3 +304,14 @@ def test_a_bad_campaign_gap_override_is_caught_at_load_time(tmp_path):
     path.write_text("datasets:\n  banksim:\n    campaign_gap: 'not a duration'\n")
     with pytest.raises(ConfigError, match='duration'):
         load_config(path)
+
+
+@pytest.mark.parametrize('gap', ['1', '7', ' 2.5 ', 1, 3.0])
+def test_a_campaign_gap_without_a_unit_is_refused(tmp_path, gap):
+    """pandas would read a bare number as nanoseconds: one campaign per fraud."""
+    path = tmp_path / 'config.yaml'
+    path.write_text(
+        f'campaign:\n  gap: {gap!r}\n' if isinstance(gap, str) else f'campaign:\n  gap: {gap}\n'
+    )
+    with pytest.raises(ConfigError, match='needs a unit'):
+        load_config(path)

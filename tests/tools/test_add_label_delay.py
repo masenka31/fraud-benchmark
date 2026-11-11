@@ -413,3 +413,21 @@ def test_no_frauds_writes_empty_columns(tmp_path):
     written = pd.read_parquet(src.with_name('in.label_delay.parquet'))
     assert written['campaign_id'].isna().all()
     assert written['reported_at'].isna().all()
+
+
+@pytest.mark.parametrize('gap', ['1', '7', '2.5', '1e3'])
+def test_a_campaign_gap_without_a_unit_is_refused(tmp_path, gap):
+    df = transactions(n=100)
+    with pytest.raises(SystemExit):
+        run(tmp_path, df, '--campaign-gap', gap)
+
+
+@pytest.mark.parametrize(
+    ('gap', 'expected'),
+    [('1D', '1 days 00:00:00'), ('12h', '0 days 12:00:00'), ('1 day', '1 days 00:00:00')],
+)
+def test_a_campaign_gap_with_a_unit_is_accepted(tmp_path, gap, expected):
+    df = transactions(n=100)
+    src = run(tmp_path, df, '--campaign-gap', gap)
+    card = json.loads(src.with_name('in.label_delay.parquet.json').read_text())
+    assert card['campaign_gap'] == expected

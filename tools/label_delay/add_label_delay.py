@@ -40,7 +40,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-VERSION = '1.0.1'
+VERSION = '1.0.2'
+BARE_NUMBER = re.compile(r'\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*')
 
 
 @dataclass(frozen=True)
@@ -193,6 +194,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         '--cutoff', help='training cutoff; reports the share of frauds up to it still unreported'
     )
     args = parser.parse_args(argv)
+    if BARE_NUMBER.fullmatch(args.campaign_gap):
+        # pandas reads a bare number as nanoseconds, which silently makes every fraud
+        # its own campaign.
+        parser.error(
+            f'--campaign-gap needs a unit, e.g. 1D, 12h or 30min, got {args.campaign_gap!r}'
+        )
     try:
         args.campaign_gap = pd.Timedelta(args.campaign_gap)
         args.cutoff = pd.Timestamp(args.cutoff) if args.cutoff else None
