@@ -104,7 +104,7 @@ Both are documented rather than repaired, because the limit is the span of the d
   either way against an 83-day span. The shipped 7 days is deliberately too fast for
   money laundering and is the only setting the span will carry.
 - **`paysim` spans 30 simulated days**, so its train window is 14. At the global
-  7-day median it censored 47.3% of train labels; the 1-day override brings that to
+  7-day median it censored 52.7% of train labels; the 1-day override brings that to
   10.1%. This makes PaySim usable; it does not make a 30-day clock realistic.
 
 ## Changing it
