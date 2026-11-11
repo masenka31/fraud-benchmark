@@ -129,13 +129,13 @@ standalone file that reads Parquet or CSV and needs only numpy and pandas.
 
 ## Paper experiments
 
-Two experiments back the paper's tables:
+Two experiments back the paper's Tables 3 and 4:
 
 - **IBM CCF, temporal vs iid splits:** an LSTM over 10-transaction windows loses about 0.20
   average precision from validation to test under a temporal split, but almost none under
   iid splits, which suggests that iid splits hide concept drift.
-- **Sparkov, synthetic label delay:** XGBoost trained with delayed fraud labels loses
-  test AP as the delay grows (−0.023 default, −0.035 slow).
+- **Sparkov, synthetic label delay:** an LSTM trained with delayed fraud labels loses test
+  AP as the delay grows (−0.015 default, −0.040 slow, lower for every one of ten seeds).
 
 ```bash
 for dataset in sparkov sparkov_slow; do
@@ -143,12 +143,15 @@ for dataset in sparkov sparkov_slow; do
   .venv/bin/python scripts/prepare.py --dataset $dataset
 done
 .venv/bin/python scripts/features.py --dataset sparkov
-.venv/bin/python scripts/sparkov_delay_protocol.py
+.venv/bin/pip install -e ".[lstm]"
+.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --window-length 10 \
+  --lstm-config fixed15 --device cpu   # seeds 0–4
 ```
 
-The IBM experiment needs the optional `lstm` dependencies and, in practice, a GPU. Its
-commands are in [`docs/experiments.md`](docs/experiments.md), along with the exact setup
-and caveats of both experiments. Tables and records are in [`results/`](results/README.md).
+Both experiments need the optional `lstm` dependencies; the IBM one needs a GPU in
+practice. The full commands, including Sparkov seeds 5–9, are in
+[`docs/experiments.md`](docs/experiments.md), along with the exact setup and caveats of
+both experiments. Tables and records are in [`results/`](results/README.md).
 
 ## Tests
 

@@ -113,8 +113,8 @@ in the installed package, so nothing importable lives outside `src/` and a test 
 has to reach into `scripts/` to get at a decision.
 
 The preparation stages are the first three rows, in order. Each takes `--dataset` or
-`--all`. `sparkov_delay_protocol.py` and `lstm_protocol.py` reproduce the paper's tables;
-`ibm_split_protocol.py` reproduces an archived earlier version of the IBM table.
+`--all`. `lstm_protocol.py` reproduces the paper's two tables; `ibm_split_protocol.py` and
+`sparkov_delay_protocol.py` reproduce archived earlier XGBoost versions of them.
 
 | script | over | does |
 |---|---|---|
@@ -122,8 +122,8 @@ The preparation stages are the first three rows, in order. Each takes `--dataset
 | `prepare.py` | `data.pipeline.prepare` | **2.** raw files → `data/processed/<name>/` on the shared schema |
 | `features.py` | `experiments.features` | **3.** a prepared dataset → `data/features/<name>.parquet` |
 | `ibm_split_protocol.py` | `experiments` | archived full-row pre-Italy temporal/IID comparison → three JSON records and one readable table |
-| `sparkov_delay_protocol.py` | `experiments` | synthetic training-label-delay comparison → JSONL records and one readable table |
-| `lstm_protocol.py` | `experiments.sequence_experiment` | LSTM sequence experiments, including the paper's IBM split table → JSON records per cell and readable tables |
+| `sparkov_delay_protocol.py` | `experiments` | archived XGBoost synthetic training-label-delay comparison → three JSON records and one readable table |
+| `lstm_protocol.py` | `experiments.sequence_experiment` | LSTM sequence experiments, including the paper's IBM split and Sparkov label-delay tables → JSON records per cell and readable tables |
 | `figures/plot_monthly_fraud.py` | — | IBM CCF's regime shift, from its feature parquet |
 | `figures/plot_dataset_caveats.py` | — | the three dataset caveats that are a shape rather than a number |
 

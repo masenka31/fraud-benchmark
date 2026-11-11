@@ -1,8 +1,8 @@
 # Paper experiments
 
-Two experiments back the paper's tables. Both report average precision (AP) as the
-primary metric, fit all preprocessing on the training split only, and use five fixed
-seeds (0–4). Generated tables and records are in [`results/`](../results/README.md).
+Two experiments back the paper's Tables 3 and 4. Both train a one-layer LSTM, report
+average precision (AP) as the primary metric, and fit all preprocessing on the training
+split only. Generated tables and records are in [`results/`](../results/README.md).
 
 Build the inputs first. The Sparkov features also need `sparkov_slow`, which supplies the
 slow-delay timestamps:
@@ -37,6 +37,7 @@ Suggests that an iid split hides concept drift that a temporal split reveals.
   fraud weight √(negatives/positives), AdamW (learning rate 3e-4, weight decay 1e-4) with
   one-epoch warmup and cosine decay, at most 15 epochs with patience 4, checkpoint chosen
   by validation AP.
+- **Seeds:** five (0–4).
 
 ```bash
 .venv/bin/pip install -e ".[lstm]"   # PyTorch matching your GPU; CPU works but is slow
@@ -71,6 +72,7 @@ Shows how delayed fraud labels at training time affect a detector.
   chronological 80/10/10 split (1,481,915 / 185,239 / 185,240 rows; training ends
   `2020-08-25 01:31`). This is not the dataset's own split described in the README, so the
   censoring figures there do not apply here.
+- **Targets:** every transaction, scored with up to 9 earlier transactions of the same card.
 - **Regimes**, differing only in which training labels are available at the cutoff:
   - `off`: true labels;
   - `on`: synthetic default delay (`reported_at`);
@@ -79,21 +81,46 @@ Shows how delayed fraud labels at training time affect a detector.
   A fraud reported after the cutoff stays in training as a negative: 132 (1.6%) of
   the 8,302 training frauds under `on`, 509 (6.1%) under `slow`. Validation and test always use
   the true labels. The delays are synthetic, and `slow` is a stress test.
-- **Model:** XGBoost (300 trees, depth 6, learning rate 0.1) on 46 features, with
-  `scale_pos_weight` set from the available training labels. See
-  [`models.py`](../src/fraud_benchmark/experiments/models.py) and
-  [`features/sparkov.py`](../src/fraud_benchmark/experiments/features/sparkov.py).
+- **Model:** a one-layer LSTM (64 units) over 46 label-free features, using the `fixed15`
+  preset in [`lstm.py`](../src/fraud_benchmark/experiments/lstm.py): fraud weight
+  negatives/positives from the available training labels, AdamW (learning rate 1e-3, weight
+  decay 1e-4), exactly 15 epochs without early stopping, final weights scored. Validation
+  labels never choose a checkpoint. This preset differs from the IBM experiment's.
+- **Seeds:** ten (0–9). Seeds 0–4 ran as one job per regime and seeds 5–9 as one job per
+  seed; the records are kept as run, and the table merges them.
+
+The recorded runs used the CPU. GPU runs are not bit-identical to them.
 
 ```bash
-.venv/bin/python scripts/sparkov_delay_protocol.py
+.venv/bin/pip install -e ".[lstm]"
+# seeds 0–4: one record per regime
+.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --window-length 10 \
+  --lstm-config fixed15 --device cpu
+# seeds 5–9: one run per seed, each in its own folder
+for seed in 5 6 7 8 9; do
+  .venv/bin/python scripts/lstm_protocol.py --dataset sparkov --window-length 10 \
+    --lstm-config fixed15 --device cpu --seeds $seed \
+    --results-dir results/paper/sparkov_lstm_delay/seed$seed
+done
+# the table, from all ten seeds
+.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --window-length 10 \
+  --lstm-config fixed15 --render-only
 ```
 
-| Training labels | Hidden train frauds | Validation AP | Test AP | Δ test AP |
-|---|---:|---:|---:|---:|
-| No delay | 0 | 0.9774 ± 0.0004 | 0.9734 ± 0.0013 | +0.0000 |
-| Default delay | 132 | 0.9713 ± 0.0011 | 0.9504 ± 0.0029 | −0.0230 |
-| Slow delay | 509 | 0.9569 ± 0.0020 | 0.9388 ± 0.0031 | −0.0346 |
+| | No delay | Default delay | Slow delay |
+|---|---:|---:|---:|
+| Median delay | – | 7.3 days | 13.9 days |
+| Mean delay | – | 11.3 days | 41.1 days |
+| Hidden train frauds | 0 | 132 (1.6%) | 509 (6.1%) |
+| Validation AP | 0.9789 ± 0.0031 | 0.9734 ± 0.0067 | 0.9562 ± 0.0132 |
+| Test AP | 0.9772 ± 0.0065 | 0.9621 ± 0.0164 | 0.9376 ± 0.0260 |
+| Δ test AP | – | −0.0151 (0.0041) | −0.0396 (0.0090) |
+| Seeds with lower test AP than no delay | – | 10/10 | 10/10 |
 
-To regenerate a table from the saved records without training, add `--render-only` to the
-Sparkov command, or to any one of the three IBM commands above (it needs the same flags).
+AP entries are mean ± population standard deviation over the ten seeds. Δ is the mean
+within-seed difference in test AP to the no-delay run, with its standard error in
+parentheses. Delays are realised transaction-to-report delays over all Sparkov frauds.
+
+To regenerate the IBM table from the saved records without training, add `--render-only`
+to any one of the three IBM commands above (it needs the same flags).
 Other experiments from the project are in [`archive.md`](archive.md).
