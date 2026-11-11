@@ -159,6 +159,27 @@ pytest
 Network tests are deselected by default. Run them with `pytest -m network` — they perform
 real Kaggle downloads.
 
+## Citation
+
+If you use this repository, please cite the paper:
+
+```bibtex
+@inproceedings{maskova2026standardized,
+  author    = {Ma\v{s}kov\'{a}, Michaela and \v{S}m\'{\i}dl, V\'{a}clav},
+  title     = {A Standardized Training and Evaluation Protocol for Sequential Fraud Detection},
+  booktitle = {Proceedings of the 7th ACM International Conference on AI in Finance},
+  series    = {ICAIF '26},
+  year      = {2026},
+  location  = {Milan, Italy},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  numpages  = {9},
+  isbn      = {979-8-4007-3087-0},
+  doi       = {10.1145/3858063.3858860},
+  url       = {https://doi.org/10.1145/3858063.3858860}
+}
+```
+
 ## Licence
 
 The code in this repository is MIT licensed (see `LICENSE`).
