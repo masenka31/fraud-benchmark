@@ -155,6 +155,9 @@ The two LSTM experiments need the optional `lstm` dependencies, and the IBM one 
 GPU in practice. The full commands, including Sparkov seeds 5–9, are in
 [`docs/experiments.md`](docs/experiments.md), along with the exact setup and caveats of
 all three experiments. Tables and records are in [`results/`](results/README.md).
+Table 5, the TabFormer reproduction, runs on the upstream TabFormer code rather than this
+package; its protocol is described in the same document, and its code is available from
+the authors on request.
 
 ## Tests
 

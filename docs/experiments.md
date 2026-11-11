@@ -1,6 +1,7 @@
 # Paper experiments
 
-Three experiments back the paper's Figure 2 and Tables 3 and 4. All report average
+Three experiments in this repository back the paper's Figure 2 and Tables 3 and 4; Table 5
+is [described at the end](#ibm-ccf-tabformer-fraud-task-table-5-described-only). All report average
 precision (AP) as the primary metric and fit all preprocessing on the training split only.
 Figure 2 uses XGBoost and also reports ROC-AUC, to show what it hides; Tables 3 and 4 use a
 one-layer LSTM. Generated tables, figures and records are in
@@ -160,6 +161,58 @@ done
 AP entries are mean ± population standard deviation over the ten seeds. Δ is the mean
 within-seed difference in test AP to the no-delay run, with its standard error in
 parentheses. Delays are realised transaction-to-report delays over all Sparkov frauds.
+
+## IBM CCF: TabFormer fraud task (Table 5, described only)
+
+Shows that the window labeling convention and the split decide which method looks better.
+The code for this experiment is not part of this repository; it is available from the
+authors on request. It runs on the upstream
+[TabFormer](https://github.com/IBM/TabFormer) code and its software stack (Python 3.7,
+PyTorch 1.6, transformers 3.2), not on this package.
+
+- **Task:** the TabFormer fraud-detection task (Padhi et al., 2021) on IBM CCF, rebuilt
+  from the released code because the paper states neither the labeling rule nor the split.
+- **Windows:** each user's transactions in file order, cut into complete windows of 10
+  with stride 10, as upstream builds them: 2,437,789 windows.
+- **Labels:**
+  - *any-fraud* (the original rule, recovered from the released code): a window is fraud
+    if any of its transactions is;
+  - *window-end*: the label of the window's last transaction, closer to scoring each
+    transaction.
+
+  Every run is scored against the label it was trained on.
+- **Splits:**
+  - *seeded*: upstream's random 60/20/20 window split with its hard-coded seed
+    (20200706), which reproduces the original partition exactly;
+  - *temporal*: windows ending before the first Italy fraud (`2017-11-19 12:06`),
+    split 60/20/20 by window end time.
+- **Models:** an LSTM head on either the raw tokenized fields or frozen TabBERT
+  representations. TabBERT is pretrained with upstream's script for one epoch. Training
+  upsamples fraud windows to about 1:1 per epoch with a weighted sampler and uses Adam for
+  at most 4 epochs; the epoch is chosen by validation F1 at threshold 0.5 (the original
+  paper's convention), with patience 2. Three seeds (0–2).
+
+| | Raw features | TabBERT |
+|---|---:|---:|
+| Published F1, any-fraud label | 0.83 | 0.86 |
+| Reproduced F1, any-fraud label | 0.836 ± 0.008 | 0.780 ± 0.016 |
+| Test AP, any-fraud label (seeded) | 0.845 ± 0.003 | 0.823 ± 0.005 |
+| Test AP, window-end label (seeded) | 0.763 ± 0.013 | 0.801 ± 0.007 |
+| Test AP, window-end label (temporal) | 0.409 ± 0.124 | 0.709 ± 0.009 |
+
+Entries are mean ± standard deviation over the three seeds, as in the paper.
+
+Caveats:
+
+- The published count of 29,342 fraud samples cannot be reproduced: the released pipeline
+  yields 11,493 any-fraud windows, and no natural construction gives 29,342.
+- TabBERT stays below its published F1, most likely because the pretraining budget is
+  unstated and ours (one epoch) is smaller.
+- With stride 10, window-end labeling scores only every tenth transaction, so it is a
+  diagnostic rather than the protocol's per-transaction evaluation.
+- TabBERT's self-supervised pretraining may have included transactions from the
+  validation and test periods (without labels), so the temporal TabBERT row may not be
+  strictly chronological.
 
 To regenerate the IBM table from the saved records without training, add `--render-only`
 to any one of the three IBM commands above (it needs the same flags).
