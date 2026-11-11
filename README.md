@@ -137,6 +137,10 @@ cutoff. Those rows are not missing from training data; they sit in it looking le
 | `sparkov` | 7d | 2.2% |
 | `ibm_ccf` | 7d | 0.0% |
 
+Censoring is measured at each dataset's own train cutoff (for `sparkov`, its upstream
+train file). The paper's Sparkov experiment recomputes a chronological 80/10/10 split,
+where the shares are 1.6% (`sparkov`) and 6.1% (`sparkov_slow`).
+
 `ibm_ccf` is effectively undelayed — 7 days against a 9,629-day train window censors 3
 labels of 24,924 — so it cannot exercise a delay-aware method. `sparkov` and
 `sparkov_slow` are the one paired contrast: identical rows, only `reported_at` differs.
