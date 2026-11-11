@@ -1,5 +1,10 @@
 # fraud-benchmark
 
+Code and results for **A Standardized Training and Evaluation Protocol for Sequential
+Fraud Detection** (Mašková and Šmídl, ICAIF '26) —
+[paper](https://doi.org/10.1145/3858063.3858860) ·
+[how each figure and table is reproduced](docs/experiments.md) · [cite](#citation)
+
 Downloads public fraud and AML transaction datasets, normalizes them to a shared schema,
 assigns temporal train/validation/test splits, and attaches a synthetic label-availability
 ("fraud reported at") timestamp to fraudulent transactions — so that an experiment can
