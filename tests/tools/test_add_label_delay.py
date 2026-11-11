@@ -417,10 +417,11 @@ def test_no_frauds_writes_empty_columns(tmp_path):
 
 
 @pytest.mark.parametrize('gap', ['1', '7', '2.5', '1e3'])
-def test_a_campaign_gap_without_a_unit_is_refused(tmp_path, gap):
+def test_a_campaign_gap_without_a_unit_is_refused(tmp_path, gap, capsys):
     df = transactions(n=100)
     with pytest.raises(SystemExit):
         run(tmp_path, df, '--campaign-gap', gap)
+    assert 'needs a unit' in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(

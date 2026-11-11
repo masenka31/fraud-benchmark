@@ -19,6 +19,14 @@ from fraud_benchmark.experiments.sequence_experiment import _ibm_split
 from fraud_benchmark.experiments.sequence_experiment import prepare_ibm
 from fraud_benchmark.experiments.sequence_experiment import prepare_sparkov
 
+ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture(autouse=True)
+def _repo_root(monkeypatch):
+    """The runner and the committed records are addressed relative to the repo root."""
+    monkeypatch.chdir(ROOT)
+
 
 def test_complete_chunks_use_only_final_targets_and_never_mix_entities():
     entity = pd.Series(np.tile(['a', 'b'], 65))
@@ -392,6 +400,7 @@ def _sparkov_record(regime, seeds, censored=0):
         'seeds': [
             {
                 'seed': seed,
+                'training': {'device': 'cpu'},
                 'scores': {
                     'val': {'average_precision': ap},
                     'test': {'average_precision': ap},
@@ -399,6 +408,7 @@ def _sparkov_record(regime, seeds, censored=0):
             }
             for seed, ap in seeds
         ],
+        'python': '3.13.5',
     }
 
 
@@ -455,3 +465,59 @@ def test_sparkov_paper_records_refuse_regimes_that_differ_beyond_labels(tmp_path
     path.write_text(json.dumps(record))
     with pytest.raises(ValueError, match="slow differs from off in 'rows'"):
         runner.sparkov_paper_records(tmp_path)
+
+
+def _edit(path, change):
+    record = json.loads(path.read_text())
+    change(record)
+    path.write_text(json.dumps(record))
+
+
+def test_sparkov_paper_records_tolerate_another_python_version(tmp_path):
+    runner = _lstm_runner()
+    for regime in ('off', 'on', 'slow'):
+        _write_sparkov_records(tmp_path, regime, [(0, 0.9)], [(1, 0.8)])
+    _edit(
+        tmp_path / 'seed1' / 'sparkov_lstm_on_len10_cfg-fixed15.json',
+        lambda record: record.update(python='3.12.7'),
+    )
+    assert [row['seed'] for row in runner.sparkov_paper_records(tmp_path)['on']['seeds']] == [0, 1]
+
+
+def test_sparkov_paper_records_refuse_a_file_that_differs_outside_its_seeds(tmp_path):
+    runner = _lstm_runner()
+    for regime in ('off', 'on', 'slow'):
+        _write_sparkov_records(tmp_path, regime, [(0, 0.9)], [(1, 0.8)])
+    _edit(
+        tmp_path / 'seed1' / 'sparkov_lstm_on_len10_cfg-fixed15.json',
+        lambda record: record['model_settings'].update(max_epochs=10),
+    )
+    with pytest.raises(ValueError, match='differs from .* outside its seeds'):
+        runner.sparkov_paper_records(tmp_path)
+
+
+def test_sparkov_paper_records_refuse_seeds_from_different_devices(tmp_path):
+    runner = _lstm_runner()
+    for regime in ('off', 'on', 'slow'):
+        _write_sparkov_records(tmp_path, regime, [(0, 0.9)], [(1, 0.8)])
+    _edit(
+        tmp_path / 'seed1' / 'sparkov_lstm_slow_len10_cfg-fixed15.json',
+        lambda record: record['seeds'][0]['training'].update(device='cuda'),
+    )
+    with pytest.raises(ValueError, match='different devices'):
+        runner.sparkov_paper_records(tmp_path)
+
+
+def test_render_only_does_not_take_a_results_dir(tmp_path, capsys):
+    with pytest.raises(SystemExit):
+        _lstm_runner().main(['--dataset', 'ibm', '--render-only', '--results-dir', str(tmp_path)])
+    assert 'drop --results-dir' in capsys.readouterr().err
+
+
+def test_tracking_train_ap_does_not_change_the_trained_model(monkeypatch):
+    pytest.importorskip('torch')
+    monkeypatch.setattr(lstm, 'BATCH_SIZE', 8)
+    plain = _train_tiny(lstm.LSTMConfig(max_epochs=2, early_stopping=False))
+    tracked = _train_tiny(lstm.LSTMConfig(max_epochs=2, early_stopping=False, track_train_ap=True))
+    np.testing.assert_array_equal(plain[0], tracked[0])
+    np.testing.assert_array_equal(plain[1], tracked[1])

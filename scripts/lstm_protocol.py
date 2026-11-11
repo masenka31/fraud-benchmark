@@ -117,10 +117,11 @@ def sparkov_paper_records(directory: Path = SPARKOV_PAPER_DIR) -> dict[str, dict
     """Merge the Sparkov label-delay records into one record per regime.
 
     The records are kept as run: seeds 0–4 in one file per regime, and each later seed
-    in its own `seedN/` folder. Every field except `seeds` must agree between files of a
-    regime, no seed may repeat, and all regimes must share everything except the
-    training labels.
+    in its own `seedN/` folder. Every field except `seeds` and the Python version must
+    agree between files of a regime, no seed may repeat, every seed must have run on the
+    same device, and all regimes must share everything except the training labels.
     """
+    unchecked = {'seeds', 'python'}
     merged = {}
     for regime in SPARKOV_REGIMES:
         name = PROTOCOLS['sparkov'].record('sparkov', regime).name
@@ -128,10 +129,10 @@ def sparkov_paper_records(directory: Path = SPARKOV_PAPER_DIR) -> dict[str, dict
         if not paths:
             raise FileNotFoundError(f'no {name} under {directory}')
         records = [json.loads(path.read_text()) for path in paths]
-        base = {key: value for key, value in records[0].items() if key != 'seeds'}
+        base = {key: value for key, value in records[0].items() if key not in unchecked}
         seeds = []
         for path, record in zip(paths, records, strict=True):
-            if {key: value for key, value in record.items() if key != 'seeds'} != base:
+            if {key: value for key, value in record.items() if key not in unchecked} != base:
                 raise ValueError(f'{path} differs from {paths[0]} outside its seeds')
             seeds.extend(record['seeds'])
         numbers = [row['seed'] for row in seeds]
@@ -147,13 +148,25 @@ def sparkov_paper_records(directory: Path = SPARKOV_PAPER_DIR) -> dict[str, dict
                 raise ValueError(f'Sparkov {regime} differs from off in {key!r}')
         if [row['seed'] for row in record['seeds']] != [row['seed'] for row in reference['seeds']]:
             raise ValueError(f'Sparkov {regime} does not have the same seeds as off')
+    devices = {row['training']['device'] for record in merged.values() for row in record['seeds']}
+    if len(devices) > 1:
+        raise ValueError(
+            f'Sparkov seeds ran on different devices {sorted(devices)}; the committed '
+            'records ran on cpu, so rerun every seed with the same --device'
+        )
     return merged
 
 
 def sparkov_delays(features_dir: Path = FEATURE_DIR) -> dict[str, tuple[float, float]]:
     """Median and mean synthetic transaction-to-report delay in days, over all frauds."""
+    path = Path(features_dir) / 'sparkov.parquet'
+    if not path.exists():
+        raise SystemExit(
+            f'error: the Sparkov table recomputes its delay rows from {path}; '
+            'build it first (docs/experiments.md)'
+        )
     df = pd.read_parquet(
-        Path(features_dir) / 'sparkov.parquet',
+        path,
         columns=['event_time', 'is_fraud', 'reported_at', 'reported_at_slow'],
     )
     fraud = df[df['is_fraud'].astype(bool)]
@@ -352,6 +365,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.regime and args.regime not in protocol.regimes:
         parser.error(f'{args.regime!r} is not a regime of {args.dataset}')
     seeds = tuple(args.seeds)
+    if args.render_only and args.results_dir is not None:
+        parser.error('--render-only renders the tables in results/paper; drop --results-dir')
     if not args.render_only and seeds != CANONICAL_SEEDS and args.results_dir is None:
         parser.error('seeds other than 0-4 need their own --results-dir')
 
