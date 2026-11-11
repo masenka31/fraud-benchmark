@@ -100,6 +100,11 @@ Caveats:
   have similar fraud rates (0.121% and 0.117%).
 - The LSTM preset was chosen from five candidates on temporal validation AP.
 - Overlapping windows let window-iid share context transactions across partitions.
+- Encoders and merchant-state rarity counts are fitted on each split's training
+  transactions: under temporal, all transactions before the validation cutoff; under
+  customer iid, all transactions of training customers; under window iid, only the last
+  transaction of each training window. All three are label-free, but they make the columns
+  differ slightly beyond the split itself.
 - The last fraud in this population is on 2016-12-22, so about 48% of the test-period
   transactions (2016-12-22 to 2017-11-19) contain no fraud.
 - The three test sets have slightly different fraud rates, so the test − validation row
