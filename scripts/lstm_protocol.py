@@ -444,7 +444,9 @@ def render_sparkov_paper(
             'stopping; the final weights are scored.',
             f'Chronological 80/10/10 split of all {off["source_rows"]:,} Sparkov rows. Every '
             f'transaction is a target, scored with up to {off["window_length"] - 1} earlier '
-            'transactions of the same card.',
+            'transactions of the same card. Earlier means a strictly earlier timestamp, so '
+            'transactions at the same instant are excluded. Shorter histories are padded after '
+            'the target, and the score is read at the target, so padding has no effect.',
             'All regimes use the same rows, split, features, model settings, and seeds; only '
             'the training labels available at the cutoff differ.',
             'Validation and test are scored against the true labels. The reporting delays are '

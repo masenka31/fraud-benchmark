@@ -114,6 +114,9 @@ Shows how delayed fraud labels at training time affect a detector.
   `2020-08-25 01:31`). This is not the dataset's own split described in the README, so the
   censoring figures there do not apply here.
 - **Targets:** every transaction, scored with up to 9 earlier transactions of the same card.
+  Earlier means a strictly earlier timestamp, so transactions at the same instant are
+  excluded. Shorter histories are padded after the target, and the score is read at the
+  target, so padding has no effect.
 - **Regimes**, differing only in which training labels are available at the cutoff:
   - `off`: true labels;
   - `on`: synthetic default delay (`reported_at`): median 7 days, σ 1, no cap;
