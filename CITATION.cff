@@ -16,7 +16,7 @@ authors:
     affiliation: "Faculty of Electrical Engineering, Czech Technical University in Prague"
 repository-code: "https://github.com/masenka31/fraud-benchmark"
 license: MIT
-version: "0.1.0"
+version: "1.0.0"
 keywords:
   - fraud detection
   - sequential modeling

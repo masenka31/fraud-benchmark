@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fraud-benchmark"
-version = "0.1.0"
+version = "1.0.0"
 description = "Download, normalize, split, and label-delay public fraud and AML datasets"
 requires-python = ">=3.11"
 # Covers this repository's code only. Each dataset carries its own terms;
