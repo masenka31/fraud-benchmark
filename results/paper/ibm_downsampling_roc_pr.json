@@ -124,7 +124,7 @@
       "training_positives": 17170,
       "training_negatives": 13857549,
       "scale_pos_weight": 807.0791496796738,
-      "fit_seconds": 481.9,
+      "fit_seconds": 520.5,
       "validation": {
         "average_precision": 0.8812464845797361,
         "roc_auc": 0.9983514111530417
@@ -139,7 +139,7 @@
       "training_positives": 17170,
       "training_negatives": 17170,
       "scale_pos_weight": 1.0,
-      "fit_seconds": 2.2,
+      "fit_seconds": 2.6,
       "validation": {
         "average_precision": 0.7804758006740129,
         "roc_auc": 0.9980304451224382
@@ -150,5 +150,11 @@
       }
     }
   },
-  "python": "3.13.5"
+  "python": "3.13.5",
+  "packages": {
+    "numpy": "2.5.1",
+    "pandas": "3.0.5",
+    "scikit-learn": "1.9.0",
+    "xgboost": "3.3.0"
+  }
 }

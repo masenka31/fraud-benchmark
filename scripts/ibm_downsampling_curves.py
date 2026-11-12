@@ -14,7 +14,8 @@ is fitted on (1.0 for X). Validation and test are complete, with true labels.
 The feature matrix is the one used in the paper. Unlike the repository's standard
 preparation, it keeps the `artifact_*` columns and adds merchant-state rarity and
 chronological fraud rates for five artifact categories. Every count and rate is fitted on
-training rows only, and training rows see only earlier training labels.
+training rows only. A training row sees only the labels of training rows before it in
+time order; rows with the same timestamp are taken in the order of a stable sort.
 """
 
 from __future__ import annotations
@@ -24,6 +25,7 @@ import json
 import os
 import platform
 import time
+from importlib.metadata import version
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -77,7 +79,7 @@ def encoded_features(df: pd.DataFrame, train: np.ndarray) -> tuple[np.ndarray, l
 def engineered_features(df: pd.DataFrame, train: np.ndarray) -> tuple[np.ndarray, list[str]]:
     """Merchant-state rarity and chronological artifact-category fraud rates.
 
-    Training rows get the smoothed fraud rate of their category over strictly earlier
+    Training rows get the smoothed fraud rate of their category over earlier
     training rows; validation and test rows get the rate over all training rows.
     """
     counts = df.loc[train, 'artifact_merchant_state'].value_counts(dropna=False)
@@ -261,6 +263,9 @@ def main(argv: list[str] | None = None) -> int:
         'positives': {name: int(y[values].sum()) for name, values in rows.items()},
         'models': records,
         'python': platform.python_version(),
+        'packages': {
+            name: version(name) for name in ('numpy', 'pandas', 'scikit-learn', 'xgboost')
+        },
     }
     args.output_dir.mkdir(parents=True, exist_ok=True)
     destination = args.output_dir / STEM
