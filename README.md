@@ -1,5 +1,10 @@
 # fraud-benchmark
 
+Code and results for **A Standardized Training and Evaluation Protocol for Sequential
+Fraud Detection** (Mašková and Šmídl, ICAIF '26) —
+[paper](https://doi.org/10.1145/3858063.3858860) ·
+[how each figure and table is reproduced](docs/experiments.md) · [cite](#citation)
+
 Downloads public fraud and AML transaction datasets, normalizes them to a shared schema,
 assigns temporal train/validation/test splits, and attaches a synthetic label-availability
 ("fraud reported at") timestamp to fraudulent transactions — so that an experiment can
@@ -41,8 +46,8 @@ recording provenance, counts, split strategy, delay parameters and caveats.
 raw files already there and skips it. Both take `--all`, and one unavailable dataset
 fails on its own without stopping the rest.
 
-Every preparation stage is also a script under `scripts/`; the two paper experiments
-have dedicated reproducible runners described below.
+Every preparation stage is also a script under `scripts/`; the paper's experiments have
+dedicated reproducible runners described below.
 
 ## Datasets
 
@@ -50,32 +55,55 @@ Eight registered: seven distinct sources plus `sparkov_slow`, which is `sparkov`
 second delay regime. 73 million transactions in total. All but IEEE-CIS are synthetic;
 IEEE-CIS is the only real-world data.
 
+The groups follow the paper's recommendations (Table 1) for sequential fraud detection.
+
 ### Recommended
 
-We recommend using the following datasets for sequential fraud (and AML) detection.
-The datasets contain entity features, have a realistic time-span, and the artifacts
-of the data do not disqualify them from benchmark purposes.
+Timestamped transactions with stable card or account identifiers, long enough histories
+to model, and no artifact that disqualifies them as benchmarks.
 
 | dataset | rows | fraud rate | span | licence |
 |---|---:|---:|---:|---|
 | [`sparkov`](docs/datasets/sparkov.md) | 1,852,394 | 0.521% | 730d | CC0 1.0 |
 | [`sparkov_slow`](docs/datasets/sparkov_slow.md) | 1,852,394 | 0.521% | 730d | CC0 1.0 |
-| [`saml_d`](docs/datasets/saml_d.md) | 9,504,852 | 0.104% | 320d | CC BY-NC-SA 4.0 |
 | [`ibm_ccf`](docs/datasets/ibm_ccf.md) | 24,386,900 | 0.122% | 10,649d | Apache-2.0 ⚠ |
 
 There is a known artifact in the IBM CCF dataset: nearly all fraudulent transactions in the
 validation and test periods have `Merchant State = Italy`.
 
-### Use with caution
+### Recommended with caution
 
-The following datasets are available, but are recommended to use with caution.
+The only real-world data here. Card-level entities must be approximated with community
+heuristics, and the reconstructed sequences are short.
+
+| dataset | rows | fraud rate | span | licence |
+|---|---:|---:|---:|---|
+| [`ieee_cis`](docs/datasets/ieee_cis.md) | 590,540 | 3.499% | 181d | competition rules |
+
+### Supplementary (AML)
+
+Anti-money-laundering datasets, useful when the task is the same per-account sequential
+setting: SAML-D for sparse histories, Amaretto for dense per-client histories.
+
+| dataset | rows | laundering rate | span | licence |
+|---|---:|---:|---:|---|
+| [`saml_d`](docs/datasets/saml_d.md) | 9,504,852 | 0.104% | 320d | CC BY-NC-SA 4.0 |
+| [`amaretto`](docs/datasets/amaretto.md) | 29,704,090 | 0.274% | 83d | MIT |
+
+### Not recommended
+
+Available for algorithm development, but not for evaluation: PaySim's balance columns
+reveal the labels of TRANSFER and CASH_OUT transactions, and BankSim's seven-feature,
+single-bank schema supports no general claims.
 
 | dataset | rows | fraud rate | span | licence |
 |---|---:|---:|---:|---|
 | [`paysim`](docs/datasets/paysim.md) | 6,362,620 | 0.129% | 30d | CC BY-SA 4.0 |
 | [`banksim`](docs/datasets/banksim.md) | 594,643 | 1.211% | 179d | CC BY-NC-SA 4.0 |
-| [`ieee_cis`](docs/datasets/ieee_cis.md) | 590,540 | 3.499% | 181d | competition rules |
-| [`amaretto`](docs/datasets/amaretto.md) | 29,704,090 | 0.274% | 83d | MIT |
+
+The ULB credit card fraud dataset is not included: the paper recommends retiring it as a
+sequential benchmark, since it has no card identifier, spans two days, and its features are
+PCA-transformed.
 
 ⚠ **Read a dataset's page before using it.** Each page gives the numbers,
 the schema mapping, and the disclaimers: **[`docs/datasets/`](docs/datasets/README.md)**.
@@ -114,6 +142,10 @@ cutoff. Those rows are not missing from training data; they sit in it looking le
 | `sparkov` | 7d | 2.2% |
 | `ibm_ccf` | 7d | 0.0% |
 
+Censoring is measured at each dataset's own train cutoff (for `sparkov`, a 487-day train
+split whose validation is carved from the tail of the upstream train file). The paper's Sparkov experiment recomputes a chronological 80/10/10 split,
+where the shares are 1.6% (`sparkov`) and 6.1% (`sparkov_slow`).
+
 `ibm_ccf` is effectively undelayed — 7 days against a 9,629-day train window censors 3
 labels of 24,924 — so it cannot exercise a delay-aware method. `sparkov` and
 `sparkov_slow` are the one paired contrast: identical rows, only `reported_at` differs.
@@ -129,13 +161,16 @@ standalone file that reads Parquet or CSV and needs only numpy and pandas.
 
 ## Paper experiments
 
-Two experiments back the paper's tables:
+Three experiments back the paper's Figure 2 and Tables 3 and 4:
 
+- **IBM CCF, ROC-AUC vs average precision:** XGBoost trained on a 1:1 downsample and on all
+  training rows look interchangeable by ROC-AUC (0.9973 vs 0.9979) but not by average
+  precision (0.672 vs 0.808).
 - **IBM CCF, temporal vs iid splits:** an LSTM over 10-transaction windows loses about 0.20
   average precision from validation to test under a temporal split, but almost none under
   iid splits, which suggests that iid splits hide concept drift.
-- **Sparkov, synthetic label delay:** XGBoost trained with delayed fraud labels loses
-  test AP as the delay grows (−0.023 default, −0.035 slow).
+- **Sparkov, synthetic label delay:** an LSTM trained with delayed fraud labels loses test
+  AP as the delay grows (−0.015 default, −0.040 slow, lower for every one of ten seeds).
 
 ```bash
 for dataset in sparkov sparkov_slow; do
@@ -143,12 +178,17 @@ for dataset in sparkov sparkov_slow; do
   .venv/bin/python scripts/prepare.py --dataset $dataset
 done
 .venv/bin/python scripts/features.py --dataset sparkov
-.venv/bin/python scripts/sparkov_delay_protocol.py
+.venv/bin/pip install -e ".[lstm]"
+.venv/bin/python scripts/lstm_protocol.py --dataset sparkov --device cpu   # seeds 0–4
 ```
 
-The IBM experiment needs the optional `lstm` dependencies and, in practice, a GPU. Its
-commands are in [`docs/experiments.md`](docs/experiments.md), along with the exact setup
-and caveats of both experiments. Tables and records are in [`results/`](results/README.md).
+The two LSTM experiments need the optional `lstm` dependencies, and the IBM one needs a
+GPU in practice. The full commands, including Sparkov seeds 5–9, are in
+[`docs/experiments.md`](docs/experiments.md), along with the exact setup and caveats of
+all three experiments. Tables and records are in [`results/`](results/README.md).
+Table 5, the TabFormer reproduction, runs on the upstream TabFormer code rather than this
+package; its protocol is described in the same document, and its code is available from
+the authors on request.
 
 ## Tests
 
@@ -158,6 +198,27 @@ pytest
 
 Network tests are deselected by default. Run them with `pytest -m network` — they perform
 real Kaggle downloads.
+
+## Citation
+
+If you use this repository, please cite the paper:
+
+```bibtex
+@inproceedings{maskova2026standardized,
+  author    = {Ma\v{s}kov\'{a}, Michaela and \v{S}m\'{\i}dl, V\'{a}clav},
+  title     = {A Standardized Training and Evaluation Protocol for Sequential Fraud Detection},
+  booktitle = {Proceedings of the 7th ACM International Conference on AI in Finance},
+  series    = {ICAIF '26},
+  year      = {2026},
+  location  = {Milan, Italy},
+  publisher = {Association for Computing Machinery},
+  address   = {New York, NY, USA},
+  numpages  = {9},
+  isbn      = {979-8-4007-3087-0},
+  doi       = {10.1145/3858063.3858860},
+  url       = {https://doi.org/10.1145/3858063.3858860}
+}
+```
 
 ## Licence
 

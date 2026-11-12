@@ -14,7 +14,8 @@ timestamp:
 Every delay produced here is synthetic. The presets are calibrated to be plausible
 for a domain, not fitted to any observed reporting behaviour.
 
-Requires numpy, pandas>=3.0 and, for Parquet, pyarrow. Standalone copy of
+Requires numpy, pandas and, for Parquet, pyarrow. Tested on pandas 3; also runs on
+pandas 2.2, where a delay reaching past the year 2262 is refused. Standalone copy of
 `fraud_benchmark.data.campaigns` and `fraud_benchmark.data.delay` from
 https://github.com/masenka31/fraud-benchmark; for the same inputs, seed and
 parameters it produces identical columns.
@@ -40,7 +41,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-VERSION = '1.0.0'
+VERSION = '1.0.3'
+BARE_NUMBER = re.compile(r'\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*')
 
 
 @dataclass(frozen=True)
@@ -57,12 +59,15 @@ class Regime:
     max_delay_days: float | None = None
 
     def __post_init__(self) -> None:
-        if self.median_days <= 0:
-            raise ValueError(f'median_days must be positive, got {self.median_days}')
-        if self.sigma <= 0:
-            raise ValueError(f'sigma must be positive, got {self.sigma}')
-        if self.max_delay_days is not None and self.max_delay_days <= 0:
-            raise ValueError(f'max_delay_days must be positive, got {self.max_delay_days}')
+        # `not x > 0` rather than `x <= 0`, so that NaN is refused too.
+        if not (math.isfinite(self.median_days) and self.median_days > 0):
+            raise ValueError(f'median_days must be a positive number, got {self.median_days}')
+        if not (math.isfinite(self.sigma) and self.sigma > 0):
+            raise ValueError(f'sigma must be a positive number, got {self.sigma}')
+        if self.max_delay_days is not None and not (
+            math.isfinite(self.max_delay_days) and self.max_delay_days > 0
+        ):
+            raise ValueError(f'max_delay_days must be a positive number, got {self.max_delay_days}')
 
     @property
     def column(self) -> str:
@@ -139,7 +144,13 @@ def assign_reported_at(df: pd.DataFrame, regime: Regime, seed: int) -> pd.Series
             'sampled reporting delay exceeds the representable range; set a cap to '
             f'bound it (largest draw was {days.max():,.0f} days)'
         )
-    per_campaign = campaign_end + offset_micros.astype('int64').astype('timedelta64[us]')
+    try:
+        per_campaign = campaign_end + offset_micros.astype('int64').astype('timedelta64[us]')
+    except OverflowError as exc:
+        raise ValueError(
+            'sampled reporting delay exceeds the representable range; set a cap to '
+            f'bound it (largest draw was {days.max():,.0f} days)'
+        ) from exc
     mapped = df.loc[labelled, 'campaign_id'].map(per_campaign.to_dict())
     reported.loc[labelled] = pd.to_datetime(mapped).astype('datetime64[us]')
     return reported
@@ -193,9 +204,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         '--cutoff', help='training cutoff; reports the share of frauds up to it still unreported'
     )
     args = parser.parse_args(argv)
+    if BARE_NUMBER.fullmatch(args.campaign_gap):
+        # pandas reads a bare number as nanoseconds, which silently makes every fraud
+        # its own campaign.
+        parser.error(
+            f'--campaign-gap needs a unit, e.g. 1D, 12h or 30min, got {args.campaign_gap!r}'
+        )
     try:
         args.campaign_gap = pd.Timedelta(args.campaign_gap)
         args.cutoff = pd.Timestamp(args.cutoff) if args.cutoff else None
+        if args.cutoff is pd.NaT:
+            raise ValueError('--cutoff must be a timestamp, got NaT')
         args.regimes = [base_regime(args), *(parse_regime(s) for s in args.regime)]
     except ValueError as exc:
         parser.error(str(exc))
@@ -245,8 +264,12 @@ def parse_regime(spec: str) -> Regime:
 FORMATS = {'.parquet', '.pq', '.csv'}
 
 
+def is_csv(path: Path) -> bool:
+    return path.suffix.lower() == '.csv'
+
+
 def read_table(path: Path, entity: str) -> pd.DataFrame:
-    if path.suffix.lower() == '.csv':
+    if is_csv(path):
         # Read entity ids as literal text: as numbers, '0007' and '7' would become one
         # entity, and with the default NA parsing an entity named 'NA' or 'null' would
         # be missing. Either way CSV and Parquet copies of one table would disagree.
@@ -254,8 +277,13 @@ def read_table(path: Path, entity: str) -> pd.DataFrame:
     return pd.read_parquet(path)
 
 
+def read_csv_text(path: Path) -> pd.DataFrame:
+    """Every cell of a CSV as the exact text in the file, with nothing parsed as missing."""
+    return pd.read_csv(path, dtype=str, keep_default_na=False)
+
+
 def write_table(df: pd.DataFrame, path: Path) -> None:
-    if path.suffix.lower() == '.csv':
+    if is_csv(path):
         df.to_csv(path, index=False)
     else:
         df.to_parquet(path)
@@ -430,7 +458,12 @@ def main(argv: list[str] | None = None) -> None:
     except ValueError as exc:
         raise SystemExit(f'error: {exc}') from exc
 
-    out = df.copy()
+    # CSV to CSV carries the input's columns through as the text that was read, so
+    # leading zeros, literal 'NA' and number formatting survive. The computation above
+    # still used the parsed table. Any other combination keeps the parsed types.
+    out = read_csv_text(args.input) if is_csv(args.input) and is_csv(args.output) else df.copy()
+    if out.shape != df.shape:
+        raise SystemExit('error: the CSV did not read back with the same rows and columns')
     out['campaign_id'] = canon['campaign_id'].array
     for regime in args.regimes:
         reported = canon[regime.column]

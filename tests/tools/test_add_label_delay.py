@@ -130,6 +130,45 @@ def test_csv_round_trip(tmp_path):
     assert written['reported_at'].notna().sum() == df['label'].sum()
 
 
+def test_csv_to_csv_keeps_other_columns_as_written(tmp_path):
+    """Leading zeros, literal missing-value words, blanks and number text survive."""
+    df = transactions(n=400)
+    text = pd.DataFrame(
+        {
+            'card': df['card'].astype(str),
+            'ts': df['ts'].dt.strftime('%Y-%m-%d %H:%M:%S'),
+            'label': df['label'].astype(str),
+            'zip': [f'{i % 1000:05d}' for i in range(len(df))],
+            'note': [('NA', 'null', '', 'None', 'x')[i % 5] for i in range(len(df))],
+            'price': [('1.10', '2', '3.000', '1e3')[i % 4] for i in range(len(df))],
+        }
+    )
+    src = tmp_path / 'in.csv'
+    text.to_csv(src, index=False)
+    tool.main([str(src), '--entity', 'card', '--time', 'ts', '--fraud', 'label'])
+    written = pd.read_csv(tmp_path / 'in.label_delay.csv', dtype=str, keep_default_na=False)
+    pd.testing.assert_frame_equal(written[text.columns], text)
+    assert list(written.columns) == [*text.columns, 'campaign_id', 'reported_at']
+
+
+def test_csv_text_pass_through_does_not_change_the_new_columns(tmp_path):
+    df = transactions(n=600)
+    a = run(tmp_path, df, name='p.parquet')
+    b = run(tmp_path, df, name='c.csv')
+    from_parquet = pd.read_parquet(a.with_name('p.label_delay.parquet'))
+    from_csv = pd.read_csv(b.with_name('c.label_delay.csv'))
+    assert (
+        from_csv['campaign_id']
+        .astype('float64')
+        .equals(from_parquet['campaign_id'].astype('float64'))
+    )
+    assert (
+        pd.to_datetime(from_csv['reported_at'])
+        .astype('datetime64[us]')
+        .equals(from_parquet['reported_at'].astype('datetime64[us]'))
+    )
+
+
 def test_numeric_time_needs_an_origin(tmp_path):
     df = transactions(n=200)
     df['ts'] = (df['ts'] - pd.Timestamp('2020-01-01')).dt.total_seconds()
@@ -344,6 +383,7 @@ def test_bad_time_origin_or_unit_exits_cleanly(tmp_path, args):
         run(tmp_path, df, *args)
 
 
+@pytest.mark.filterwarnings('ignore:Could not infer format:UserWarning')
 def test_unparsable_time_exits_cleanly(tmp_path):
     df = transactions(n=100)
     df['ts'] = df['ts'].astype(str)
@@ -374,3 +414,43 @@ def test_no_frauds_writes_empty_columns(tmp_path):
     written = pd.read_parquet(src.with_name('in.label_delay.parquet'))
     assert written['campaign_id'].isna().all()
     assert written['reported_at'].isna().all()
+
+
+@pytest.mark.parametrize('gap', ['1', '7', '2.5', '1e3'])
+def test_a_campaign_gap_without_a_unit_is_refused(tmp_path, gap, capsys):
+    df = transactions(n=100)
+    with pytest.raises(SystemExit):
+        run(tmp_path, df, '--campaign-gap', gap)
+    assert 'needs a unit' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ('gap', 'expected'),
+    [('1D', '1 days 00:00:00'), ('12h', '0 days 12:00:00'), ('1 day', '1 days 00:00:00')],
+)
+def test_a_campaign_gap_with_a_unit_is_accepted(tmp_path, gap, expected):
+    df = transactions(n=100)
+    src = run(tmp_path, df, '--campaign-gap', gap)
+    card = json.loads(src.with_name('in.label_delay.parquet.json').read_text())
+    assert card['campaign_gap'] == expected
+
+
+@pytest.mark.parametrize(
+    'args',
+    [
+        ['--sigma', 'nan'],
+        ['--median-days', 'nan'],
+        ['--max-delay-days', 'nan'],
+        ['--sigma', 'inf'],
+        ['--cutoff', 'NaT'],
+    ],
+)
+def test_non_numbers_are_refused_up_front(tmp_path, args, capsys):
+    with pytest.raises(SystemExit):
+        run(tmp_path, transactions(n=100), *args)
+    assert 'representable range' not in capsys.readouterr().err
+
+
+def test_a_delay_that_overflows_on_addition_exits_cleanly(tmp_path):
+    with pytest.raises(SystemExit, match='representable range'):
+        run(tmp_path, transactions(n=100), '--median-days', '1.0674e8', '--sigma', '1e-9')

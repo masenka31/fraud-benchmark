@@ -1,4 +1,8 @@
-"""Data preparation and scoring for the two LSTM paper protocols."""
+"""Data preparation and scoring for the LSTM sequence protocols.
+
+The paper's Table 3 uses the IBM `IBM_TABLE3_REGIMES` and Table 4 the Sparkov
+`SPARKOV_REGIMES`.
+"""
 
 from __future__ import annotations
 
@@ -9,13 +13,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import xgboost
-from sklearn.metrics import average_precision_score
-from sklearn.metrics import roc_auc_score
 
 from fraud_benchmark.data.censoring import censored_labels
 from fraud_benchmark.experiments.causal_encoding import causal_count
-from fraud_benchmark.experiments.experiment import ExperimentError
 from fraud_benchmark.experiments.features.util import ARTIFACT_PREFIX
 from fraud_benchmark.experiments.features.util import FEATURE_DIR
 from fraud_benchmark.experiments.features.util import feature_columns
@@ -26,8 +26,6 @@ from fraud_benchmark.experiments.lstm import model_settings
 from fraud_benchmark.experiments.lstm import train_and_predict
 from fraud_benchmark.experiments.metrics import best_f1_threshold
 from fraud_benchmark.experiments.metrics import score
-from fraud_benchmark.experiments.models import XGB_PARAMS
-from fraud_benchmark.experiments.models import fit_xgboost
 from fraud_benchmark.experiments.sequence import Chunks
 from fraud_benchmark.experiments.sequence import WindowIndex
 from fraud_benchmark.experiments.sequence import complete_chunks
@@ -37,27 +35,25 @@ from fraud_benchmark.experiments.splits import FIRST_ITALY_FRAUD
 from fraud_benchmark.experiments.splits import IID_SPLIT_SEED
 from fraud_benchmark.experiments.splits import iid_customer_split
 from fraud_benchmark.experiments.splits import pre_italy_68_16_16_boundaries
-from fraud_benchmark.experiments.splits import pre_italy_iid_customer_split
 from fraud_benchmark.experiments.splits import pre_italy_split
 from fraud_benchmark.experiments.splits import standard_split
 
-IBM_PAPER_REGIMES = ('pre_italy', 'pre_italy_iid_chunks', 'pre_italy_iid_customers')
-IBM_DIAGNOSTIC_REGIMES = (
+
+class ExperimentError(ValueError):
+    """A protocol's inputs are missing or cannot support it."""
+
+
+#: The paper's Table 3: temporal, window iid and customer iid on 68/16/16.
+IBM_TABLE3_REGIMES = (
     'pre_italy_68_16_16',
     'pre_italy_iid_chunks_68_16_16',
     'pre_italy_iid_customers_68_16_16',
 )
-IBM_REGIMES = (*IBM_PAPER_REGIMES, *IBM_DIAGNOSTIC_REGIMES)
-IBM_DIAGNOSTIC_RATIOS = (0.68, 0.16, 0.16)
+IBM_REGIMES = IBM_TABLE3_REGIMES
+IBM_TABLE3_RATIOS = (0.68, 0.16, 0.16)
 SPARKOV_REGIMES = ('off', 'on', 'slow')
 SPLIT_CODE = {'train': 0, 'val': 1, 'test': 2}
 RARITY_NAMES = ['state_prior_rarity', 'state_not_seen_previously', 'foreign_state_rarity']
-SPARKOV_RAWISH_FEATURES = (
-    'hour', 'minute', 'weekday', 'day', 'month', 'is_weekend', 'hour_sin', 'hour_cos',
-    'amount', 'amount_log1p', 'amount_is_refund', 'amount_cents',
-    'amount_is_round_10', 'amount_is_round_100', 'amount_is_micro',
-    'distance_from_home_km', 'category', 'job', 'gender', 'age_at_txn', 'city_pop_log',
-)
 
 
 @dataclass
@@ -88,39 +84,22 @@ def _partition_ids(split: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarra
 
 def _ibm_split(df: pd.DataFrame, chunks: Chunks, regime: str) -> tuple[np.ndarray, np.ndarray]:
     """Return target and source split codes. Context rows have no targets."""
-    if regime == 'pre_italy':
-        source = df['split'].map(SPLIT_CODE).to_numpy(dtype='int8')
-        return source[chunks.targets], source
     if regime == 'pre_italy_68_16_16':
         times = df['event_time']
         val_start, test_start = pre_italy_68_16_16_boundaries(times)
         source = np.where(times < val_start, 0, np.where(times < test_start, 1, 2))
         source = source.astype('int8')
         return source[chunks.targets], source
-    if regime == 'pre_italy_iid_customers':
-        assignment = pre_italy_iid_customer_split(df[['entity_id', 'event_time']])
-        mapping = assignment.drop_duplicates('entity_id').set_index('entity_id')['split']
-        source = df['entity_id'].map(mapping).map(SPLIT_CODE).to_numpy(dtype='int8')
-        return source[chunks.targets], source
     if regime == 'pre_italy_iid_customers_68_16_16':
         endpoints = df[['entity_id', 'event_time']].iloc[chunks.targets]
-        assignment = iid_customer_split(
-            endpoints, seed=IID_SPLIT_SEED, ratios=IBM_DIAGNOSTIC_RATIOS
-        )
+        assignment = iid_customer_split(endpoints, seed=IID_SPLIT_SEED, ratios=IBM_TABLE3_RATIOS)
         mapping = assignment.drop_duplicates('entity_id').set_index('entity_id')['split']
         source = df['entity_id'].map(mapping).map(SPLIT_CODE).fillna(-1).to_numpy(dtype='int8')
         return source[chunks.targets], source
     if regime == 'pre_italy_iid_chunks_68_16_16':
-        target = iid_chunk_split(len(chunks.rows), IID_SPLIT_SEED, IBM_DIAGNOSTIC_RATIOS)
+        target = iid_chunk_split(len(chunks.rows), IID_SPLIT_SEED, IBM_TABLE3_RATIOS)
         source = np.full(len(df), -1, dtype='int8')
         source[chunks.targets] = target
-        return target, source
-    if regime == 'pre_italy_iid_chunks':
-        if chunks.stride != chunks.rows.shape[1]:
-            raise ValueError('chunk-IID requires disjoint windows')
-        target = iid_chunk_split(len(chunks.rows), IID_SPLIT_SEED)
-        source = np.full(len(df), -1, dtype='int8')
-        source[chunks.rows] = target[:, None]
         return target, source
     raise ValueError(f'unknown IBM regime {regime!r}')
 
@@ -141,8 +120,8 @@ def prepare_ibm(
     source: pd.DataFrame | None = None,
     chunks: Chunks | None = None,
     source_prepared: bool = False,
-    window_length: int = 30,
-    window_stride: int | None = None,
+    window_length: int = 10,
+    window_stride: int | None = 5,
 ) -> PreparedSequence:
     """One fixed IBM endpoint population, with split-specific train encoding."""
     if regime not in IBM_REGIMES:
@@ -197,8 +176,10 @@ def prepare_ibm(
             'tie_policy': 'source row order within equal entity timestamps',
             'split_seed': IID_SPLIT_SEED if 'iid' in regime else None,
             'split_unit': (
-                'overlapping windows' if regime == 'pre_italy_iid_chunks_68_16_16'
-                else 'customers' if regime == 'pre_italy_iid_customers_68_16_16'
+                'overlapping windows'
+                if regime == 'pre_italy_iid_chunks_68_16_16'
+                else 'customers'
+                if regime == 'pre_italy_iid_customers_68_16_16'
                 else 'source transactions'
             ),
             'features': names,
@@ -222,14 +203,11 @@ def prepare_sparkov(
     encoded: EncodedFeatures | None = None,
     index: WindowIndex | None = None,
     source_prepared: bool = False,
-    window_length: int = 30,
-    feature_set: str = 'full',
+    window_length: int = 10,
 ) -> PreparedSequence:
     """Same rows, split, and inputs in all three synthetic delay regimes."""
     if regime not in SPARKOV_REGIMES:
         raise ValueError(f'unknown Sparkov regime {regime!r}')
-    if feature_set not in ('full', 'rawish'):
-        raise ValueError(f'unknown Sparkov feature set {feature_set!r}')
     if source_prepared and source is None:
         raise ValueError('source_prepared requires source')
     df = (
@@ -240,17 +218,9 @@ def prepare_sparkov(
     split = df['split'].map(SPLIT_CODE).to_numpy(dtype='int8')
     train_mask = split == 0
     available = [name for name in feature_columns(df) if not name.startswith(ARTIFACT_PREFIX)]
-    if feature_set == 'full':
-        names = available
-        if len(names) != 46:
-            raise ExperimentError(f'expected 46 Sparkov LSTM features, got {len(names)}')
-    else:
-        missing = set(SPARKOV_RAWISH_FEATURES) - set(available)
-        if missing:
-            raise ExperimentError(f'missing Sparkov raw-ish features: {sorted(missing)}')
-        names = [name for name in available if name in SPARKOV_RAWISH_FEATURES]
-        if len(names) != len(SPARKOV_RAWISH_FEATURES):
-            raise ExperimentError('Sparkov raw-ish feature selection is not unique')
+    names = available
+    if len(names) != 46:
+        raise ExperimentError(f'expected 46 Sparkov LSTM features, got {len(names)}')
     if index is None:
         index = window_index(df['entity_id'], df['event_time'], window_length)
     elif index.length != window_length:
@@ -285,7 +255,8 @@ def prepare_sparkov(
             'source_rows': len(df),
             'target_rows': len(df),
             'window_length': window_length,
-            'feature_set': feature_set,
+            # Kept so new records merge with the committed Table 4 records.
+            'feature_set': 'full',
             'target': 'each transaction',
             'tie_policy': 'exclude equal-timestamp predecessor rows',
             'censored_train_labels': int(y_true[train].sum() - y_fit[train].sum()),
@@ -302,10 +273,8 @@ def prepare_sparkov(
     )
 
 
-def run_lstm(
-    prepared: PreparedSequence, seeds: tuple[int, ...], device: str, config: str = 'default'
-) -> dict:
-    """Full-population Sparkov or specified-endpoint IBM five-seed run."""
+def run_lstm(prepared: PreparedSequence, seeds: tuple[int, ...], device: str, config: str) -> dict:
+    """Train and score one preset over `seeds` on a prepared Sparkov or IBM protocol."""
     seed_records = []
     for seed in seeds:
         started = time.monotonic()
@@ -342,47 +311,4 @@ def run_lstm(
         ),
         'seeds': seed_records,
         'python': platform.python_version(),
-    }
-
-
-def run_ibm_xgboost(prepared: PreparedSequence, seeds: tuple[int, ...]) -> dict:
-    """Endpoint-matched, label-free XGBoost comparator for the new IBM study."""
-    # Each target id points to the final source row of one chunk.
-    chunks = prepared.positions_for(np.arange(len(prepared.y_true), dtype='int32'))[0]
-    endpoints = chunks[:, -1]
-    x = prepared.features.tree_matrix(endpoints)
-    train, validation, test = prepared.train, prepared.validation, prepared.test
-    seed_records = []
-    for seed in seeds:
-        started = time.monotonic()
-        model = fit_xgboost(x[train], prepared.y_fit[prepared.train], seed)
-        val_scores = model.predict_proba(x[validation])[:, 1]
-        test_scores = model.predict_proba(x[test])[:, 1]
-        seed_records.append(
-            {
-                'seed': seed,
-                'fit_seconds': round(time.monotonic() - started, 1),
-                'validation': {
-                    'average_precision': float(
-                        average_precision_score(prepared.y_true[prepared.validation], val_scores)
-                    ),
-                    'roc_auc': float(
-                        roc_auc_score(prepared.y_true[prepared.validation], val_scores)
-                    ),
-                },
-                'test': {
-                    'average_precision': float(
-                        average_precision_score(prepared.y_true[prepared.test], test_scores)
-                    ),
-                    'roc_auc': float(roc_auc_score(prepared.y_true[prepared.test], test_scores)),
-                },
-            }
-        )
-    return {
-        **prepared.metadata,
-        'model': 'xgboost',
-        'model_settings': XGB_PARAMS,
-        'xgboost': xgboost.__version__,
-        'python': platform.python_version(),
-        'seeds': seed_records,
     }

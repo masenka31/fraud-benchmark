@@ -17,7 +17,7 @@ Sorted by how much the labels are recoverable from a single column, worst first.
 | [`sparkov`](sparkov.md) | 1,852,394 | 0.521% | CC0 1.0 | **clean** — zero flagged values; the negative control |
 | [`sparkov_slow`](sparkov_slow.md) | 1,852,394 | 0.521% | CC0 1.0 | `sparkov` with a harsher delay; identical rows |
 
-73 million transactions. Four are **NonCommercial or rules-governed**
+73 million transactions. Three are **NonCommercial or rules-governed**
 (`banksim`, `saml_d`, `ieee_cis`) — see [`../dataset-licenses.md`](../dataset-licenses.md).
 
 ## Read these too

@@ -1,7 +1,9 @@
 # Synthetic label delay for any transaction table
 
 `add_label_delay.py` is one standalone file: copy it into your project. It needs
-`numpy`, `pandas>=3.0` and, for Parquet, `pyarrow`, and nothing from this repository. It
+`numpy`, `pandas` and, for Parquet, `pyarrow`, and nothing from this repository. It is
+tested on pandas 3 and also runs on pandas 2.2, where a delay reaching past the year 2262
+is refused. It
 adds the same `campaign_id` and `reported_at` columns that the
 [fraud-benchmark](../../README.md) pipeline uses for its Sparkov label-delay study,
 and for the same inputs and parameters it reproduces them exactly.
@@ -38,9 +40,11 @@ python add_label_delay.py transactions.parquet \
 This writes `transactions.label_delay.parquet`, which is the input plus `campaign_id`
 and `reported_at`, with the row order and other columns unchanged. It also writes
 `transactions.label_delay.parquet.json`, which records the parameters, seed, script
-version and the realised delays. CSV works the same way. Use `-o` to choose the output
-path; it may use a different format from the input but may not overwrite it. The input
-must not already contain the columns being added.
+version and the realised delays. CSV works the same way: from CSV to CSV, the other
+columns are written back exactly as they were read, so leading zeros, `NA` strings and
+number formatting are kept. Use `-o` to choose the output path; it may use a different
+format from the input but may not overwrite it. Between formats, pandas infers the CSV
+column types. The input must not already contain the columns being added.
 
 | flag | meaning |
 |---|---|
@@ -49,7 +53,8 @@ must not already contain the columns being added.
 | `--preset` | `card` (default), `card-slow` or `aml`, see below |
 | `--median-days`, `--sigma`, `--max-delay-days` | override the preset. `--max-delay-days 0` removes its cap. |
 | `--regime NAME:MEDIAN,SIGMA[,CAP]` | an extra regime in `reported_at_NAME`. Repeatable. |
-| `--campaign-gap` | longest gap inside one campaign. The default is `1D`. |
+| `--version` | print the script version, which the JSON record also stores. |
+| `--campaign-gap` | longest gap inside one campaign, with a unit: `1D`, `12h`, `30min`. A bare number is refused. The default is `1D`. |
 | `--seed` | default `0` |
 | `--cutoff` | your training cutoff. The script then prints how many frauds up to it are still unreported. Give it a timezone exactly when the time column has one. |
 
@@ -85,8 +90,8 @@ reported late under one regime is reported late under the others.
 
 How much a delay matters depends on the delay relative to your **training window**,
 not on the delay alone. The same 7-day delay leaves 2.2% of Sparkov's training frauds
-unreported (a 487-day window), 0.0% of IBM CCF's (9,629 days) and 47% of PaySim's
-(14 days). Pass `--cutoff` and read the printed share. Without `--cutoff`, the script
+unreported (its own 487-day train split), 0.0% of IBM CCF's (9,629 days) and 52.7% of
+PaySim's (14 days). Pass `--cutoff` and read the printed share. Without `--cutoff`, the script
 reports the share at the 50th, 70th and 80th percentiles of time as a guide.
 
 To censor more, raise `sigma` before raising the median: a fatter tail censors more
@@ -101,7 +106,10 @@ and dropping it would presume knowledge of which rows to distrust:
 
 ```python
 def censored_labels(train: pd.DataFrame, cutoff: pd.Timestamp) -> np.ndarray:
-    known = train['is_fraud'].astype(bool) & (train['reported_at'] <= cutoff)
+    # reported_at reads back from CSV as text. If the input times were timezone-aware,
+    # reported_at is in UTC, so pass a UTC-aware cutoff.
+    reported = pd.to_datetime(train['reported_at'])
+    known = train['is_fraud'].astype(bool) & (reported <= cutoff)
     return known.to_numpy().astype(int)
 ```
 

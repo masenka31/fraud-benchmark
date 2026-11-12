@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import dataclass
 from dataclasses import field
 from dataclasses import fields
@@ -79,8 +80,26 @@ def _validate_ratios(ratios: Any) -> tuple[float, float, float]:
     return values  # type: ignore[return-value]
 
 
+_BARE_NUMBER = re.compile(r'\s*[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?\s*')
+
+
+def _is_bare_number(value) -> bool:
+    """True for a number, or a string holding only one, i.e. a duration with no unit."""
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, (int, float)):
+        return True
+    return isinstance(value, str) and _BARE_NUMBER.fullmatch(value) is not None
+
+
 def _parse_gap(value) -> pd.Timedelta:
-    """Parse a non-negative duration such as '1d', '1h' or '30min'."""
+    """Parse a non-negative duration such as '1d', '1h' or '30min'.
+
+    A bare number is refused: pandas would read it as nanoseconds, which silently
+    makes every fraud its own campaign.
+    """
+    if _is_bare_number(value):
+        raise ConfigError(f'campaign gap {value!r} needs a unit, e.g. 1d, 12h or 30min')
     try:
         gap = pd.Timedelta(value)
     except (TypeError, ValueError) as exc:

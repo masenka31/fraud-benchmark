@@ -1,4 +1,4 @@
-"""Small fixed LSTM classifier for the two sequence protocols."""
+"""Small fixed LSTM classifier for the paper's Tables 3 and 4."""
 
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ MODEL_SETTINGS = {
 
 @dataclass(frozen=True)
 class LSTMConfig:
-    """Training settings; the default reproduces the recorded protocol exactly."""
+    """Training settings. Every field is recorded with each result."""
 
     learning_rate: float = LEARNING_RATE
     max_epochs: int = MAX_EPOCHS
@@ -48,38 +48,34 @@ class LSTMConfig:
     positive_weight: str = 'ratio'  # 'ratio' = negatives/positives, 'sqrt' = its square root
     warmup_cosine: bool = False  # per-step linear warmup over one epoch, then cosine decay
     input_layer_norm: bool = False
+    early_stopping: bool = True  # False trains max_epochs and keeps the final weights
+    track_train_ap: bool = False  # log train AP against visible and true labels each epoch
 
 
 DEFAULT_CONFIG = LSTMConfig()
 SLOW = {'learning_rate': 0.0003, 'max_epochs': 15, 'patience': 4, 'warmup_cosine': True}
-# Presets used for the paper: the recorded protocol and the one selected on
-# 68/16/16 temporal validation AP.
-PAPER_LSTM_CONFIGS = {
-    'default': DEFAULT_CONFIG,
+#: The paper's presets. `sqrt_weight_slow` (Table 3) was selected on 68/16/16 temporal
+#: validation AP. `fixed15` (Table 4) trains 15 epochs without early stopping, so
+#: validation labels never select a checkpoint.
+LSTM_CONFIGS = {
     'sqrt_weight_slow': LSTMConfig(positive_weight='sqrt', **SLOW),
+    'fixed15': LSTMConfig(max_epochs=15, early_stopping=False, track_train_ap=True),
 }
-# Rejected candidates from that selection; kept runnable so the records in
-# results/archive/lstm_presets/ stay reproducible.
-ARCHIVED_LSTM_CONFIGS = {
-    'sqrt_weight': LSTMConfig(positive_weight='sqrt'),
-    'full_weight_slow': LSTMConfig(**SLOW),
-    'sqrt_weight_slow_ln': LSTMConfig(positive_weight='sqrt', input_layer_norm=True, **SLOW),
-}
-LSTM_CONFIGS = {**PAPER_LSTM_CONFIGS, **ARCHIVED_LSTM_CONFIGS}
 
 
-def model_settings(name: str = 'default') -> dict:
-    """Recorded settings; the default record keeps its original form."""
-    if name == 'default':
-        return MODEL_SETTINGS
+def model_settings(name: str) -> dict:
+    """The settings recorded with a result of preset `name`."""
     config = LSTM_CONFIGS[name]
     return {
         **MODEL_SETTINGS,
         'config': name,
         **asdict(config),
         'loss': 'binary cross entropy with visible-label positive weight '
-        + ('negatives/positives' if config.positive_weight == 'ratio'
-           else 'sqrt(negatives/positives)'),
+        + (
+            'negatives/positives'
+            if config.positive_weight == 'ratio'
+            else 'sqrt(negatives/positives)'
+        ),
     }
 
 
@@ -103,17 +99,6 @@ class EncodedFeatures:
             self.categorical_names,
             self.cardinalities,
         )
-
-    def tree_matrix(self, rows: np.ndarray) -> np.ndarray:
-        """The same current-event information as the LSTM, at selected targets."""
-        values: dict[str, np.ndarray] = {}
-        for index, name in enumerate(self.numeric_names):
-            column = self.numeric[rows, index].copy()
-            column[self.missing[rows, index].astype(bool)] = np.nan
-            values[name] = column
-        for index, name in enumerate(self.categorical_names):
-            values[name] = self.categorical[rows, index].astype('float32')
-        return np.column_stack([values[name] for name in self.names]).astype('float32')
 
 
 def encode_features(df: pd.DataFrame, names: list[str], train_mask: np.ndarray) -> EncodedFeatures:
@@ -233,7 +218,11 @@ def train_and_predict(
     device_name: str = 'auto',
     config: LSTMConfig = DEFAULT_CONFIG,
 ) -> tuple[np.ndarray, np.ndarray, dict]:
-    """Fit on visible train labels; checkpoint by validation AP only."""
+    """Fit on visible train labels and score validation and test.
+
+    With early stopping, the epoch with the best validation AP is kept; without it,
+    the final epoch is. `best_epoch` in the details is the scored epoch either way.
+    """
     torch = _torch()
     torch.manual_seed(seed)
     if torch.cuda.is_available():
@@ -247,9 +236,9 @@ def train_and_predict(
         if device_name == 'auto'
         else device_name
     )
-    model = _model(
-        features.numeric.shape[1], features.cardinalities, config.input_layer_norm
-    ).to(device)
+    model = _model(features.numeric.shape[1], features.cardinalities, config.input_layer_norm).to(
+        device
+    )
     positives = int(y_fit[train].sum())
     if positives == 0:
         raise ValueError('training targets have no visible fraud labels')
@@ -299,7 +288,23 @@ def train_and_predict(
             total_loss += float(loss.detach()) * len(batch_ids)
         val_scores = _predict(model, features, validation, positions_for, device)
         val_ap = float(average_precision_score(y_true[validation], val_scores))
-        history.append({'epoch': epoch, 'train_loss': total_loss / len(train), 'val_ap': val_ap})
+        entry = {'epoch': epoch, 'train_loss': total_loss / len(train), 'val_ap': val_ap}
+        message = f'seed {seed} epoch {epoch}: loss {entry["train_loss"]:.4f} val AP {val_ap:.4f}'
+        if config.track_train_ap:
+            train_scores = _predict(model, features, train, positions_for, device)
+            entry['train_ap_visible'] = float(average_precision_score(y_fit[train], train_scores))
+            entry['train_ap_true'] = float(average_precision_score(y_true[train], train_scores))
+            message += (
+                f' train AP visible {entry["train_ap_visible"]:.4f}'
+                f' true {entry["train_ap_true"]:.4f}'
+            )
+        history.append(entry)
+        print(message, flush=True)
+        if not config.early_stopping:
+            # No checkpoint is chosen: the final epoch is scored, and `best_epoch`
+            # records it under the same key as the early-stopping presets.
+            best_epoch = epoch
+            continue
         if val_ap > best_ap:
             best_ap = val_ap
             best_epoch = epoch
@@ -309,9 +314,10 @@ def train_and_predict(
             epochs_without_gain += 1
             if epochs_without_gain >= config.patience:
                 break
-    if best_state is None:
-        raise RuntimeError('LSTM training did not produce a validation checkpoint')
-    model.load_state_dict(best_state)
+    if config.early_stopping:
+        if best_state is None:
+            raise RuntimeError('LSTM training did not produce a validation checkpoint')
+        model.load_state_dict(best_state)
     validation_scores = _predict(model, features, validation, positions_for, device)
     test_scores = _predict(model, features, test, positions_for, device)
     details = {

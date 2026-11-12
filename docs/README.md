@@ -22,12 +22,11 @@ it. Everything else lives here.
 
 | doc | answers |
 |---|---|
-| [`architecture.md`](architecture.md) | Repository layout: dataset preparation, per-dataset feature modules, the two paper protocols and their LSTM sequence extension, public scripts and results, and the conventions to respect before changing anything. |
+| [`architecture.md`](architecture.md) | Repository layout: dataset preparation, per-dataset feature modules, the paper's experiment code, public scripts and results, and the conventions to respect before changing anything. |
 
 ## Findings
 
 | doc | answers |
 |---|---|
-| [`experiments.md`](experiments.md) | The two paper experiments: setup, commands, results, and caveats. |
+| [`experiments.md`](experiments.md) | The paper's experiments (Figure 2, Tables 3 to 5): setup, commands, results, and caveats. |
 | [`../results/README.md`](../results/README.md) | Where each paper table and its records are. |
-| [`archive.md`](archive.md) | Other experiments, not used in the paper. |

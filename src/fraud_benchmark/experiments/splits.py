@@ -1,14 +1,11 @@
-"""Splits derived from an already-prepared dataset.
+"""Splits derived from an already-prepared dataset, for the paper's experiments.
 
-Neither is the pipeline's split. `standard_split` recomputes the temporal 80/10/10
-so an experiment can run on the feature cache, which carries `split` from a
-possibly older preparation; `italy_holdout_split` deliberately places its boundary
-to isolate the IBM CCF regime shift the audit found.
-
-The standard and Italy-holdout splits are strictly temporal.  The two IID splits
-exist for the IBM CCF temporal-vs-random evaluation only.  Their assignment is
-deterministic and deliberately separate from model seeds, so five fitted models
-see exactly the same rows.
+None is the pipeline's split. `standard_split` recomputes a temporal 80/10/10 so an
+experiment can run on the feature cache, which carries `split` from a possibly older
+preparation (Table 4). The pre-Italy splits crop IBM CCF before its Italy artifact:
+the chronological 68/16/16 of Figure 2 and Table 3, and the customer-iid assignment
+behind Table 3's customer-iid column. The iid assignment is deterministic and
+deliberately separate from model seeds, so every fitted model sees the same rows.
 """
 
 from __future__ import annotations
@@ -16,16 +13,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-#: The first IBM CCF fraud carrying `Merchant State == 'Italy'`. The train half of
-#: the Italy holdout ends one second before it, so it contains zero Italy frauds by
-#: construction.
+#: The first IBM CCF fraud carrying `Merchant State == 'Italy'`. The pre-Italy
+#: population ends strictly before it, so it contains zero Italy frauds.
 FIRST_ITALY_FRAUD = pd.Timestamp('2017-11-19 12:06:00')
-
-#: IBM CCF's last labelled fraud. Rows after it are dropped from the holdout.
-LAST_LABELLED_FRAUD = pd.Timestamp('2019-10-27 14:54:00')
-
-#: The left crop that makes the Italy holdout exactly 80/10/10 against its tail.
-TRAIN_ROWS = 13_350_884
 
 #: One fixed split draw, independent of the estimator seeds.  Changing this is a
 #: change to the experimental cell, not another model replicate.
@@ -35,7 +25,7 @@ _SPLIT_NAMES = np.asarray(('train', 'val', 'test'))
 
 
 def standard_split(df: pd.DataFrame) -> pd.DataFrame:
-    """The pipeline's own temporal 80/10/10, matching the reported ~0.5 baseline."""
+    """A temporal 80/10/10 recomputed on timestamp quantiles (Table 4's split)."""
     df = df.sort_values('event_time', kind='mergesort').reset_index(drop=True)
     t = df['event_time']
     val_start, test_start = t.quantile(0.8), t.quantile(0.9)
@@ -43,24 +33,12 @@ def standard_split(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def italy_holdout_split(df: pd.DataFrame) -> pd.DataFrame:
-    """Temporal split whose train half predates the first Italy fraud."""
-    df = df.sort_values('event_time', kind='mergesort').reset_index(drop=True)
-    cut = FIRST_ITALY_FRAUD - pd.Timedelta(seconds=1)
-    head = df[df['event_time'] < cut]
-    tail = df[(df['event_time'] >= cut) & (df['event_time'] <= LAST_LABELLED_FRAUD)]
-
-    train = head.iloc[-TRAIN_ROWS:]
-    half = len(tail) // 2
-    val, test = tail.iloc[:half], tail.iloc[half:]
-
-    out = pd.concat([train, val, test], ignore_index=True)
-    out['split'] = ['train'] * len(train) + ['val'] * len(val) + ['test'] * len(test)
-    return out
-
-
 def pre_italy_split(df: pd.DataFrame) -> pd.DataFrame:
-    """Temporal 80/10/10 split over rows strictly before the first Italy fraud."""
+    """Rows strictly before the first Italy fraud, in time order.
+
+    Also assigns a positional 80/10/10 `split`; the paper's IBM experiments use the rows
+    and recompute their own 68/16/16 or iid assignment.
+    """
     out = _pre_italy_rows(df)
     train_end = int(0.8 * len(out))
     val_end = int(0.9 * len(out))
@@ -81,9 +59,7 @@ def pre_italy_68_16_16_split(df: pd.DataFrame) -> pd.DataFrame:
     out = _pre_italy_rows(df)
     times = out['event_time']
     val_start, test_start = pre_italy_68_16_16_boundaries(times)
-    out['split'] = np.where(
-        times < val_start, 'train', np.where(times < test_start, 'val', 'test')
-    )
+    out['split'] = np.where(times < val_start, 'train', np.where(times < test_start, 'val', 'test'))
     return out
 
 
@@ -106,27 +82,9 @@ def _pre_italy_rows(df: pd.DataFrame) -> pd.DataFrame:
     return out.loc[out['event_time'] < FIRST_ITALY_FRAUD].reset_index(drop=True)
 
 
-def iid_row_split(df: pd.DataFrame, seed: int = IID_SPLIT_SEED) -> pd.DataFrame:
-    """Deterministic exact 80/10/10 assignment of individual transaction rows.
-
-    The frame is first put in a stable canonical order, making the split invariant
-    to the parquet's current row order.  Rows are returned in temporal order because
-    history construction and reporting remain easier to audit that way.
-    """
-    out = df.sort_values(['event_time', 'entity_id'], kind='mergesort').reset_index(drop=True)
-    order = np.random.default_rng(seed).permutation(len(out))
-    train_end = int(0.8 * len(out))
-    val_end = int(0.9 * len(out))
-    labels = np.empty(len(out), dtype=object)
-    labels[order[:train_end]] = 'train'
-    labels[order[train_end:val_end]] = 'val'
-    labels[order[val_end:]] = 'test'
-    out['split'] = labels
-    return out
-
-
 def iid_customer_split(
-    df: pd.DataFrame, seed: int = IID_SPLIT_SEED,
+    df: pd.DataFrame,
+    seed: int = IID_SPLIT_SEED,
     ratios: tuple[float, float, float] = (0.8, 0.1, 0.1),
 ) -> pd.DataFrame:
     """Deterministic customer-disjoint split balanced on transaction counts.
@@ -181,10 +139,9 @@ def iid_customer_split(
             for right in range(left + 1, 3):
                 right_index = np.flatnonzero(destinations == right)
                 delta = customer_rows[right_index][None, :] - customer_rows[left_index][:, None]
-                errors = (
-                    ((assigned[left] + delta - targets[left]) / targets[left]) ** 2
-                    + ((assigned[right] - delta - targets[right]) / targets[right]) ** 2
-                )
+                errors = ((assigned[left] + delta - targets[left]) / targets[left]) ** 2 + (
+                    (assigned[right] - delta - targets[right]) / targets[right]
+                ) ** 2
                 errors += current_error - (
                     ((assigned[left] - targets[left]) / targets[left]) ** 2
                     + ((assigned[right] - targets[right]) / targets[right]) ** 2
@@ -209,13 +166,3 @@ def iid_customer_split(
 
     out['split'] = out['entity_id'].map(customer_split)
     return out
-
-
-def pre_italy_iid_row_split(df: pd.DataFrame) -> pd.DataFrame:
-    """Transaction-IID split over the shared pre-Italy paper population."""
-    return iid_row_split(_pre_italy_rows(df))
-
-
-def pre_italy_iid_customer_split(df: pd.DataFrame) -> pd.DataFrame:
-    """Customer-IID split over the shared pre-Italy paper population."""
-    return iid_customer_split(_pre_italy_rows(df))

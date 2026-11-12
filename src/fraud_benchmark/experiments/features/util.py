@@ -26,7 +26,7 @@ import pandas as pd
 
 from fraud_benchmark.experiments.columns import assert_no_excluded
 
-#: Where feature parquets are written, and where the paper protocols read them.
+#: Where feature parquets are written, and where the protocol runners read them.
 FEATURE_DIR = Path('data/features')
 
 #: Carried by every feature parquet, in this order, ahead of the features.

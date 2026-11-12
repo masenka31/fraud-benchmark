@@ -36,7 +36,9 @@ class Chunks:
 
 
 def complete_chunks(
-    entity: pd.Series, event_time: pd.Series, length: int = WINDOW,
+    entity: pd.Series,
+    event_time: pd.Series,
+    length: int = WINDOW,
     stride: int | None = None,
 ) -> Chunks:
     """Keep one final-row target per complete entity window."""
@@ -110,9 +112,7 @@ class WindowIndex:
         return positions.astype('int32'), count + 1
 
 
-def window_index(
-    entity: pd.Series, event_time: pd.Series, length: int = WINDOW
-) -> WindowIndex:
+def window_index(entity: pd.Series, event_time: pd.Series, length: int = WINDOW) -> WindowIndex:
     """Index strict-past, same-entity windows without storing their contents."""
     if length < 2:
         raise ValueError('sequence length must be at least 2')

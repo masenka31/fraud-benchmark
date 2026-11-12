@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -13,12 +14,18 @@ from fraud_benchmark.experiments.lstm import encode_features
 from fraud_benchmark.experiments.sequence import complete_chunks
 from fraud_benchmark.experiments.sequence import iid_chunk_split
 from fraud_benchmark.experiments.sequence import window_index
-from fraud_benchmark.experiments.sequence_experiment import IBM_PAPER_REGIMES
-from fraud_benchmark.experiments.sequence_experiment import SPARKOV_RAWISH_FEATURES
+from fraud_benchmark.experiments.sequence_experiment import IBM_TABLE3_REGIMES
 from fraud_benchmark.experiments.sequence_experiment import _ibm_split
 from fraud_benchmark.experiments.sequence_experiment import prepare_ibm
 from fraud_benchmark.experiments.sequence_experiment import prepare_sparkov
-from fraud_benchmark.experiments.sequence_experiment import run_ibm_xgboost
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture(autouse=True)
+def _repo_root(monkeypatch):
+    """The runner and the committed records are addressed relative to the repo root."""
+    monkeypatch.chdir(ROOT)
 
 
 def test_complete_chunks_use_only_final_targets_and_never_mix_entities():
@@ -89,8 +96,8 @@ def test_ibm_68_16_16_assigns_chunk_targets_by_endpoint_time():
     targets, source = _ibm_split(frame, overlapping, 'pre_italy_68_16_16')
     assert np.bincount(source).tolist() == [68, 16, 16]
     assert np.bincount(targets).tolist() == [12, 3, 4]
-    with pytest.raises(ValueError, match='disjoint'):
-        _ibm_split(frame, overlapping, 'pre_italy_iid_chunks')
+    with pytest.raises(ValueError, match='unknown IBM regime'):
+        _ibm_split(frame, overlapping, 'pre_italy')
 
 
 def test_stride_five_iid_cells_share_endpoints_and_use_68_16_16_shares():
@@ -102,12 +109,8 @@ def test_stride_five_iid_cells_share_endpoints_and_use_68_16_16_shares():
         }
     )
     windows = complete_chunks(frame['entity_id'], frame['event_time'], length=10, stride=5)
-    window_split, window_source = _ibm_split(
-        frame, windows, 'pre_italy_iid_chunks_68_16_16'
-    )
-    customer_split, customer_source = _ibm_split(
-        frame, windows, 'pre_italy_iid_customers_68_16_16'
-    )
+    window_split, window_source = _ibm_split(frame, windows, 'pre_italy_iid_chunks_68_16_16')
+    customer_split, customer_source = _ibm_split(frame, windows, 'pre_italy_iid_customers_68_16_16')
     assert windows.targets.shape == (60,)
     assert np.bincount(window_split).tolist() == [40, 10, 10]
     assert np.bincount(customer_split).tolist() == [39, 9, 12]
@@ -162,7 +165,6 @@ def test_encoder_fits_train_only_and_keeps_missing_mask():
     assert encoded.numeric[3, 0] > 100
     assert encoded.missing[:, 0].tolist() == [0, 0, 1, 0]
     assert encoded.categorical[3, 0] == encoded.cardinalities[0] - 1
-    assert encoded.tree_matrix(np.array([3])).shape == (1, 2)
 
 
 def test_sparkov_delay_changes_training_targets_but_not_windows():
@@ -194,19 +196,9 @@ def test_sparkov_delay_changes_training_targets_but_not_windows():
     assert not {'is_fraud', 'reported_at', 'reported_at_slow'} & set(on.features.names)
     targets = np.array([0, 85, 95])
     assert np.array_equal(off.positions_for(targets)[0], on.positions_for(targets)[0])
-    short = prepare_sparkov('off', source=frame, window_length=10)
-    assert short.metadata['window_length'] == 10
-    assert short.positions_for(targets)[0].shape == (3, 10)
-    rawish_source = frame.copy()
-    for name in SPARKOV_RAWISH_FEATURES:
-        rawish_source[name] = (
-            pd.Categorical(['x'] * n) if name in ('category', 'job', 'gender') else 1.0
-        )
-    rawish = prepare_sparkov('on', source=rawish_source, window_length=10, feature_set='rawish')
-    assert rawish.metadata['feature_set'] == 'rawish'
-    assert rawish.metadata['censored_train_labels'] == on.metadata['censored_train_labels']
-    assert rawish.features.names == list(SPARKOV_RAWISH_FEATURES)
-    assert rawish.positions_for(targets)[0].shape == (3, 10)
+    assert off.metadata['window_length'] == 10
+    assert off.metadata['feature_set'] == 'full'
+    assert off.positions_for(targets)[0].shape == (3, 10)
 
 
 def test_ibm_regimes_keep_the_same_endpoints_and_no_label_derived_inputs():
@@ -219,7 +211,7 @@ def test_ibm_regimes_keep_the_same_endpoints_and_no_label_derived_inputs():
             'reported_at': pd.NaT,
             'is_fraud': (
                 (ordinal % 30 == 29)
-                & np.isin(ordinal // 30, [0, 4, 8, 9])
+                & np.isin(ordinal // 30, [0, 4, 7, 9])
                 & ((ordinal // 30 < 8) | (entities % 2 == 0))
             ).astype('int8'),
             'split': 'train',
@@ -229,7 +221,10 @@ def test_ibm_regimes_keep_the_same_endpoints_and_no_label_derived_inputs():
     )
     for index in range(73):
         frame[f'feature_{index}'] = np.ones(len(frame), dtype='float32')
-    prepared = [prepare_ibm(regime, source=frame) for regime in IBM_PAPER_REGIMES]
+    prepared = [
+        prepare_ibm(regime, source=frame, window_length=30, window_stride=30)
+        for regime in IBM_TABLE3_REGIMES
+    ]
     endpoints = [
         item.positions_for(np.arange(len(item.y_true), dtype='int32'))[0][:, -1]
         for item in prepared
@@ -244,13 +239,11 @@ def test_ibm_regimes_keep_the_same_endpoints_and_no_label_derived_inputs():
         not any(name.startswith('causal_target_rate_') for name in item.features.names)
         for item in prepared
     )
-    comparator = run_ibm_xgboost(prepared[0], seeds=(0,))
-    assert comparator['model'] == 'xgboost'
-    assert np.isfinite(comparator['seeds'][0]['test']['average_precision'])
-    short = prepare_ibm('pre_italy', source=frame, window_length=10)
-    assert short.metadata['target_rows'] == 600
-    assert short.metadata['chunk_length'] == 10
-    assert short.positions_for(np.array([0]))[0].shape == (1, 10)
+    paper = prepare_ibm('pre_italy_68_16_16', source=frame)
+    assert paper.metadata['chunk_length'] == 10
+    assert paper.metadata['window_stride'] == 5
+    assert paper.metadata['target_rows'] == 20 * (1 + (300 - 10) // 5)
+    assert paper.positions_for(np.array([0]))[0].shape == (1, 10)
 
 
 def _tiny_lstm_problem():
@@ -298,19 +291,34 @@ def test_lstm_training_scores_the_requested_targets(monkeypatch):
     assert details['best_epoch'] == 1
 
 
-def test_default_lstm_config_matches_the_recorded_protocol():
-    default = lstm.LSTM_CONFIGS['default']
-    assert default.learning_rate == lstm.LEARNING_RATE == 0.001
-    assert default.max_epochs == lstm.MAX_EPOCHS == 8
-    assert default.patience == lstm.PATIENCE == 2
-    assert default.positive_weight == 'ratio'
-    assert not default.warmup_cosine
-    assert not default.input_layer_norm
-    assert lstm.model_settings('default') is lstm.MODEL_SETTINGS
-    recorded = lstm.model_settings('sqrt_weight_slow_ln')
-    assert recorded['config'] == 'sqrt_weight_slow_ln'
-    assert recorded['learning_rate'] == 0.0003
-    assert recorded['input_layer_norm']
+def test_paper_presets_have_the_documented_settings():
+    table3 = lstm.LSTM_CONFIGS['sqrt_weight_slow']
+    assert (table3.learning_rate, table3.max_epochs, table3.patience) == (0.0003, 15, 4)
+    assert table3.positive_weight == 'sqrt'
+    assert table3.warmup_cosine
+    assert table3.early_stopping
+    table4 = lstm.LSTM_CONFIGS['fixed15']
+    assert (table4.learning_rate, table4.max_epochs) == (0.001, 15)
+    assert table4.positive_weight == 'ratio'
+    assert not table4.early_stopping
+    assert sorted(lstm.LSTM_CONFIGS) == ['fixed15', 'sqrt_weight_slow']
+
+
+def test_paper_presets_record_the_settings_of_the_committed_records():
+    """A rerun must write the settings the paper's records carry, or it will not merge."""
+    table4 = json.loads(
+        Path('results/paper/sparkov_lstm_delay/sparkov_lstm_off_len10_cfg-fixed15.json').read_text()
+    )
+    assert lstm.model_settings('fixed15') == table4['model_settings']
+    table3 = json.loads(
+        Path(
+            'results/paper/ibm_lstm_pre_italy_68_16_16_len10_stride5_cfg-sqrt_weight_slow.json'
+        ).read_text()
+    )
+    # The Table 3 records predate the early_stopping and track_train_ap fields; they
+    # ran with early stopping and without train-AP tracking.
+    expected = {**table3['model_settings'], 'early_stopping': True, 'track_train_ap': False}
+    assert lstm.model_settings('sqrt_weight_slow') == expected
 
 
 @pytest.mark.parametrize('name', sorted(lstm.LSTM_CONFIGS))
@@ -324,45 +332,192 @@ def test_every_lstm_preset_trains_and_is_seed_deterministic(monkeypatch, name):
     np.testing.assert_array_equal(first[1], second[1])
     assert len(first[2]['history']) <= config.max_epochs
     ratio = 34 / 6
-    expected = ratio ** 0.5 if config.positive_weight == 'sqrt' else ratio
+    expected = ratio**0.5 if config.positive_weight == 'sqrt' else ratio
     assert first[2]['positive_weight'] == pytest.approx(expected)
+
+
+def test_fixed_epoch_preset_trains_every_epoch_and_keeps_final_weights(monkeypatch):
+    pytest.importorskip('torch')
+    monkeypatch.setattr(lstm, 'BATCH_SIZE', 8)
+    config = lstm.LSTMConfig(max_epochs=4, patience=1, early_stopping=False)
+    _, _, details = _train_tiny(config)
+    assert [row['epoch'] for row in details['history']] == [1, 2, 3, 4]
+    assert details['best_epoch'] == 4
+
+
+def test_train_ap_tracking_records_visible_and_true_labels(monkeypatch, capsys):
+    pytest.importorskip('torch')
+    monkeypatch.setattr(lstm, 'BATCH_SIZE', 8)
+    config = lstm.LSTMConfig(max_epochs=2, early_stopping=False, track_train_ap=True)
+    _, _, details = _train_tiny(config)
+    for row in details['history']:
+        assert 0 <= row['train_ap_visible'] <= 1
+        assert 0 <= row['train_ap_true'] <= 1
+    assert 'seed 0 epoch 2' in capsys.readouterr().out
 
 
 def _lstm_runner():
     import importlib.util
+
     spec = importlib.util.spec_from_file_location('lstm_protocol', 'scripts/lstm_protocol.py')
     runner = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(runner)
     return runner
 
 
-def test_non_default_lstm_presets_write_separate_records(tmp_path):
+def test_every_paper_record_is_where_the_runner_looks_for_it():
     runner = _lstm_runner()
-    default = runner._path('ibm', 'lstm', 'pre_italy_68_16_16', tmp_path, 10, window_stride=5)
-    tuned = runner._path(
-        'ibm', 'lstm', 'pre_italy_68_16_16', tmp_path, 10, window_stride=5,
-        config='sqrt_weight',
+    ibm = runner.PROTOCOLS['ibm']
+    assert ibm.record('ibm', 'pre_italy_68_16_16').name == (
+        'ibm_lstm_pre_italy_68_16_16_len10_stride5_cfg-sqrt_weight_slow.json'
     )
-    assert default.name == 'ibm_lstm_pre_italy_68_16_16_len10_stride5.json'
-    assert tuned.name == 'ibm_lstm_pre_italy_68_16_16_len10_stride5_cfg-sqrt_weight.json'
+    sparkov = runner.PROTOCOLS['sparkov']
+    assert sparkov.record('sparkov', 'slow') == Path(
+        'results/paper/sparkov_lstm_delay/sparkov_lstm_slow_len10_cfg-fixed15.json'
+    )
+    for dataset, protocol in runner.PROTOCOLS.items():
+        for regime in protocol.regimes:
+            assert protocol.record(dataset, regime).exists()
 
 
-def test_only_paper_cells_default_to_the_paper_folder():
-    runner = _lstm_runner()
-    paper = runner._path(
-        'ibm', 'lstm', 'pre_italy_iid_customers_68_16_16', None, 10, window_stride=5,
-        config='sqrt_weight_slow',
-    )
-    assert paper.parent == Path('results/paper')
-    archived = {
-        runner._path('ibm', 'lstm', 'pre_italy_68_16_16', None, 10, window_stride=5),
-        runner._path('ibm', 'xgboost', 'pre_italy_68_16_16', None, 10, window_stride=5),
-        runner._path('ibm', 'lstm', 'pre_italy', None, 10, config='sqrt_weight_slow'),
+def test_runner_refuses_other_seeds_without_their_own_folder(capsys):
+    with pytest.raises(SystemExit):
+        _lstm_runner().main(['--dataset', 'sparkov', '--seeds', '5'])
+    assert 'own --results-dir' in capsys.readouterr().err
+
+
+def _sparkov_record(regime, seeds, censored=0):
+    return {
+        'dataset': 'sparkov',
+        'regime': regime,
+        'source_rows': 100,
+        'window_length': 10,
+        'censored_train_labels': censored,
+        'rows': {'train': 80, 'val': 10, 'test': 10},
+        'positives': {'train': 20, 'val': 2, 'test': 2},
+        'model': 'lstm',
+        'model_settings': {'config': 'fixed15', 'max_epochs': 15},
+        'seeds': [
+            {
+                'seed': seed,
+                'training': {'device': 'cpu'},
+                'scores': {
+                    'val': {'average_precision': ap},
+                    'test': {'average_precision': ap},
+                },
+            }
+            for seed, ap in seeds
+        ],
+        'python': '3.13.5',
     }
-    assert {path.parent for path in archived} == {Path('results/archive/ibm_sequence')}
-    rejected = runner._path(
-        'ibm', 'lstm', 'pre_italy_68_16_16', None, 10, window_stride=5, config='sqrt_weight',
+
+
+def _write_sparkov_records(directory, regime, first, rest, censored=0):
+    name = f'sparkov_lstm_{regime}_len10_cfg-fixed15.json'
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / name).write_text(json.dumps(_sparkov_record(regime, first, censored)))
+    for seed, ap in rest:
+        folder = directory / f'seed{seed}'
+        folder.mkdir(exist_ok=True)
+        (folder / name).write_text(json.dumps(_sparkov_record(regime, [(seed, ap)], censored)))
+
+
+def test_sparkov_paper_records_merge_per_seed_files_and_pair_by_seed(tmp_path):
+    runner = _lstm_runner()
+    _write_sparkov_records(tmp_path, 'off', [(0, 0.90), (1, 0.80)], [(2, 0.70)])
+    _write_sparkov_records(tmp_path, 'on', [(0, 0.85), (1, 0.70)], [(2, 0.70)], censored=2)
+    _write_sparkov_records(tmp_path, 'slow', [(0, 0.80), (1, 0.60)], [(2, 0.60)], censored=5)
+
+    records = runner.sparkov_paper_records(tmp_path)
+    assert [row['seed'] for row in records['on']['seeds']] == [0, 1, 2]
+
+    table = runner.render_sparkov_paper(
+        records, {'on': (7.0, 11.0), 'slow': (14.0, 41.0)}, 'Synthetic delays.'
     )
-    assert rejected.parent == Path('results/archive/lstm_presets')
-    sparkov = runner._path('sparkov', 'lstm', 'slow', None, 10)
-    assert sparkov.parent == Path('results/archive/sparkov_lstm')
+    # on − off per seed: −0.05, −0.10, 0.00 → mean −0.05, sample sd 0.05, SE 0.05/√3.
+    assert '| Δ test AP | – | -0.0500 (0.0289) |' in table
+    assert '| Hidden train frauds | 0 | 2 (10.0%) | 5 (25.0%) |' in table
+    assert '| Seeds with lower test AP than no delay | – | 2/3 | 3/3 |' in table
+    assert 'seeds 0–2' in table
+
+
+def test_sparkov_delay_settings_state_the_slow_cap():
+    settings = _lstm_runner().sparkov_delay_settings()
+    assert 'default median 7 days, σ 1, no cap' in settings
+    assert 'slow median 15 days, σ 1.665, capped at 365 days' in settings
+
+
+def test_sparkov_paper_records_refuse_repeated_seeds(tmp_path):
+    runner = _lstm_runner()
+    for regime in ('off', 'on', 'slow'):
+        _write_sparkov_records(tmp_path, regime, [(0, 0.9), (1, 0.8)], [(1, 0.8)])
+    with pytest.raises(ValueError, match='repeated seeds'):
+        runner.sparkov_paper_records(tmp_path)
+
+
+def test_sparkov_paper_records_refuse_regimes_that_differ_beyond_labels(tmp_path):
+    runner = _lstm_runner()
+    for regime in ('off', 'on', 'slow'):
+        _write_sparkov_records(tmp_path, regime, [(0, 0.9)], [])
+    path = tmp_path / 'sparkov_lstm_slow_len10_cfg-fixed15.json'
+    record = json.loads(path.read_text())
+    record['rows']['train'] = 79
+    path.write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="slow differs from off in 'rows'"):
+        runner.sparkov_paper_records(tmp_path)
+
+
+def _edit(path, change):
+    record = json.loads(path.read_text())
+    change(record)
+    path.write_text(json.dumps(record))
+
+
+def test_sparkov_paper_records_tolerate_another_python_version(tmp_path):
+    runner = _lstm_runner()
+    for regime in ('off', 'on', 'slow'):
+        _write_sparkov_records(tmp_path, regime, [(0, 0.9)], [(1, 0.8)])
+    _edit(
+        tmp_path / 'seed1' / 'sparkov_lstm_on_len10_cfg-fixed15.json',
+        lambda record: record.update(python='3.12.7'),
+    )
+    assert [row['seed'] for row in runner.sparkov_paper_records(tmp_path)['on']['seeds']] == [0, 1]
+
+
+def test_sparkov_paper_records_refuse_a_file_that_differs_outside_its_seeds(tmp_path):
+    runner = _lstm_runner()
+    for regime in ('off', 'on', 'slow'):
+        _write_sparkov_records(tmp_path, regime, [(0, 0.9)], [(1, 0.8)])
+    _edit(
+        tmp_path / 'seed1' / 'sparkov_lstm_on_len10_cfg-fixed15.json',
+        lambda record: record['model_settings'].update(max_epochs=10),
+    )
+    with pytest.raises(ValueError, match='differs from .* outside its seeds'):
+        runner.sparkov_paper_records(tmp_path)
+
+
+def test_sparkov_paper_records_refuse_seeds_from_different_devices(tmp_path):
+    runner = _lstm_runner()
+    for regime in ('off', 'on', 'slow'):
+        _write_sparkov_records(tmp_path, regime, [(0, 0.9)], [(1, 0.8)])
+    _edit(
+        tmp_path / 'seed1' / 'sparkov_lstm_slow_len10_cfg-fixed15.json',
+        lambda record: record['seeds'][0]['training'].update(device='cuda'),
+    )
+    with pytest.raises(ValueError, match='different devices'):
+        runner.sparkov_paper_records(tmp_path)
+
+
+def test_render_only_does_not_take_a_results_dir(tmp_path, capsys):
+    with pytest.raises(SystemExit):
+        _lstm_runner().main(['--dataset', 'ibm', '--render-only', '--results-dir', str(tmp_path)])
+    assert 'drop --results-dir' in capsys.readouterr().err
+
+
+def test_tracking_train_ap_does_not_change_the_trained_model(monkeypatch):
+    pytest.importorskip('torch')
+    monkeypatch.setattr(lstm, 'BATCH_SIZE', 8)
+    plain = _train_tiny(lstm.LSTMConfig(max_epochs=2, early_stopping=False))
+    tracked = _train_tiny(lstm.LSTMConfig(max_epochs=2, early_stopping=False, track_train_ap=True))
+    np.testing.assert_array_equal(plain[0], tracked[0])
+    np.testing.assert_array_equal(plain[1], tracked[1])
